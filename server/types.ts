@@ -70,6 +70,12 @@ export type ProductRow = {
   is_temp: number;
 };
 
+// Search result rows include the computed is_mine flag (0 or 1 from SQLite).
+export type ProductSearchRow = ProductRow & { is_mine: number };
+
+// Adopt-source rows include the owner so the route can branch on ownership.
+export type ProductRowWithOwner = ProductRow & { created_by: number };
+
 export type Product = {
   id: number;
   name: string;
@@ -78,7 +84,22 @@ export type Product = {
   barcode: string | null;
   per100: Macros;
   is_temp: boolean;
+  // Only set on /products/search results — undefined elsewhere.
+  is_mine?: boolean;
 };
+
+// Cross-user prefill payload: omits id/is_temp/created_by by construction.
+export type ProductTemplate = {
+  name: string;
+  brand: string | null;
+  unit: 'g' | 'ml';
+  barcode: string | null;
+  per100: Macros;
+};
+
+export type BarcodeLookupResponse =
+  | { kind: 'own'; product: Product }
+  | { kind: 'template'; template: ProductTemplate };
 
 export type NewProductBody = {
   name: string;

@@ -1,7 +1,14 @@
 // App shell — owns top-level state, routes between screens/modals.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { sumMacros, type EntryWithMacros, type Goals, type Product, type User } from './types';
+import {
+  sumMacros,
+  type BarcodeLookupResponse,
+  type EntryWithMacros,
+  type Goals,
+  type Product,
+  type User,
+} from './types';
 import { getMonday, toLocalDateString, toLocalTimeString } from './dates';
 import { mockGoals } from './mocks';
 import { Login } from './screens/Login';
@@ -64,10 +71,22 @@ type ModalState =
   | { kind: 'none' }
   | { kind: 'add-picker' }
   | { kind: 'barcode-scanner' }
+  | {
+      kind: 'barcode-scanner-fill';
+      returnTo: 'new' | 'edit';
+      draftSoFar: Partial<ProductDraft>;
+      editProduct?: Product;
+      editEntry?: EntryWithMacros | undefined;
+    }
   | { kind: 'ai-label-scanner'; draftSoFar: Partial<ProductDraft> }
   | { kind: 'new-product'; initial: Partial<ProductDraft> | undefined }
   | { kind: 'grams-picker'; product: Product; entry: EntryWithMacros | undefined }
-  | { kind: 'edit-product'; product: Product; entry: EntryWithMacros | undefined };
+  | {
+      kind: 'edit-product';
+      product: Product;
+      entry: EntryWithMacros | undefined;
+      initialOverride?: Partial<ProductDraft>;
+    };
 
 // Modals that render inside <Sheet> and share the hoisted SheetOverlay.
 function isSheetModal(kind: ModalState['kind']): boolean {
@@ -241,8 +260,19 @@ export function App() {
   };
 
   // AddPicker handlers
-  const onPick = (product: Product) => {
-    setModal({ kind: 'grams-picker', product, entry: undefined });
+  const onPick = async (product: Product) => {
+    try {
+      // Cross-user search results carry is_mine === false. Adopt creates a
+      // user-owned copy (idempotent on barcode) so subsequent flows treat it
+      // as a normal owned product.
+      const owned =
+        product.is_mine === false
+          ? await api<Product>(`/products/adopt/${product.id}`, { method: 'POST' })
+          : product;
+      setModal({ kind: 'grams-picker', product: owned, entry: undefined });
+    } catch (err) {
+      reportError(err instanceof Error ? err.message : "Couldn't add product");
+    }
   };
   const onCreateNew = (name: string) => {
     const trimmed = name.trim();
@@ -265,10 +295,16 @@ export function App() {
   // BarcodeScanner handler
   const onBarcodeDetect = async (code: string) => {
     try {
-      const product = await api<Product>(
+      const result = await api<BarcodeLookupResponse>(
         `/products/barcode/${encodeURIComponent(code)}`,
       );
-      setModal({ kind: 'grams-picker', product, entry: undefined });
+      if (result.kind === 'own') {
+        setModal({ kind: 'grams-picker', product: result.product, entry: undefined });
+      } else {
+        // 'template' — another user has this barcode. Open the new-product
+        // form prefilled; saving creates the scanning user's own copy.
+        setModal({ kind: 'new-product', initial: result.template });
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         setModal({ kind: 'new-product', initial: { barcode: code } });
@@ -284,6 +320,33 @@ export function App() {
         ? modal.initial
         : {};
     setModal({ kind: 'ai-label-scanner', draftSoFar });
+  };
+
+  // Scan-from-form: open the scanner, preserve enough context to return to
+  // the same form with the scanned code merged into the barcode field.
+  const onScanBarcodeFromForm = () => {
+    if (modal.kind === 'new-product') {
+      setModal({
+        kind: 'barcode-scanner-fill',
+        returnTo: 'new',
+        draftSoFar: modal.initial ?? {},
+      });
+    } else if (modal.kind === 'edit-product') {
+      const draftSoFar: Partial<ProductDraft> = modal.initialOverride ?? {
+        name: modal.product.name,
+        brand: modal.product.brand,
+        unit: modal.product.unit,
+        barcode: modal.product.barcode,
+        per100: modal.product.per100,
+      };
+      setModal({
+        kind: 'barcode-scanner-fill',
+        returnTo: 'edit',
+        draftSoFar,
+        editProduct: modal.product,
+        editEntry: modal.entry,
+      });
+    }
   };
 
   const onLabelExtracted = (label: ExtractedLabel) => {
@@ -443,6 +506,7 @@ export function App() {
             onSave={onProductSave}
             onClose={() => setModal({ kind: 'add-picker' })}
             onScanLabel={onScanLabel}
+            onScanBarcode={onScanBarcodeFromForm}
           />
         )}
 
@@ -464,7 +528,7 @@ export function App() {
 
         {modal.kind === 'edit-product' && (
           <NewProductForm
-            initial={{
+            initial={modal.initialOverride ?? {
               name: modal.product.name,
               brand: modal.product.brand,
               unit: modal.product.unit,
@@ -481,6 +545,7 @@ export function App() {
               })
             }
             onScanLabel={onScanLabel}
+            onScanBarcode={onScanBarcodeFromForm}
           />
         )}
       </SheetCloseRegisterProvider>
@@ -489,6 +554,36 @@ export function App() {
         <BarcodeScanner
           onDetect={onBarcodeDetect}
           onClose={() => setModal({ kind: 'add-picker' })}
+        />
+      )}
+
+      {modal.kind === 'barcode-scanner-fill' && (
+        <BarcodeScanner
+          onDetect={(code) => {
+            const merged = { ...modal.draftSoFar, barcode: code };
+            if (modal.returnTo === 'new') {
+              setModal({ kind: 'new-product', initial: merged });
+            } else if (modal.editProduct !== undefined) {
+              setModal({
+                kind: 'edit-product',
+                product: modal.editProduct,
+                entry: modal.editEntry,
+                initialOverride: merged,
+              });
+            }
+          }}
+          onClose={() => {
+            if (modal.returnTo === 'new') {
+              setModal({ kind: 'new-product', initial: modal.draftSoFar });
+            } else if (modal.editProduct !== undefined) {
+              setModal({
+                kind: 'edit-product',
+                product: modal.editProduct,
+                entry: modal.editEntry,
+                initialOverride: modal.draftSoFar,
+              });
+            }
+          }}
         />
       )}
 

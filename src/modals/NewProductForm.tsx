@@ -23,6 +23,7 @@ export type NewProductFormProps = {
   onSave: (draft: ProductDraft) => void | Promise<void>;
   onClose: () => void;
   onScanLabel: () => void;
+  onScanBarcode: () => void;
 };
 
 type NumField = number | '';
@@ -78,7 +79,7 @@ type InnerProps = Omit<NewProductFormProps, 'onClose'> & {
   scrollRef: RefObject<HTMLDivElement>;
 };
 
-function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, scrollRef }: InnerProps) {
+function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, onScanBarcode, scrollRef }: InnerProps) {
   const close = useSheetClose();
   const initialPer100 = initial?.per100;
 
@@ -190,10 +191,9 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, sc
 
         <div className="field">
           <label className="field-label">Barcode</label>
-          <div className={styles.barcodeBox}>
-            <span className={styles.barcodeIcon}><BarcodeIcon size={16} /></span>
+          <div className={styles.barcodeRow}>
             <input
-              className={styles.barcodeInput}
+              className={`field-input ${styles.barcodeInput}`}
               value={barcode}
               onInput={(e) => setBarcode(e.currentTarget.value)}
               placeholder="optional"
@@ -201,6 +201,14 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, sc
               inputMode="numeric"
               autoComplete="off"
             />
+            <button
+              type="button"
+              onClick={onScanBarcode}
+              className={styles.barcodeScanBtn}
+              aria-label="Scan barcode"
+            >
+              <BarcodeIcon size={20} />
+            </button>
           </div>
         </div>
 

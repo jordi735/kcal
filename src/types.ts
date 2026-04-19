@@ -13,7 +13,19 @@ export type Product = {
   barcode: string | null;
   per100: Macros;
   is_temp: boolean;
+  // Only set on /products/search rows — undefined elsewhere.
+  is_mine?: boolean;
 };
+
+// Cross-user prefill payload from GET /products/barcode/:code (kind: 'template').
+export type ProductTemplate = Pick<
+  Product,
+  'name' | 'brand' | 'unit' | 'barcode' | 'per100'
+>;
+
+export type BarcodeLookupResponse =
+  | { kind: 'own'; product: Product }
+  | { kind: 'template'; template: ProductTemplate };
 
 export type EntryWithMacros = {
   id: number;

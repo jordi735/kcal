@@ -160,15 +160,14 @@ input[type="number"] {
   transform: translateX(-50%);
 }
 
-.sheet--snapping   { transition: transform 0.2s ease-out; }
-.sheet--dismissing { transition: transform 0.25s ease-in; transform: translateY(100%); }
+.sheet--snapping { transition: transform 0.2s ease-out; }
 
 .no-scroll { overscroll-behavior: contain; }
 
 /* Exit animations. Overlay fades, sheet slides down, fullscreen modals
-   fade. Used on Cancel/overlay-click paths — the drag path continues to
-   use .sheet--dismissing (transition) so the sheet doesn't snap back to
-   origin before sliding off. */
+   fade. Used on Cancel/overlay-click paths only — the drag path drives
+   its own slide-off via inline styles in Sheet.tsx so it can start from
+   the finger's release position rather than from translateY(0). */
 @keyframes slideDown {
   from { transform: translateY(0); }
   to   { transform: translateY(100%); }
@@ -183,10 +182,8 @@ input[type="number"] {
   pointer-events: none;
 }
 .sheet.exiting {
-  pointer-events: none;
-}
-.sheet.exiting:not(.sheet--dismissing) {
   animation: slideDown 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
 }
 .fullscreen-exit {
   animation: fadeOut 0.2s ease forwards;

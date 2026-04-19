@@ -121,13 +121,20 @@ export function Sheet({ onClose, children, scrollRef, style }: SheetProps) {
     const sheet = sheetRef.current;
 
     if (deltaY >= DISMISS_THRESHOLD_PX) {
-      // Clear the inline transform in the same synchronous tick that we
-      // add the class, so the browser sees transform go from e.g. 150px
-      // (inline) to translateY(100%) (class) — transitions fire and the
-      // sheet glides off from wherever the finger was.
-      sheet.style.transform = '';
-      sheet.classList.add('sheet--dismissing');
-      requestClose();
+      // Drive the slide-off via inline styles, NOT a class + requestClose().
+      // requestClose() flips `exiting` state; React then re-renders this
+      // div and rewrites its className from scratch, wiping any
+      // imperatively-added class (`.sheet--dismissing`) and letting the
+      // .sheet.exiting keyframe (slideDown from translateY(0)) override
+      // the transition — the exact "pop back to top" artifact we're
+      // avoiding. Inline styles survive reconciliation because the JSX
+      // `style` prop doesn't mention these keys.
+      if (exitingRef.current) return;
+      exitingRef.current = true;
+      sheet.style.transition = 'transform 0.25s ease-in';
+      sheet.style.transform = 'translateY(100%)';
+      sheet.style.pointerEvents = 'none';
+      exitTimerRef.current = setTimeout(() => onCloseRef.current(), EXIT_MS);
     } else {
       const onSnap = () => {
         sheet.removeEventListener('transitionend', onSnap);

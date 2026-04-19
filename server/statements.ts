@@ -76,12 +76,38 @@ export const statements = {
   },
 
   products: {
-    // (user_id, name_pattern, brand_pattern)
+    // (name_pattern, brand_pattern, user_id, user_id, user_id)
+    //   - patterns: name + brand LIKE
+    //   - user_id #1: candidate filter (own OR has barcode)
+    //   - user_id #2: ranking (own copy wins each barcode partition)
+    //   - user_id #3: is_mine flag in the projection
+    // The COALESCE(barcode, 'self-' || id) partition keeps non-barcoded rows
+    // (which can only be the user's own per the candidates filter) ungrouped.
     search: db.prepare(`
-      SELECT ${PRODUCT_COLS}
-      FROM products
-      WHERE created_by = ?
-        AND (name LIKE ? OR (brand IS NOT NULL AND brand LIKE ?))
+      WITH candidates AS (
+        SELECT id, name, brand, unit, barcode,
+               kcal_per100, protein_per100, carbs_per100, fat_per100,
+               is_temp, created_by, created_at
+        FROM products
+        WHERE is_temp = 0
+          AND (name LIKE ? OR (brand IS NOT NULL AND brand LIKE ?))
+          AND (created_by = ? OR barcode IS NOT NULL)
+      ),
+      ranked AS (
+        SELECT *,
+          ROW_NUMBER() OVER (
+            PARTITION BY COALESCE(barcode, 'self-' || id)
+            ORDER BY
+              CASE WHEN created_by = ? THEN 0 ELSE 1 END,
+              created_at DESC
+          ) AS rn
+        FROM candidates
+      )
+      SELECT id, name, brand, unit, barcode,
+             kcal_per100, protein_per100, carbs_per100, fat_per100, is_temp,
+             (created_by = ?) AS is_mine
+      FROM ranked
+      WHERE rn = 1
       ORDER BY name COLLATE NOCASE ASC
       LIMIT 50
     `),
@@ -113,6 +139,20 @@ export const statements = {
       FROM products
       WHERE created_by = ? AND barcode = ?
       LIMIT 1
+    `),
+    // (barcode) — cross-user template lookup; most recent non-temp wins.
+    byBarcodeAnyUser: db.prepare(`
+      SELECT ${PRODUCT_COLS}
+      FROM products
+      WHERE barcode = ? AND is_temp = 0
+      ORDER BY created_at DESC
+      LIMIT 1
+    `),
+    // (id) — fetch a source row for the adopt endpoint, regardless of owner.
+    byIdAnyUser: db.prepare(`
+      SELECT ${PRODUCT_COLS}, created_by
+      FROM products
+      WHERE id = ?
     `),
     // (name, brand, unit, barcode, kcal, protein, carbs, fat, is_temp, user_id, created_at)
     insert: db.prepare(`

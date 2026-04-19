@@ -120,36 +120,33 @@
   align-items: center;
 }
 
-.barcodeBox {
+.barcodeRow {
   display: flex;
-  align-items: center;
   gap: 10px;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 0 14px;
-  height: 48px;
-  transition: border-color 0.2s ease;
-}
-
-.barcodeBox:focus-within {
-  border-color: var(--fg-dim);
-}
-
-.barcodeIcon {
-  color: var(--fg-dimmer);
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
 }
 
 .barcodeInput {
-  font-family: var(--mono);
-  font-size: 15px;
-  color: var(--fg);
   flex: 1;
   min-width: 0;
+  font-family: var(--mono);
   letter-spacing: 0.05em;
+}
+
+.barcodeScanBtn {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--macro-p);
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+}
+
+.barcodeScanBtn:active {
+  transform: scale(0.96);
 }
 
 .unitRow {

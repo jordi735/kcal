@@ -16,9 +16,13 @@ import { log } from '../log.js';
 import { statements } from '../statements.js';
 import { parsePositiveInt, trimOrNull } from '../util.js';
 import type {
+  BarcodeLookupResponse,
   NewProductBody,
   Product,
   ProductRow,
+  ProductRowWithOwner,
+  ProductSearchRow,
+  ProductTemplate,
   ScanTally,
   UpdateProductBody,
 } from '../types.js';
@@ -76,6 +80,27 @@ function rowToProduct(r: ProductRow): Product {
   };
 }
 
+function searchRowToProduct(r: ProductSearchRow): Product {
+  return { ...rowToProduct(r), is_mine: r.is_mine === 1 };
+}
+
+// Build the cross-user prefill payload by hand so created_by/id/is_temp can't
+// leak — the source row carries fields we must not expose to the scanning user.
+function rowToTemplate(r: ProductRow): ProductTemplate {
+  return {
+    name: r.name,
+    brand: r.brand,
+    unit: r.unit === 'ml' ? 'ml' : 'g',
+    barcode: r.barcode,
+    per100: {
+      kcal: r.kcal_per100,
+      protein: r.protein_per100,
+      carbs: r.carbs_per100,
+      fat: r.fat_per100,
+    },
+  };
+}
+
 productsRouter.get('/search', (req, res) => {
   const rawQ = req.query.q;
   const q = typeof rawQ === 'string' ? rawQ.trim() : '';
@@ -84,8 +109,14 @@ productsRouter.get('/search', (req, res) => {
     return;
   }
   const pattern = `%${q}%`;
-  const rows = statements.products.search.all(req.userId!, pattern, pattern) as ProductRow[];
-  res.json(rows.map(rowToProduct));
+  const rows = statements.products.search.all(
+    pattern,
+    pattern,
+    req.userId!,
+    req.userId!,
+    req.userId!,
+  ) as ProductSearchRow[];
+  res.json(rows.map(searchRowToProduct));
 });
 
 productsRouter.get('/recent', (req, res) => {
@@ -104,12 +135,80 @@ productsRouter.get('/barcode/:code', (req, res) => {
     res.status(400).json({ error: 'invalid_barcode' });
     return;
   }
-  const row = statements.products.byBarcode.get(req.userId!, code) as ProductRow | undefined;
-  if (row === undefined) {
+  const own = statements.products.byBarcode.get(req.userId!, code) as ProductRow | undefined;
+  if (own !== undefined) {
+    const response: BarcodeLookupResponse = { kind: 'own', product: rowToProduct(own) };
+    res.json(response);
+    return;
+  }
+  const template = statements.products.byBarcodeAnyUser.get(code) as ProductRow | undefined;
+  if (template !== undefined) {
+    const response: BarcodeLookupResponse = {
+      kind: 'template',
+      template: rowToTemplate(template),
+    };
+    res.json(response);
+    return;
+  }
+  res.status(404).json({ error: 'not_found' });
+});
+
+productsRouter.post('/adopt/:id', (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (id === null) {
+    res.status(400).json({ error: 'invalid_id' });
+    return;
+  }
+  const source = statements.products.byIdAnyUser.get(id) as ProductRowWithOwner | undefined;
+  if (source === undefined) {
     res.status(404).json({ error: 'not_found' });
     return;
   }
-  res.json(rowToProduct(row));
+  // Privacy guard: only barcoded products can be adopted. Without this, the
+  // numeric :id would let any user clone any other user's private products.
+  if (source.barcode === null) {
+    res.status(400).json({ error: 'not_adoptable' });
+    return;
+  }
+  if (source.created_by === req.userId) {
+    res.json(rowToProduct(source));
+    return;
+  }
+  // Idempotent: if the user already owns a row with this barcode, return it
+  // instead of creating a duplicate.
+  const existing = statements.products.byBarcode.get(req.userId!, source.barcode) as
+    | ProductRow
+    | undefined;
+  if (existing !== undefined) {
+    res.json(rowToProduct(existing));
+    return;
+  }
+  const result = statements.products.insert.run(
+    source.name,
+    source.brand,
+    source.unit,
+    source.barcode,
+    source.kcal_per100,
+    source.protein_per100,
+    source.carbs_per100,
+    source.fat_per100,
+    0,
+    req.userId!,
+    Date.now(),
+  ) as { lastInsertRowid: number | bigint };
+  const row = statements.products.selectById.get(req.userId!, Number(result.lastInsertRowid)) as
+    | ProductRow
+    | undefined;
+  if (row === undefined) {
+    res.status(500).json({ error: 'insert_failed' });
+    return;
+  }
+  log.info('product adopted', {
+    userId: req.userId,
+    sourceId: source.id,
+    productId: row.id,
+  });
+  res.status(201).json(rowToProduct(row));
 });
 
 // Per-macro caps: kcal ≤ 2000 per 100g (pure fat is 900 kcal/100g, so 2000 is a
