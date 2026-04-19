@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import { BrandMark } from '../components/BrandMark';
+import { ArrowRightIcon } from '../components/Icon';
 import styles from './Login.module.css';
 
 type LoginProps = {
@@ -52,11 +53,18 @@ export function Login({ onSubmit, error }: LoginProps) {
             />
           </div>
           <button
-            className="btn-primary"
+            className={`btn-primary ${styles.submitBtn}`}
             disabled={!valid || submitting}
             onClick={submit}
           >
-            {submitting ? 'Sending...' : 'Send magic link →'}
+            {submitting ? (
+              'Sending...'
+            ) : (
+              <>
+                Send magic link
+                <ArrowRightIcon size={16} />
+              </>
+            )}
           </button>
           {error !== undefined && error !== '' ? (
             <p className={`mono tiny ${styles.errorMsg}`}>{error}</p>

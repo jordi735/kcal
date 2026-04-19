@@ -1,15 +1,19 @@
-// Bottom-sheet wrapper with drag-to-dismiss on the whole sheet and a
-// matching exit animation when closed via overlay click / Cancel button.
-// Pointer events only — they cover touch + mouse everywhere the app runs.
-// The drag is reactive only when the internal scroll container (if any)
-// is at scrollTop === 0; upward drags stay at translateY(0) so native
-// scroll in inner containers can take over via pointercancel. Drag
-// threshold is 80px before we commit to dismissing.
+// Bottom-sheet wrapper with drag-to-dismiss on the handle and a matching
+// exit animation when closed via overlay click / Cancel button. Pointer
+// events only — they cover touch + mouse everywhere the app runs. The
+// handle is reactive only when the internal scroll container (if any)
+// is at scrollTop === 0; drag threshold is 80px before we commit to
+// dismissing.
 //
 // Children inside the sheet can trigger a close-with-animation by calling
 // `useSheetClose()` from context. The component's `onClose` prop is the
 // "truly close / unmount me" signal — Sheet fires it 250ms after it
 // starts animating out.
+//
+// The dimmed backdrop is hoisted to App (see SheetCloseRegisterProvider)
+// so it persists across sheet-to-sheet transitions. The active Sheet
+// registers its `requestClose` upward so App's shared overlay can fire it
+// on tap.
 
 import { createContext } from 'preact';
 import type { ComponentChildren, JSX, RefObject } from 'preact';
@@ -27,6 +31,23 @@ const EXIT_MS = 250;
 
 const SheetCloseContext = createContext<(() => void) | null>(null);
 
+type SheetCloseRegister = (fn: (() => void) | null) => void;
+const SheetCloseRegisterContext = createContext<SheetCloseRegister | null>(null);
+
+export function SheetCloseRegisterProvider({
+  register,
+  children,
+}: {
+  register: SheetCloseRegister;
+  children: ComponentChildren;
+}) {
+  return (
+    <SheetCloseRegisterContext.Provider value={register}>
+      {children}
+    </SheetCloseRegisterContext.Provider>
+  );
+}
+
 export function useSheetClose(): () => void {
   const close = useContext(SheetCloseContext);
   if (close === null) {
@@ -39,20 +60,24 @@ export function Sheet({ onClose, children, scrollRef, style }: SheetProps) {
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const [exiting, setExiting] = useState(false);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exitingRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const registerClose = useContext(SheetCloseRegisterContext);
   const dragRef = useRef({
     startY: 0,
     pointerId: -1,
     active: false,
   });
 
-  // Start the exit animation; call parent onClose once it finishes.
+  // Stable identity so context consumers and the App register effect don't
+  // churn when `onClose` or `exiting` change.
   const requestClose = useCallback(() => {
-    if (exiting) return;
+    if (exitingRef.current) return;
+    exitingRef.current = true;
     setExiting(true);
-    exitTimerRef.current = setTimeout(() => {
-      onClose();
-    }, EXIT_MS);
-  }, [exiting, onClose]);
+    exitTimerRef.current = setTimeout(() => onCloseRef.current(), EXIT_MS);
+  }, []);
 
   // Guard: if this component unmounts mid-exit (e.g. parent force-closes),
   // clear the pending timer so a stale onClose doesn't fire.
@@ -62,15 +87,20 @@ export function Sheet({ onClose, children, scrollRef, style }: SheetProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (registerClose === null) return;
+    registerClose(requestClose);
+    return () => registerClose(null);
+  }, [registerClose, requestClose]);
+
   const onPointerDown = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
     if (exiting) return;
     // Only start a drag if the user can actually dismiss — list must be at
     // the top. Cache this once at pointerdown so mid-drag scrolls don't
-    // retroactively enable dismissal. Pointer is intentionally NOT captured
-    // so the browser can still hand the gesture off to native scroll on
-    // inner scroll containers (via pointercancel) when the user scrolls up.
+    // retroactively enable dismissal.
     const scrollTop = scrollRef?.current?.scrollTop ?? 0;
     if (scrollTop > 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
     dragRef.current = { startY: e.clientY, pointerId: e.pointerId, active: true };
     sheetRef.current?.classList.remove('sheet--snapping', 'sheet--dismissing');
   };
@@ -112,19 +142,17 @@ export function Sheet({ onClose, children, scrollRef, style }: SheetProps) {
   return (
     <SheetCloseContext.Provider value={requestClose}>
       <div
-        className={`overlay${exiting ? ' exiting' : ''}`}
-        onClick={requestClose}
-      />
-      <div
         className={`sheet${exiting ? ' exiting' : ''}`}
         ref={sheetRef}
         style={style}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerEnd}
-        onPointerCancel={onPointerEnd}
       >
-        <div className="sheet-handle" />
+        <div
+          className="sheet-handle"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerEnd}
+          onPointerCancel={onPointerEnd}
+        />
         {children}
       </div>
     </SheetCloseContext.Provider>

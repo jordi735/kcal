@@ -1,6 +1,6 @@
 // App shell — owns top-level state, routes between screens/modals.
 
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { sumMacros, type EntryWithMacros, type Goals, type Product, type User } from './types';
 import { getMonday, toLocalDateString, toLocalTimeString } from './dates';
 import { mockGoals } from './mocks';
@@ -13,9 +13,36 @@ import { BarcodeScanner } from './modals/BarcodeScanner';
 import { AILabelScanner, type ExtractedLabel } from './modals/AILabelScanner';
 import { NewProductForm, type ProductDraft } from './modals/NewProductForm';
 import { GramsPicker } from './modals/GramsPicker';
+import { SheetCloseRegisterProvider } from './components/Sheet';
 import { useEntries } from './hooks/useEntries';
+import { FADE_EXIT_MS } from './hooks/useFadeClose';
 import { api, ApiError } from './api';
 import styles from './App.module.css';
+
+// Shared backdrop for sheet-style modals — stays mounted across sheet-to-sheet
+// transitions so the dim layer never flashes between them.
+function SheetOverlay({ visible, onClick }: { visible: boolean; onClick: () => void }) {
+  const [render, setRender] = useState(visible);
+  const [exiting, setExiting] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setRender(true);
+      setExiting(false);
+      return;
+    }
+    if (!render) return;
+    setExiting(true);
+    const t = window.setTimeout(() => {
+      setRender(false);
+      setExiting(false);
+    }, FADE_EXIT_MS);
+    return () => window.clearTimeout(t);
+  }, [visible, render]);
+
+  if (!render) return null;
+  return <div className={`overlay${exiting ? ' exiting' : ''}`} onClick={onClick} />;
+}
 
 function readStoredUser(): User | null {
   const raw = localStorage.getItem('kcal_user');
@@ -41,6 +68,16 @@ type ModalState =
   | { kind: 'new-product'; initial: Partial<ProductDraft> | undefined }
   | { kind: 'grams-picker'; product: Product; entry: EntryWithMacros | undefined }
   | { kind: 'edit-product'; product: Product; entry: EntryWithMacros | undefined };
+
+// Modals that render inside <Sheet> and share the hoisted SheetOverlay.
+function isSheetModal(kind: ModalState['kind']): boolean {
+  return (
+    kind === 'add-picker' ||
+    kind === 'new-product' ||
+    kind === 'grams-picker' ||
+    kind === 'edit-product'
+  );
+}
 
 function pickAccent(ratio: number): string {
   if (ratio >= 1) return '#fb4934';
@@ -84,6 +121,10 @@ export function App() {
   const [route, setRoute] = useState<string>(() => window.location.pathname);
   const [transientError, setTransientError] = useState<string | null>(null);
   const [errorExiting, setErrorExiting] = useState(false);
+  const activeSheetCloseRef = useRef<(() => void) | null>(null);
+  const registerSheetClose = useCallback((fn: (() => void) | null) => {
+    activeSheetCloseRef.current = fn;
+  }, []);
 
   const reportError = useCallback((msg: string) => {
     setTransientError(msg);
@@ -379,30 +420,75 @@ export function App() {
         />
       )}
 
-      {modal.kind === 'add-picker' && (
-        <AddPicker
-          onPick={onPick}
-          onCreateNew={onCreateNew}
-          onAddTemp={onAddTemp}
-          onScanBarcode={onScanBarcode}
-          onClose={closeModal}
-          addedProductIds={addedProductIds}
-        />
-      )}
+      <SheetOverlay
+        visible={isSheetModal(modal.kind)}
+        onClick={() => activeSheetCloseRef.current?.()}
+      />
+
+      <SheetCloseRegisterProvider register={registerSheetClose}>
+        {modal.kind === 'add-picker' && (
+          <AddPicker
+            onPick={onPick}
+            onCreateNew={onCreateNew}
+            onAddTemp={onAddTemp}
+            onScanBarcode={onScanBarcode}
+            onClose={closeModal}
+            addedProductIds={addedProductIds}
+          />
+        )}
+
+        {modal.kind === 'new-product' && (
+          <NewProductForm
+            {...(modal.initial !== undefined ? { initial: modal.initial } : {})}
+            onSave={onProductSave}
+            onClose={() => setModal({ kind: 'add-picker' })}
+            onScanLabel={onScanLabel}
+          />
+        )}
+
+        {modal.kind === 'grams-picker' && (
+          <GramsPicker
+            product={modal.product}
+            {...(modal.entry !== undefined
+              ? {
+                  initialGrams: modal.entry.grams,
+                  mode: 'edit' as const,
+                  onDelete: onGramsDelete,
+                }
+              : { mode: 'add' as const })}
+            onConfirm={onGramsConfirm}
+            onClose={closeModal}
+            onEditProduct={onEditProduct}
+          />
+        )}
+
+        {modal.kind === 'edit-product' && (
+          <NewProductForm
+            initial={{
+              name: modal.product.name,
+              brand: modal.product.brand,
+              unit: modal.product.unit,
+              barcode: modal.product.barcode,
+              per100: modal.product.per100,
+            }}
+            mode="edit"
+            onSave={onProductEditSave}
+            onClose={() =>
+              setModal({
+                kind: 'grams-picker',
+                product: modal.product,
+                entry: modal.entry,
+              })
+            }
+            onScanLabel={onScanLabel}
+          />
+        )}
+      </SheetCloseRegisterProvider>
 
       {modal.kind === 'barcode-scanner' && (
         <BarcodeScanner
           onDetect={onBarcodeDetect}
           onClose={() => setModal({ kind: 'add-picker' })}
-        />
-      )}
-
-      {modal.kind === 'new-product' && (
-        <NewProductForm
-          {...(modal.initial !== undefined ? { initial: modal.initial } : {})}
-          onSave={onProductSave}
-          onClose={() => setModal({ kind: 'add-picker' })}
-          onScanLabel={onScanLabel}
         />
       )}
 
@@ -415,44 +501,6 @@ export function App() {
               initial: modal.draftSoFar,
             })
           }
-        />
-      )}
-
-      {modal.kind === 'grams-picker' && (
-        <GramsPicker
-          product={modal.product}
-          {...(modal.entry !== undefined
-            ? {
-                initialGrams: modal.entry.grams,
-                mode: 'edit' as const,
-                onDelete: onGramsDelete,
-              }
-            : { mode: 'add' as const })}
-          onConfirm={onGramsConfirm}
-          onClose={closeModal}
-          onEditProduct={onEditProduct}
-        />
-      )}
-
-      {modal.kind === 'edit-product' && (
-        <NewProductForm
-          initial={{
-            name: modal.product.name,
-            brand: modal.product.brand,
-            unit: modal.product.unit,
-            barcode: modal.product.barcode,
-            per100: modal.product.per100,
-          }}
-          mode="edit"
-          onSave={onProductEditSave}
-          onClose={() =>
-            setModal({
-              kind: 'grams-picker',
-              product: modal.product,
-              entry: modal.entry,
-            })
-          }
-          onScanLabel={onScanLabel}
         />
       )}
     </>

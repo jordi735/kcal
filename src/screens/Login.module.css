@@ -41,6 +41,13 @@
   gap: 14px;
 }
 
+.submitBtn:global(.btn-primary) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .errorMsg {
   text-align: center;
   color: var(--danger);

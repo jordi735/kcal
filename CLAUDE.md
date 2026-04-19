@@ -75,6 +75,7 @@ The app is an installable PWA with no offline caching — the service worker exi
 ## Conventions
 
 - TypeScript is strict with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, and `verbatimModuleSyntax`. Use `type` imports explicitly and never index into arrays/records without a null check or `!`.
+- Icons come from [Heroicons 16/solid](https://github.com/tailwindlabs/heroicons/tree/master/src/16/solid) whenever possible. Add new icons as named exports in `src/components/Icon.tsx`, copying the path data verbatim from upstream and keeping the shared `BASE` props (`viewBox: '0 0 16 16'`, `fill: 'currentColor'`). Never use text glyphs like `→`/`✓`/`★` in buttons — import the matching Heroicon instead. The only custom icon is `BarcodeIcon` (Heroicons has no equivalent), drawn in the same solid style.
 - Server logging goes through `server/log.ts` (never `console.log` directly). `log.emailHash(email)` produces a short sha256 prefix — use it whenever an email would otherwise appear in a log line.
 - Guards for request bodies live alongside their route (e.g. `isNewEntryBody` in `entries.ts`), built from the primitives in `server/guards.ts` (`isObject`, `isPositiveInt`, `isPositiveFinite`, `EMAIL_RE`/`DATE_RE`/`TIME_RE`).
 - The `FRONTEND_DEMO/` folder is a legacy static mock — not wired into the build. Don't edit it.

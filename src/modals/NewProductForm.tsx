@@ -5,7 +5,7 @@ import type { RefObject } from 'preact';
 import { useRef, useState } from 'preact/hooks';
 import type { Macros } from '../types';
 import { Sheet, useSheetClose } from '../components/Sheet';
-import { SparklesIcon } from '../components/Icon';
+import { ArrowRightIcon, SparklesIcon } from '../components/Icon';
 import styles from './NewProductForm.module.css';
 
 export type ProductDraft = {
@@ -167,7 +167,9 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, sc
                 {prefilled ? 'Review and adjust below' : 'Auto-fill macros from a photo'}
               </div>
             </div>
-            <span className={`mono tiny caps ${styles.aiArrow}`}>→</span>
+            <span className={styles.aiArrow}>
+              <ArrowRightIcon size={14} />
+            </span>
           </button>
         )}
 
@@ -223,13 +225,14 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, sc
           disabled={!valid || submitting}
           onClick={submit}
         >
-          {submitting
-            ? 'Saving…'
-            : isEdit
-              ? 'Save changes →'
-              : isTemp
-                ? 'Add to Day →'
-                : 'Save & Continue →'}
+          {submitting ? (
+            'Saving…'
+          ) : (
+            <>
+              {isEdit ? 'Save changes' : isTemp ? 'Add to Day' : 'Save & Continue'}
+              <ArrowRightIcon size={16} />
+            </>
+          )}
         </button>
       </div>
     </>

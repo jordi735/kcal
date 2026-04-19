@@ -141,10 +141,23 @@ input[type="number"] {
 }
 
 .sheet-handle {
-  width: 36px; height: 4px;
+  flex-shrink: 0;
+  height: 24px;
+  position: relative;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+.sheet-handle::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 36px;
+  height: 4px;
   border-radius: 2px;
   background: var(--fg-dimmest);
-  margin: 10px auto 0;
+  transform: translateX(-50%);
 }
 
 .sheet--snapping   { transition: transform 0.2s ease-out; }

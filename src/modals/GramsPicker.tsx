@@ -5,7 +5,7 @@ import type { Product } from '../types';
 import { computeMacros } from '../mocks';
 import { api } from '../api';
 import { Sheet } from '../components/Sheet';
-import { MinusIcon, PlusIcon, TrashIcon } from '../components/Icon';
+import { ArrowRightIcon, MinusIcon, PlusIcon, TrashIcon } from '../components/Icon';
 import styles from './GramsPicker.module.css';
 
 export type GramsPickerProps = {
@@ -85,7 +85,7 @@ function GramsPickerInner({
   };
 
   const title = mode === 'edit' ? 'Edit amount' : 'How much?';
-  const confirmLabel = mode === 'edit' ? 'Save →' : 'Add to day →';
+  const confirmLabel = mode === 'edit' ? 'Save' : 'Add to day';
 
   const preview: Array<{ label: string; val: number; unit: string }> = [
     { label: 'KCAL', val: Math.round(macros.kcal), unit: '' },
@@ -176,6 +176,7 @@ function GramsPickerInner({
         )}
         <button className={`btn-primary ${styles.confirmBtn}`} onClick={() => onConfirm(grams)}>
           {confirmLabel}
+          <ArrowRightIcon size={16} />
         </button>
       </div>
     </>

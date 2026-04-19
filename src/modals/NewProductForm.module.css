@@ -121,7 +121,8 @@
 
 .aiArrow {
   color: var(--fg-dim);
-  letter-spacing: 0.12em;
+  display: inline-flex;
+  align-items: center;
 }
 
 .unitRow {
@@ -178,4 +179,8 @@
 
 .submitBtn:global(.btn-primary) {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
