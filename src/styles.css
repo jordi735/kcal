@@ -36,7 +36,10 @@ html, body {
 }
 
 #root {
-  height: 100dvh;
+  /* Reserve 20px at the bottom so mobile UI chrome (home indicator, URL bar)
+     doesn't clip the app. #root is the containing block for all sheets and
+     overlays, so shrinking it lifts both the flex layout and absolutes. */
+  height: calc(100dvh - 20px);
   width: 100dvw;
   background: var(--bg);
   position: relative;
