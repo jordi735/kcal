@@ -13,15 +13,17 @@
 .prevBtn {
   padding: 4px 8px;
   color: var(--fg-dim);
-  font-size: 18px;
   margin-left: -8px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .nextBtn {
   padding: 4px 8px;
   color: var(--fg-dim);
-  font-size: 18px;
   margin-right: -8px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .headerCenter {

@@ -10,6 +10,7 @@ import { authRouter } from './routes/auth.js';
 import { settingsRouter } from './routes/settings.js';
 import { productsRouter } from './routes/products.js';
 import { entriesRouter } from './routes/entries.js';
+import { probeClaude } from './claude.js';
 import { log } from './log.js';
 import { API_PREFIXES } from '../shared/apiPrefixes.js';
 
@@ -62,6 +63,7 @@ app.use(errorHandler);
 
 const server = app.listen(env.PORT, () => {
   log.info('server started', { port: env.PORT, url: `http://localhost:${env.PORT}` });
+  void probeClaude();
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

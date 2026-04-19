@@ -176,9 +176,17 @@
 
 .tempBtn:global(.btn-secondary) {
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .addNewBtn:global(.btn-primary) {
   flex: 1;
   padding: 14px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }

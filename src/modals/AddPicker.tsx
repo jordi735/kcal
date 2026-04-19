@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Product } from '../types';
 import { api } from '../api';
 import { Sheet, useSheetClose } from '../components/Sheet';
+import { PlusIcon } from '../components/Icon';
 import styles from './AddPicker.module.css';
 
 export type AddPickerProps = {
@@ -240,13 +241,15 @@ function AddPickerInner({
           onClick={() => onAddTemp(q)}
           className={`btn-secondary ${styles.tempBtn}`}
         >
-          + Add Temp
+          <PlusIcon size={14} />
+          Add Temp
         </button>
         <button
           onClick={() => onCreateNew(q)}
           className={`btn-primary ${styles.addNewBtn}`}
         >
-          + Add New
+          <PlusIcon size={14} />
+          Add New
         </button>
       </div>
     </>

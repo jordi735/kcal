@@ -4,6 +4,7 @@ import type { EntryWithMacros, Goals, Macros } from '../types';
 import { WeekStrip } from '../components/WeekStrip';
 import { MacroSummary } from '../components/MacroSummary';
 import { FoodRow } from '../components/FoodRow';
+import { PlusIcon } from '../components/Icon';
 import styles from './Home.module.css';
 
 type HomeProps = {
@@ -52,7 +53,7 @@ export function Home({
         ) : entries.length === 0 ? (
           <button type="button" onClick={onAddEntry} className={styles.emptyBtn}>
             <div className={styles.plusIcon}>
-              <span className={`mono ${styles.plusGlyph}`}>+</span>
+              <PlusIcon size={20} />
             </div>
             <div className={`mono caps ${styles.emptyLabel}`}>No food logged</div>
             <div className={styles.emptyHint}>

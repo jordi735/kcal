@@ -176,6 +176,55 @@ function extractResultText(messages: SDKMessage[]): string {
   throw new InvalidExtractionError('no_assistant_output');
 }
 
+// Startup smoke test: fires a single Haiku turn asking Claude to say "OK".
+// Verifies the SDK can spawn the `claude` subprocess and reach the API.
+// Errors are swallowed and logged — a failing probe must not crash the server.
+export async function probeClaude(): Promise<void> {
+  const startedAt = Date.now();
+  log.info('claude probe start');
+  try {
+    const response = query({
+      prompt: 'Say OK and nothing else.',
+      options: {
+        model: 'haiku',
+        tools: [],
+        allowedTools: [],
+        settingSources: [],
+        permissionMode: 'dontAsk',
+        maxTurns: 1,
+        persistSession: false,
+        includePartialMessages: false,
+      },
+    });
+
+    const messages: SDKMessage[] = [];
+    for await (const msg of response) {
+      messages.push(msg);
+    }
+
+    const resultMsg = messages.find(
+      (m): m is Extract<SDKMessage, { type: 'result' }> => m.type === 'result',
+    );
+    const text = extractResultText(messages).trim();
+
+    const ctx: Record<string, unknown> = {
+      ms: Date.now() - startedAt,
+      response: text,
+    };
+    if (resultMsg !== undefined) {
+      ctx.cost_usd = resultMsg.total_cost_usd;
+      ctx.input_tokens = resultMsg.usage.input_tokens;
+      ctx.output_tokens = resultMsg.usage.output_tokens;
+    }
+    log.info('claude probe ok', ctx);
+  } catch (err) {
+    log.error('claude probe failed', {
+      ms: Date.now() - startedAt,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 export async function extractNutrition(
   imageBase64: string,
   mimeType: string,

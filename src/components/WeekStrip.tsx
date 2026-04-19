@@ -9,6 +9,7 @@ import {
   toLocalDateString,
   weekDays,
 } from '../dates';
+import { ArrowLeftIcon, ArrowRightIcon } from './Icon';
 import styles from './WeekStrip.module.css';
 
 export type WeekStripProps = {
@@ -99,14 +100,18 @@ export function WeekStrip({
   return (
     <div className={styles.wrap}>
       <div className={styles.header}>
-        <button onClick={() => shiftWeek(-1)} className={styles.prevBtn}>‹</button>
+        <button onClick={() => shiftWeek(-1)} className={styles.prevBtn}>
+          <ArrowLeftIcon size={16} />
+        </button>
         <div className={styles.headerCenter}>
           <span className={`mono tiny caps ${styles.monthLabel}`}>{monthLabel}</span>
           <span className={`mono caps ${styles.weekLabel}`}>
             Week {String(weekNum).padStart(2, '0')}
           </span>
         </div>
-        <button onClick={() => shiftWeek(1)} className={styles.nextBtn}>›</button>
+        <button onClick={() => shiftWeek(1)} className={styles.nextBtn}>
+          <ArrowRightIcon size={16} />
+        </button>
       </div>
 
       <div className={styles.days}>

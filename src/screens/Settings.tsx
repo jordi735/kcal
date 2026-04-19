@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { useFadeClose } from '../hooks/useFadeClose';
 import type { Goals } from '../types';
+import { ArrowLeftIcon, MinusIcon, PlusIcon } from '../components/Icon';
 import styles from './Settings.module.css';
 
 type SettingsProps = {
@@ -32,7 +33,7 @@ function GoalField({ label, value, onChange, suffix = 'g', step = 5, isLast = fa
           onClick={() => onChange(Math.max(0, value - step))}
           className={styles.bumpBtn}
         >
-          −
+          <MinusIcon size={14} />
         </button>
         <div className={styles.valueBox}>
           <input
@@ -51,7 +52,7 @@ function GoalField({ label, value, onChange, suffix = 'g', step = 5, isLast = fa
           onClick={() => onChange(value + step)}
           className={styles.bumpBtn}
         >
-          +
+          <PlusIcon size={14} />
         </button>
       </div>
     </div>
@@ -101,7 +102,8 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
     <div className={`${styles.shell}${closing ? ' fullscreen-exit' : ''}`}>
       <div className={styles.header}>
         <button onClick={requestClose} className={`mono tiny caps ${styles.closeBtn}`}>
-          ← Close
+          <ArrowLeftIcon size={12} />
+          Close
         </button>
         <span className={`mono caps ${styles.title}`}>Settings</span>
         <button

@@ -44,6 +44,22 @@ Two TypeScript projects share the `shared/` folder but use different module-reso
 - **Routing is minimal.** Only `/verify` is special-cased (in `App.tsx`, matches `window.location.pathname`). Everything else is client-state-driven. Don't introduce a router library.
 - **Dates are local-only.** `local_date` and `local_time` strings (`YYYY-MM-DD` / `HH:MM`) are the contract on the wire; helpers in `src/dates.ts` convert to/from `Date`. The week strip uses Monday-first weeks (`getMonday`).
 
+### PWA / installability (`public/`)
+
+The app is an installable PWA with no offline caching — the service worker exists only to satisfy Android's installability criteria. Static assets in `public/` are copied to `dist/` at build time and served at the site root by Vite (dev) and `express.static(dist/)` (prod).
+
+- `public/manifest.webmanifest` — single source of truth for `name`/`short_name` (`"kcal."`), colors (`#1d2021` for both `theme_color` and `background_color`), `display: standalone`, `orientation: portrait`, and the icon set. If you change app branding, change it here AND the Apple-specific meta tags in `index.html` (iOS ignores the manifest for install behavior).
+- `public/sw.js` — pass-through SW with `install`/`activate`/noop-`fetch` handlers. Registered from `src/main.tsx` only when `import.meta.env.PROD` so dev HMR isn't touched. Do NOT add caching here without a version-bump + cleanup strategy — stale asset caches are the #1 PWA footgun.
+- Icons are generated from the 938×938 `kcal-logo.png` at the repo root via ImageMagick. The logo's dark area is exactly `#1d2021` (matches `--bg`), so the `-flatten` step below produces seamless full-bleed dark squares. Regenerate with:
+  ```
+  convert kcal-logo.png -resize 192x192 public/icon-192.png
+  convert kcal-logo.png -resize 512x512 public/icon-512.png
+  convert kcal-logo.png -resize 512x512 -background "#1d2021" -flatten public/icon-512-maskable.png
+  convert kcal-logo.png -resize 180x180 -background "#1d2021" -flatten public/apple-touch-icon.png
+  convert kcal-logo.png -resize 32x32 public/favicon.png
+  ```
+- The iOS tag set in `index.html` (`apple-touch-icon`, `apple-mobile-web-app-capable`, `apple-mobile-web-app-title`, `apple-mobile-web-app-status-bar-style`) is required — iOS Safari ignores the manifest entirely for "Add to Home Screen", Android/Chrome read only the manifest.
+
 ### Shared (`shared/`)
 
 - `shared/seedProducts.ts` is the ONE source of starter-product data. Used by the server seed script to insert real rows, and structurally mirrors the frontend `Product.per100` shape so no remapping is needed. If you change product shape, update both projects.

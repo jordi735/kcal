@@ -5,6 +5,7 @@ import type { Product } from '../types';
 import { computeMacros } from '../mocks';
 import { api } from '../api';
 import { Sheet, useSheetClose } from '../components/Sheet';
+import { MinusIcon, PlusIcon } from '../components/Icon';
 import styles from './GramsPicker.module.css';
 
 export type GramsPickerProps = {
@@ -121,7 +122,9 @@ function GramsPickerInner({
       </div>
 
       <div className={styles.gramsBox}>
-        <button onClick={() => bump(-10)} className={styles.bumpBtn}>−</button>
+        <button onClick={() => bump(-10)} className={styles.bumpBtn}>
+          <MinusIcon size={18} />
+        </button>
         <div className={styles.gramsRow}>
           <input
             type="number"
@@ -136,7 +139,9 @@ function GramsPickerInner({
           />
           <span className={`mono ${styles.gramsUnit}`}>{unit}</span>
         </div>
-        <button onClick={() => bump(10)} className={styles.bumpBtn}>+</button>
+        <button onClick={() => bump(10)} className={styles.bumpBtn}>
+          <PlusIcon size={18} />
+        </button>
       </div>
 
       <div className={styles.quickRow}>

@@ -2,6 +2,7 @@
 // Usage: npm run seed -- <email>
 // Idempotent — skips any product already present (by name) for that user.
 
+import { normalizeBrandName, normalizeProductName } from '../shared/normalize.js';
 import { seedProducts } from '../shared/seedProducts.js';
 import { statements } from './statements.js';
 import type { UserRow } from './types.js';
@@ -21,10 +22,11 @@ if (userRow === undefined) {
 const now = Date.now();
 let added = 0;
 for (const p of seedProducts) {
-  if (statements.products.existsByNameForUser.get(userRow.id, p.name) !== undefined) continue;
+  const name = normalizeProductName(p.name);
+  if (statements.products.existsByNameForUser.get(userRow.id, name) !== undefined) continue;
   statements.products.insert.run(
-    p.name,
-    p.brand,
+    name,
+    normalizeBrandName(p.brand),
     p.unit,
     p.barcode,
     p.per100.kcal,

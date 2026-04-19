@@ -7,6 +7,7 @@
 
 import { Router } from 'express';
 import multer from 'multer';
+import { normalizeBrandName, normalizeProductName } from '../../shared/normalize.js';
 import { authMiddleware } from '../auth.js';
 import { extractNutrition, InvalidExtractionError } from '../claude.js';
 import { env } from '../env.js';
@@ -147,8 +148,8 @@ productsRouter.post('/', (req, res) => {
   }
   const b = req.body;
   const result = statements.products.insert.run(
-    b.name.trim(),
-    trimOrNull(b.brand),
+    normalizeProductName(b.name),
+    normalizeBrandName(b.brand),
     b.unit,
     trimOrNull(b.barcode),
     b.per100.kcal,
@@ -186,8 +187,8 @@ productsRouter.put('/:id', (req, res) => {
   }
   const b = req.body;
   const result = statements.products.update.run(
-    b.name.trim(),
-    trimOrNull(b.brand),
+    normalizeProductName(b.name),
+    normalizeBrandName(b.brand),
     b.unit,
     trimOrNull(b.barcode),
     b.per100.kcal,

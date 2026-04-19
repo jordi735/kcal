@@ -36,11 +36,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.plusGlyph {
   color: var(--fg-dimmer);
-  font-size: 20px;
 }
 
 .emptyLabel {
