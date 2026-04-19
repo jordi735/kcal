@@ -17,6 +17,10 @@
   --accent-ink: #1d2021;
   --danger: #fb4934;       /* bright red */
 
+  --macro-p: #b8bb26;      /* bright green */
+  --macro-c: #fe8019;      /* bright orange */
+  --macro-f: #fabd2f;      /* bright yellow */
+
   --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   --sans: 'Geist', -apple-system, system-ui, sans-serif;
 }
@@ -141,12 +145,6 @@ input[type="number"] {
   border-radius: 2px;
   background: var(--fg-dimmest);
   margin: 10px auto 0;
-  /* Widen the invisible hit area; block native page pan/zoom on touch. */
-  padding: 10px 140px;
-  background-clip: content-box;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
 }
 
 .sheet--snapping   { transition: transform 0.2s ease-out; }

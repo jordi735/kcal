@@ -187,15 +187,15 @@
 }
 
 .macroSliceP {
-  background: var(--accent);
+  background: var(--macro-p);
 }
 
 .macroSliceC {
-  background: var(--fg);
+  background: var(--macro-c);
 }
 
 .macroSliceF {
-  background: var(--fg-dim);
+  background: var(--macro-f);
 }
 
 .legend {

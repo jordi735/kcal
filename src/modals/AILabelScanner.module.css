@@ -20,136 +20,36 @@
   animation: fadeOut 0.2s ease forwards;
 }
 
-.topbar {
-  padding: 40px 20px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.topbarTitle {
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  color: var(--fg);
-}
-
-.closeBtn {
-  font-size: 22px;
-  color: var(--fg);
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.viewfinder {
+.center {
   flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.scanbox {
-  width: 280px;
-  height: 360px;
-  position: relative;
-  --corner-size: 32px;
-}
-
-.labelPlaceholder {
-  position: absolute;
-  inset: 20px;
-  display: flex;
   flex-direction: column;
-  gap: 8px;
-  opacity: 0.22;
-  transition: opacity 0.4s;
-  pointer-events: none;
-}
-
-.labelPlaceholder.thinking {
-  opacity: 0.4;
-}
-
-.labelTitle {
-  color: var(--fg);
-  letter-spacing: 0.14em;
-  margin-bottom: 6px;
-}
-
-.labelDivider {
-  height: 1.5px;
-  background: var(--fg);
-}
-
-.labelRow {
-  font-size: 10px;
-  color: var(--fg);
-  display: flex;
-  justify-content: space-between;
-  padding-bottom: 4px;
-  border-bottom: 1px dashed rgba(240, 240, 232, 0.25);
-}
-
-.sweep {
-  position: absolute;
-  top: 0;
-  left: 8px;
-  right: 8px;
-  height: 2px;
-  background: var(--accent);
-  box-shadow: 0 0 24px var(--accent), 0 0 8px var(--accent);
-  animation: aiSweep 1.4s ease-in-out infinite;
-}
-
-.doneCheck {
-  position: absolute;
-  inset: 0;
-  display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent);
+  gap: 18px;
+  padding: 40px 28px;
 }
 
-.bottom {
-  padding: 20px 28px 40px;
-  text-align: center;
-}
-
-.aimHint {
-  color: var(--fg-dim);
-  letter-spacing: 0.14em;
-  margin-bottom: 14px;
-}
-
-.errorText {
-  color: var(--danger);
-  margin-bottom: 12px;
-}
-
-.captureBtn {
-  width: 72px;
-  height: 72px;
+.spinner {
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: 3px solid var(--fg);
-  background: var(--accent);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 0 4px rgba(240, 240, 232, 0.1);
+  border: 2px solid rgba(240, 240, 232, 0.15);
+  border-top-color: var(--accent);
+  animation: aiSpin 0.9s linear infinite;
 }
 
-.captureInner {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--bg);
+@keyframes aiSpin {
+  to { transform: rotate(360deg); }
 }
 
 .statusText {
   color: var(--accent);
   letter-spacing: 0.18em;
+}
+
+.errorText {
+  color: var(--danger);
+  text-align: center;
+  max-width: 280px;
 }

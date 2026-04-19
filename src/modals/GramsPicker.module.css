@@ -11,10 +11,6 @@
   color: var(--fg-dim);
 }
 
-.cancelBtn {
-  color: var(--fg-dim);
-}
-
 .productRow {
   padding: 0 20px 16px;
   display: flex;

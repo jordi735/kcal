@@ -5,6 +5,7 @@ import type { RefObject } from 'preact';
 import { useRef, useState } from 'preact/hooks';
 import type { Macros } from '../types';
 import { Sheet, useSheetClose } from '../components/Sheet';
+import { SparklesIcon } from '../components/Icon';
 import styles from './NewProductForm.module.css';
 
 export type ProductDraft = {
@@ -156,10 +157,7 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, sc
             className={`${styles.aiBanner}${prefilled ? ` ${styles.aiBannerPrefilled}` : ''}`}
           >
             <div className={styles.aiIcon}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
-                <path d="M19 15l0.7 2.1L22 18l-2.3 0.9L19 21l-0.7-2.1L16 18l2.3-0.9L19 15z" />
-              </svg>
+              <SparklesIcon size={18} />
             </div>
             <div className={styles.aiTextCol}>
               <div className={`mono caps ${styles.aiTitle}`}>

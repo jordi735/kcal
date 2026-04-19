@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Product } from '../types';
 import { api } from '../api';
 import { Sheet, useSheetClose } from '../components/Sheet';
-import { PlusIcon } from '../components/Icon';
+import { BarcodeIcon, MagnifyingGlassIcon, PlusIcon } from '../components/Icon';
 import styles from './AddPicker.module.css';
 
 export type AddPickerProps = {
@@ -153,18 +153,7 @@ function AddPickerInner({
 
       <div className={styles.searchBar}>
         <div className={styles.searchBox}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className={styles.searchIcon}
-          >
-            <circle cx="11" cy="11" r="7" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+          <MagnifyingGlassIcon size={14} className={styles.searchIcon} />
           <input
             placeholder="Search products..."
             value={q}
@@ -178,13 +167,7 @@ function AddPickerInner({
           )}
         </div>
         <button onClick={onScanBarcode} className={styles.scanBtn} aria-label="Scan barcode">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-            <path d="M4 7V5a2 2 0 012-2h2M4 17v2a2 2 0 002 2h2M16 3h2a2 2 0 012 2v2M16 21h2a2 2 0 002-2v-2" />
-            <line x1="7" y1="8" x2="7" y2="16" />
-            <line x1="10" y1="8" x2="10" y2="16" />
-            <line x1="13" y1="8" x2="13" y2="16" />
-            <line x1="17" y1="8" x2="17" y2="16" />
-          </svg>
+          <BarcodeIcon size={20} />
         </button>
       </div>
 

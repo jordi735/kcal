@@ -1,9 +1,10 @@
-// Bottom-sheet wrapper with drag-to-dismiss on the handle and a matching
-// exit animation when closed via overlay click / Cancel button. Pointer
-// events only — they cover touch + mouse everywhere the app runs. The
-// handle is reactive only when the internal scroll container (if any)
-// is at scrollTop === 0; drag threshold is 80px before we commit to
-// dismissing.
+// Bottom-sheet wrapper with drag-to-dismiss on the whole sheet and a
+// matching exit animation when closed via overlay click / Cancel button.
+// Pointer events only — they cover touch + mouse everywhere the app runs.
+// The drag is reactive only when the internal scroll container (if any)
+// is at scrollTop === 0; upward drags stay at translateY(0) so native
+// scroll in inner containers can take over via pointercancel. Drag
+// threshold is 80px before we commit to dismissing.
 //
 // Children inside the sheet can trigger a close-with-animation by calling
 // `useSheetClose()` from context. The component's `onClose` prop is the
@@ -65,10 +66,11 @@ export function Sheet({ onClose, children, scrollRef, style }: SheetProps) {
     if (exiting) return;
     // Only start a drag if the user can actually dismiss — list must be at
     // the top. Cache this once at pointerdown so mid-drag scrolls don't
-    // retroactively enable dismissal.
+    // retroactively enable dismissal. Pointer is intentionally NOT captured
+    // so the browser can still hand the gesture off to native scroll on
+    // inner scroll containers (via pointercancel) when the user scrolls up.
     const scrollTop = scrollRef?.current?.scrollTop ?? 0;
     if (scrollTop > 0) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
     dragRef.current = { startY: e.clientY, pointerId: e.pointerId, active: true };
     sheetRef.current?.classList.remove('sheet--snapping', 'sheet--dismissing');
   };
@@ -117,14 +119,12 @@ export function Sheet({ onClose, children, scrollRef, style }: SheetProps) {
         className={`sheet${exiting ? ' exiting' : ''}`}
         ref={sheetRef}
         style={style}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
       >
-        <div
-          className="sheet-handle"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerEnd}
-          onPointerCancel={onPointerEnd}
-        />
+        <div className="sheet-handle" />
         {children}
       </div>
     </SheetCloseContext.Provider>

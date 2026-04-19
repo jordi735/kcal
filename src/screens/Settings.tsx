@@ -145,9 +145,9 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
               />
             </div>
             <div className={styles.legend}>
-              <LegendDot color="var(--accent)" label={`P ${pPct}%`} />
-              <LegendDot color="var(--fg)" label={`C ${cPct}%`} />
-              <LegendDot color="var(--fg-dim)" label={`F ${fPct}%`} />
+              <LegendDot color="var(--macro-p)" label={`P ${pPct}%`} />
+              <LegendDot color="var(--macro-c)" label={`C ${cPct}%`} />
+              <LegendDot color="var(--macro-f)" label={`F ${fPct}%`} />
             </div>
             {mismatch ? (
               <div className={styles.mismatchWarn}>

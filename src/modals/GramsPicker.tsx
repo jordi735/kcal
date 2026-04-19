@@ -4,8 +4,8 @@ import { useEffect, useState } from 'preact/hooks';
 import type { Product } from '../types';
 import { computeMacros } from '../mocks';
 import { api } from '../api';
-import { Sheet, useSheetClose } from '../components/Sheet';
-import { MinusIcon, PlusIcon } from '../components/Icon';
+import { Sheet } from '../components/Sheet';
+import { MinusIcon, PlusIcon, TrashIcon } from '../components/Icon';
 import styles from './GramsPicker.module.css';
 
 export type GramsPickerProps = {
@@ -36,7 +36,6 @@ function GramsPickerInner({
   onDelete,
   onEditProduct,
 }: Omit<GramsPickerProps, 'onClose'>) {
-  const close = useSheetClose();
   const [history, setHistory] = useState<number[] | null>(null);
   const [grams, setGrams] = useState<number>(initialGrams ?? 100);
   const [userChangedGrams, setUserChangedGrams] = useState(false);
@@ -99,9 +98,6 @@ function GramsPickerInner({
     <>
       <div className={styles.header}>
         <span className={`mono caps ${styles.title}`}>{title}</span>
-        <button onClick={close} className={`mono tiny caps ${styles.cancelBtn}`}>
-          Cancel
-        </button>
       </div>
 
       <div className={styles.productRow}>
@@ -116,7 +112,7 @@ function GramsPickerInner({
             onClick={onEditProduct}
             className={`mono tiny caps ${styles.editBtn}`}
           >
-            Edit
+            Edit Product
           </button>
         )}
       </div>
@@ -175,11 +171,7 @@ function GramsPickerInner({
             className={styles.deleteBtn}
             aria-label="Delete entry"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-              <path d="M10 11v6M14 11v6" />
-            </svg>
+            <TrashIcon size={16} />
           </button>
         )}
         <button className={`btn-primary ${styles.confirmBtn}`} onClick={() => onConfirm(grams)}>
