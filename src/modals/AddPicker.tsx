@@ -44,12 +44,6 @@ function AddPickerInner({
   const [recents, setRecents] = useState<Product[] | null>(null);
   const [allProducts, setAllProducts] = useState<Product[] | null>(null);
   const [results, setResults] = useState<Product[] | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 350);
-    return () => clearTimeout(t);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,7 +166,6 @@ function AddPickerInner({
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input
-            ref={inputRef}
             placeholder="Search products..."
             value={q}
             onInput={(e) => setQ(e.currentTarget.value)}
