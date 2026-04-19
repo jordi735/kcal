@@ -38,12 +38,20 @@ html, body {
 #root {
   /* Reserve 24px at the bottom so mobile UI chrome (home indicator, URL bar)
      doesn't clip the app. #root is the containing block for all sheets and
-     overlays, so shrinking it lifts both the flex layout and absolutes. */
+     overlays, so shrinking it lifts both the flex layout and absolutes.
+     In installed PWA mode the OS already accounts for its chrome, so the
+     reservation is dropped below. */
   height: calc(100dvh - 24px);
   width: 100dvw;
   background: var(--bg);
   position: relative;
   overflow: hidden;
+}
+
+@media (display-mode: standalone) {
+  #root {
+    height: 100dvh;
+  }
 }
 
 button {
