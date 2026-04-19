@@ -5,7 +5,7 @@ import type { RefObject } from 'preact';
 import { useRef, useState } from 'preact/hooks';
 import type { Macros } from '../types';
 import { Sheet, useSheetClose } from '../components/Sheet';
-import { ArrowRightIcon, SparklesIcon } from '../components/Icon';
+import { ArrowRightIcon, BarcodeIcon, SparklesIcon } from '../components/Icon';
 import styles from './NewProductForm.module.css';
 
 export type ProductDraft = {
@@ -89,10 +89,10 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, sc
   const [protein, setProtein] = useState<NumField>(toField(initialPer100?.protein));
   const [carbs, setCarbs] = useState<NumField>(toField(initialPer100?.carbs));
   const [fat, setFat] = useState<NumField>(toField(initialPer100?.fat));
+  const [barcode, setBarcode] = useState<string>(initial?.barcode ?? '');
   const [submitting, setSubmitting] = useState(false);
 
   const isEdit = mode === 'edit';
-  const barcode = initial?.barcode ?? null;
   const isTemp = !isEdit && (initial?.is_temp ?? false);
   const prefilled = initial !== undefined && (
     initial.name !== undefined || initial.per100 !== undefined
@@ -113,7 +113,7 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, sc
         name: name.trim(),
         brand: brand.trim() ? brand.trim() : null,
         unit,
-        barcode,
+        barcode: barcode.trim() ? barcode.trim() : null,
         per100: {
           kcal: Number(kcal),
           protein: Number(protein),
@@ -134,11 +134,6 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, sc
           <span className={`mono caps ${styles.title}`}>
             {isEdit ? 'Edit Product' : isTemp ? 'Add Temp Item' : 'New Product'}
           </span>
-          {barcode && (
-            <span className={`mono tiny ${styles.barcode}`}>
-              ★ {barcode}{isEdit ? '' : ' · unknown'}
-            </span>
-          )}
           {isTemp && (
             <span className={`mono tiny ${styles.tempHint}`}>
               One-off. Won't save to library.
@@ -191,6 +186,22 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, sc
             onInput={(e) => setBrand(e.currentTarget.value)}
             placeholder="optional"
           />
+        </div>
+
+        <div className="field">
+          <label className="field-label">Barcode</label>
+          <div className={styles.barcodeBox}>
+            <span className={styles.barcodeIcon}><BarcodeIcon size={16} /></span>
+            <input
+              className={styles.barcodeInput}
+              value={barcode}
+              onInput={(e) => setBarcode(e.currentTarget.value)}
+              placeholder="optional"
+              maxLength={64}
+              inputMode="numeric"
+              autoComplete="off"
+            />
+          </div>
         </div>
 
         <div className="field">

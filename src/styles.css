@@ -183,8 +183,10 @@ input[type="number"] {
   pointer-events: none;
 }
 .sheet.exiting {
-  animation: slideDown 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
   pointer-events: none;
+}
+.sheet.exiting:not(.sheet--dismissing) {
+  animation: slideDown 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 .fullscreen-exit {
   animation: fadeOut 0.2s ease forwards;

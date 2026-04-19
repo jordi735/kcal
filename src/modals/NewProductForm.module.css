@@ -51,11 +51,6 @@
   color: var(--fg-dim);
 }
 
-.barcode {
-  color: var(--fg-dimmer);
-  letter-spacing: 0.1em;
-}
-
 .tempHint {
   color: var(--accent);
   letter-spacing: 0.1em;
@@ -123,6 +118,38 @@
   color: var(--fg-dim);
   display: inline-flex;
   align-items: center;
+}
+
+.barcodeBox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0 14px;
+  height: 48px;
+  transition: border-color 0.2s ease;
+}
+
+.barcodeBox:focus-within {
+  border-color: var(--fg-dim);
+}
+
+.barcodeIcon {
+  color: var(--fg-dimmer);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.barcodeInput {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--fg);
+  flex: 1;
+  min-width: 0;
+  letter-spacing: 0.05em;
 }
 
 .unitRow {
