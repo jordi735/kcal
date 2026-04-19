@@ -1,0 +1,249 @@
+.field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.field.fieldLast {
+  border-bottom: none;
+}
+
+.fieldInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fieldLabel {
+  font-size: 15px;
+  color: var(--fg);
+}
+
+.fieldSub {
+  color: var(--fg-dimmer);
+  letter-spacing: 0.12em;
+  font-size: 9px;
+}
+
+.fieldRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bumpBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+  border: 1px solid var(--border-strong);
+  color: var(--fg);
+  font-size: 16px;
+}
+
+.valueBox {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 72px;
+  justify-content: center;
+}
+
+.valueInput {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--fg);
+  width: calc(var(--ch, 2) * 1ch);
+  text-align: center;
+  min-width: 2ch;
+}
+
+.valueSuffix {
+  color: var(--fg-dimmer);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--dot-color, var(--fg));
+}
+
+.legendLabel {
+  color: var(--fg-dim);
+  letter-spacing: 0.1em;
+}
+
+.shell {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.2s ease;
+}
+
+.shell:global(.fullscreen-exit) {
+  animation: fadeOut 0.2s ease forwards;
+}
+
+.header {
+  padding: 28px 20px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.closeBtn {
+  color: var(--fg-dim);
+  letter-spacing: 0.14em;
+}
+
+.title {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--fg-dim);
+}
+
+.saveBtn {
+  color: var(--accent);
+  letter-spacing: 0.14em;
+}
+
+.saveBtn.saveBtnSaving {
+  color: var(--fg-dim);
+}
+
+.content {
+  flex: 1;
+  overflow: auto;
+  padding: 0 20px 40px;
+}
+
+.section {
+  margin-top: 12px;
+  margin-bottom: 32px;
+}
+
+.sectionLabel {
+  color: var(--fg-dim);
+  letter-spacing: 0.14em;
+  margin-bottom: 14px;
+}
+
+.macroCard {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.macroHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.macroHeaderTitle {
+  color: var(--fg-dim);
+  letter-spacing: 0.14em;
+}
+
+.macroHeaderValue {
+  color: var(--fg-dimmer);
+}
+
+.macroHeaderValue.macroHeaderValueMismatch {
+  color: var(--danger);
+}
+
+.macroBar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-elev-2);
+}
+
+.macroSlice {
+  width: var(--w, 0%);
+  transition: width 0.4s ease;
+}
+
+.macroSliceP {
+  background: var(--accent);
+}
+
+.macroSliceC {
+  background: var(--fg);
+}
+
+.macroSliceF {
+  background: var(--fg-dim);
+}
+
+.legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.mismatchWarn {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--danger);
+  line-height: 1.5;
+}
+
+.errorText {
+  margin-top: 14px;
+  color: var(--danger);
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+}
+
+.accountSection {
+  margin-bottom: 30px;
+}
+
+.accountCard {
+  padding: 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 10px;
+}
+
+.accountCardLabel {
+  color: var(--fg-dimmer);
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+.accountCardEmail {
+  color: var(--fg);
+  font-size: 14px;
+}
+
+.logoutBtn:global(.btn-ghost) {
+  color: var(--danger);
+  border-color: rgba(255, 90, 74, 0.3);
+}
+
+.footer {
+  text-align: center;
+  color: var(--fg-dimmest);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  font-family: var(--mono);
+}

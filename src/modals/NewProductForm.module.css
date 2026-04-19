@@ -1,0 +1,181 @@
+.nutField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nutFieldLabel {
+  color: var(--fg-dimmer);
+  letter-spacing: 0.12em;
+  font-size: 9px;
+}
+
+.nutFieldBox {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.nutFieldInput {
+  font-family: var(--mono);
+  font-size: 17px;
+  color: var(--fg);
+  font-weight: 500;
+  min-width: 0;
+}
+
+.nutFieldUnit {
+  color: var(--fg-dimmer);
+}
+
+.header {
+  padding: 18px 20px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.title {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--fg-dim);
+}
+
+.barcode {
+  color: var(--fg-dimmer);
+  letter-spacing: 0.1em;
+}
+
+.tempHint {
+  color: var(--accent);
+  letter-spacing: 0.1em;
+}
+
+.cancelBtn {
+  color: var(--fg-dim);
+}
+
+.scroll {
+  overflow: auto;
+  padding: 14px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aiBanner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px dashed var(--border-strong);
+  background: var(--bg-elev-2);
+  text-align: left;
+  transition: all 0.3s ease;
+}
+
+.aiBanner.aiBannerPrefilled {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+}
+
+.aiIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.aiTextCol {
+  flex: 1;
+  min-width: 0;
+}
+
+.aiTitle {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--fg);
+}
+
+.aiSubtitle {
+  color: var(--fg-dimmer);
+  margin-top: 2px;
+  letter-spacing: 0.06em;
+}
+
+.aiArrow {
+  color: var(--fg-dim);
+  letter-spacing: 0.12em;
+}
+
+.unitRow {
+  display: flex;
+  gap: 8px;
+}
+
+.unitBtn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.unitBtn.unitBtnActive {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+
+.macroCard {
+  padding: 14px 16px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.macroCardLabel {
+  color: var(--fg-dim);
+  letter-spacing: 0.14em;
+}
+
+.macroGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.footer {
+  padding: 0 20px 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.submitBtn:global(.btn-primary) {
+  flex: 1;
+}

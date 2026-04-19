@@ -1,0 +1,44 @@
+{
+  "name": "kcal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "typecheck:server": "tsc --noEmit -p server/tsconfig.json",
+    "server:dev": "tsx watch --env-file=.env server/index.ts",
+    "server:start": "tsx --env-file=.env server/index.ts",
+    "seed": "tsx --env-file=.env server/seed.ts",
+    "test": "echo \"no tests\" && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jordi735/kcal.git"
+  },
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jordi735/kcal/issues"
+  },
+  "homepage": "https://github.com/jordi735/kcal#readme",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.114",
+    "better-sqlite3": "^12.9.0",
+    "express": "^5.2.1",
+    "multer": "^2.1.1",
+    "postmark": "^4.0.7",
+    "preact": "^10.29.1"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.5",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^25.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.8"
+  }
+}

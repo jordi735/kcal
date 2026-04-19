@@ -1,0 +1,118 @@
+.overlayDark {
+  background: rgba(0, 0, 0, 0.92);
+}
+
+.shell {
+  position: absolute;
+  inset: 0;
+  z-index: 52;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.3s ease;
+}
+
+.shell:global(.fullscreen-exit) {
+  animation: fadeOut 0.2s ease forwards;
+}
+
+.topbar {
+  padding: 40px 20px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 2;
+}
+
+.topbarTitle {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--fg);
+}
+
+.closeBtn {
+  font-size: 22px;
+  color: var(--fg);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewfinder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scanbox {
+  width: 260px;
+  height: 160px;
+  position: relative;
+  z-index: 1;
+}
+
+.scanline {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  right: 12px;
+  height: 1.5px;
+  background: var(--accent);
+  box-shadow: 0 0 20px var(--accent), 0 0 6px var(--accent);
+  animation: scanLine 1.6s ease-in-out infinite;
+}
+
+.errorBox {
+  padding: 0 32px;
+  text-align: center;
+  color: var(--fg);
+  max-width: 320px;
+  z-index: 1;
+}
+
+.errorTitle {
+  color: var(--danger);
+  letter-spacing: 0.14em;
+  margin-bottom: 10px;
+}
+
+.errorMsg {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--fg-dim);
+  margin-bottom: 20px;
+}
+
+.errorCloseBtn {
+  padding: 10px 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  color: var(--fg);
+  letter-spacing: 0.14em;
+}
+
+.bottom {
+  padding: 20px 28px 80px;
+  text-align: center;
+  color: var(--fg-dim);
+  font-size: 13px;
+  line-height: 1.6;
+  z-index: 2;
+}
+
+.bottomLabel {
+  color: var(--accent);
+  letter-spacing: 0.14em;
+  margin-bottom: 6px;
+}

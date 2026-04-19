@@ -1,0 +1,94 @@
+.row {
+  position: relative;
+  overflow: hidden;
+}
+
+.deleteBtn {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 72px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: var(--mono);
+}
+
+.main {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--bg);
+  text-align: left;
+  transform: translateX(0);
+  transition: transform 0.25s ease;
+  gap: 12px;
+}
+
+.main.swiping {
+  transform: translateX(-72px);
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.name {
+  font-size: 15px;
+  color: var(--fg);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tmpBadge {
+  margin-left: 8px;
+  color: var(--accent);
+  font-size: 9px;
+  padding: 2px 5px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  vertical-align: 2px;
+  letter-spacing: 0.1em;
+}
+
+.meta {
+  font-size: 11px;
+  color: var(--fg-dim);
+  display: flex;
+  gap: 10px;
+}
+
+.metaDim {
+  color: var(--fg-dimmer);
+}
+
+.macros {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.kcal {
+  font-size: 16px;
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.macroBreakdown {
+  font-size: 10px;
+  color: var(--fg-dimmer);
+  display: flex;
+  gap: 6px;
+}

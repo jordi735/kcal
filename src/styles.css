@@ -1,0 +1,279 @@
+/* KCAL — Dark, editorial, monospace-driven macro tracker */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Instrument+Serif&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Fira+Code:wght@400;500;600&family=Syne:wght@500;600;700;800&display=swap');
+
+:root {
+  /* Gruvbox dark (hard) */
+  --bg: #1d2021;
+  --bg-elev: #282828;
+  --bg-elev-2: #32302f;
+  --border: #3c3836;
+  --border-strong: #504945;
+  --fg: #fbf1c7;          /* fg0 */
+  --fg-dim: #d5c4a1;       /* fg2 */
+  --fg-dimmer: #928374;    /* gray */
+  --fg-dimmest: #665c54;
+  --accent: #b8bb26;       /* bright green */
+  --accent-ink: #1d2021;
+  --danger: #fb4934;       /* bright red */
+
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --sans: 'Geist', -apple-system, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100dvh;
+  width: 100dvw;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'ss01', 'cv01';
+}
+
+#root {
+  height: 100dvh;
+  width: 100dvw;
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input {
+  font-family: inherit;
+  background: none;
+  border: none;
+  color: inherit;
+  outline: none;
+  width: 100%;
+}
+
+input::placeholder { color: var(--fg-dimmer); }
+
+/* Remove default browser spinner on number inputs */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Utility classes */
+.mono { font-family: var(--mono); font-feature-settings: 'zero' 1; }
+.caps { text-transform: uppercase; letter-spacing: 0.08em; }
+.tiny { font-size: 10px; letter-spacing: 0.12em; }
+
+/* hide scrollbars */
+.no-scroll::-webkit-scrollbar { display: none; }
+.no-scroll { scrollbar-width: none; }
+
+/* slide-up modal */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes barGrow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  animation: fadeIn 0.2s ease;
+}
+
+.sheet {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  background: var(--bg-elev);
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+  z-index: 51;
+  animation: slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  height: var(--sheet-height, auto);
+  max-height: var(--sheet-max-height, 92%);
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.sheet-handle {
+  width: 36px; height: 4px;
+  border-radius: 2px;
+  background: var(--fg-dimmest);
+  margin: 10px auto 0;
+  /* Widen the invisible hit area; block native page pan/zoom on touch. */
+  padding: 10px 140px;
+  background-clip: content-box;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.sheet--snapping   { transition: transform 0.2s ease-out; }
+.sheet--dismissing { transition: transform 0.25s ease-in; transform: translateY(100%); }
+
+.no-scroll { overscroll-behavior: contain; }
+
+/* Exit animations. Overlay fades, sheet slides down, fullscreen modals
+   fade. Used on Cancel/overlay-click paths — the drag path continues to
+   use .sheet--dismissing (transition) so the sheet doesn't snap back to
+   origin before sliding off. */
+@keyframes slideDown {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.overlay.exiting {
+  animation: fadeOut 0.2s ease forwards;
+  pointer-events: none;
+}
+.sheet.exiting {
+  animation: slideDown 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+.fullscreen-exit {
+  animation: fadeOut 0.2s ease forwards;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay.exiting,
+  .sheet.exiting,
+  .fullscreen-exit {
+    animation-duration: 0.01s;
+  }
+}
+
+/* primary button */
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 18px 20px;
+  border-radius: 14px;
+  font-size: 15px;
+  text-transform: uppercase;
+  width: 100%;
+  transition: transform 0.1s ease, opacity 0.2s ease;
+}
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--fg);
+  padding: 16px 20px;
+  border-radius: 14px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--border-strong);
+  width: 100%;
+  transition: background 0.2s ease;
+}
+.btn-ghost:active { background: var(--bg-elev); }
+
+.btn-secondary {
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--border);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  font-family: var(--mono);
+}
+.field-input {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 16px;
+  color: var(--fg);
+  transition: border-color 0.2s ease;
+}
+.field-input:focus {
+  border-color: var(--fg-dim);
+}
+.field-input.mono-input {
+  font-family: var(--mono);
+}
+
+/* Home entry list rows */
+.food-row {
+  border-bottom: 1px solid var(--border);
+}
+.food-row:last-child {
+  border-bottom: none;
+}
+
+/* Scanner viewfinder corner markers — shared by barcode + AI label scanners.
+   Size via --corner-size on the wrapper (default 28px). */
+.scan-corner {
+  position: absolute;
+  width: var(--corner-size, 28px);
+  height: var(--corner-size, 28px);
+  border: 0 solid var(--accent);
+}
+.scan-corner--tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; border-radius: 8px 0 0 0; }
+.scan-corner--tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; border-radius: 0 8px 0 0; }
+.scan-corner--bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; border-radius: 0 0 0 8px; }
+.scan-corner--br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; border-radius: 0 0 8px 0; }
+
+@keyframes scanLine {
+  0%, 100% { top: 15%; opacity: 1; }
+  50%      { top: 85%; opacity: 1; }
+}
+
+@keyframes aiSweep {
+  0%   { top: 0%;  opacity: 0.3; }
+  50%  { top: 98%; opacity: 1; }
+  100% { top: 0%;  opacity: 0.3; }
+}

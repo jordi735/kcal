@@ -1,0 +1,124 @@
+.dock {
+  background: var(--bg-elev);
+  border-top: 1px solid var(--border);
+  padding: 18px 20px 16px;
+}
+
+.headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.kcalCol {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kcalLabel {
+  color: var(--fg-dim);
+}
+
+.kcalRow {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.kcalNum {
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+}
+
+.kcalNum.kcalNumOver {
+  color: var(--danger);
+}
+
+.kcalGoal {
+  font-size: 12px;
+  color: var(--fg-dimmer);
+}
+
+.consumedCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.consumedLabel {
+  color: var(--fg-dim);
+}
+
+.consumedValue {
+  font-size: 14px;
+  color: var(--fg);
+}
+
+.consumedUnit {
+  color: var(--fg-dimmer);
+}
+
+.kcalBar {
+  height: 6px;
+  background: var(--bg-elev-2);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.kcalBarFill {
+  height: 100%;
+  width: var(--kcal-pct, 0%);
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.kcalBarFill.kcalBarFillOver {
+  background: var(--danger);
+}
+
+.macroGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.settingsBtn {
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg);
+  transition: background 0.2s ease;
+}
+
+.settingsBtn:active {
+  background: var(--bg-elev-2);
+}
+
+.addBtn:global(.btn-primary) {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 54px;
+  padding: 0;
+  border-radius: 14px;
+}

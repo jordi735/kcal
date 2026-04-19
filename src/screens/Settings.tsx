@@ -1,0 +1,179 @@
+import { useState } from 'preact/hooks';
+import { useFadeClose } from '../hooks/useFadeClose';
+import type { Goals } from '../types';
+import styles from './Settings.module.css';
+
+type SettingsProps = {
+  goals: Goals;
+  onSave: (goals: Goals) => Promise<void>;
+  onClose: () => void;
+  onLogout: () => void;
+  userEmail: string | null;
+};
+
+type GoalFieldProps = {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  suffix?: string;
+  step?: number;
+  isLast?: boolean;
+};
+
+function GoalField({ label, value, onChange, suffix = 'g', step = 5, isLast = false }: GoalFieldProps) {
+  return (
+    <div className={`${styles.field}${isLast ? ` ${styles.fieldLast}` : ''}`}>
+      <div className={styles.fieldInfo}>
+        <span className={styles.fieldLabel}>{label}</span>
+        <span className={`mono tiny caps ${styles.fieldSub}`}>per day</span>
+      </div>
+      <div className={styles.fieldRight}>
+        <button
+          onClick={() => onChange(Math.max(0, value - step))}
+          className={styles.bumpBtn}
+        >
+          −
+        </button>
+        <div className={styles.valueBox}>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={value}
+            onInput={(e) => onChange(Number(e.currentTarget.value) || 0)}
+            className={`mono ${styles.valueInput}`}
+            style={{ ['--ch' as any]: String(value).length }}
+          />
+          {suffix ? (
+            <span className={`mono tiny ${styles.valueSuffix}`}>{suffix}</span>
+          ) : null}
+        </div>
+        <button
+          onClick={() => onChange(value + step)}
+          className={styles.bumpBtn}
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type LegendDotProps = { color: string; label: string };
+
+function LegendDot({ color, label }: LegendDotProps) {
+  return (
+    <div className={styles.legendItem}>
+      <div className={styles.legendDot} style={{ ['--dot-color' as any]: color }} />
+      <span className={`mono tiny caps ${styles.legendLabel}`}>{label}</span>
+    </div>
+  );
+}
+
+export function Settings({ goals, onSave, onClose, onLogout, userEmail }: SettingsProps) {
+  const [kcal, setKcal] = useState(goals.kcal);
+  const [p, setP] = useState(goals.protein);
+  const [c, setC] = useState(goals.carbs);
+  const [f, setF] = useState(goals.fat);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { closing, requestClose } = useFadeClose(onClose);
+
+  const total = p * 4 + c * 4 + f * 9;
+  const derivedKcal = Math.round(total);
+  const mismatch = Math.abs(derivedKcal - kcal) > 50;
+  const pPct = total ? Math.round(((p * 4) / total) * 100) : 0;
+  const cPct = total ? Math.round(((c * 4) / total) * 100) : 0;
+  const fPct = total ? 100 - pPct - cPct : 0;
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ kcal, protein: p, carbs: c, fat: f });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className={`${styles.shell}${closing ? ' fullscreen-exit' : ''}`}>
+      <div className={styles.header}>
+        <button onClick={requestClose} className={`mono tiny caps ${styles.closeBtn}`}>
+          ← Close
+        </button>
+        <span className={`mono caps ${styles.title}`}>Settings</span>
+        <button
+          onClick={save}
+          disabled={saving}
+          className={`mono tiny caps ${styles.saveBtn}${saving ? ` ${styles.saveBtnSaving}` : ''}`}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+
+      <div className={`no-scroll ${styles.content}`}>
+        <div className={styles.section}>
+          <div className={`mono tiny caps ${styles.sectionLabel}`}>Daily goals</div>
+          <GoalField label="Kcal" value={kcal} onChange={setKcal} suffix="" step={50} />
+          <GoalField label="Protein" value={p} onChange={setP} suffix="g" step={5} />
+          <GoalField label="Carbs" value={c} onChange={setC} suffix="g" step={5} />
+          <GoalField label="Fat" value={f} onChange={setF} suffix="g" isLast />
+
+          <div className={styles.macroCard}>
+            <div className={styles.macroHeader}>
+              <span className={`mono tiny caps ${styles.macroHeaderTitle}`}>Macro split</span>
+              <span className={`mono tiny ${styles.macroHeaderValue}${mismatch ? ` ${styles.macroHeaderValueMismatch}` : ''}`}>
+                {derivedKcal} kcal from macros
+              </span>
+            </div>
+            <div className={styles.macroBar}>
+              <div
+                className={`${styles.macroSlice} ${styles.macroSliceP}`}
+                style={{ ['--w' as any]: `${pPct}%` }}
+              />
+              <div
+                className={`${styles.macroSlice} ${styles.macroSliceC}`}
+                style={{ ['--w' as any]: `${cPct}%` }}
+              />
+              <div
+                className={`${styles.macroSlice} ${styles.macroSliceF}`}
+                style={{ ['--w' as any]: `${fPct}%` }}
+              />
+            </div>
+            <div className={styles.legend}>
+              <LegendDot color="var(--accent)" label={`P ${pPct}%`} />
+              <LegendDot color="var(--fg)" label={`C ${cPct}%`} />
+              <LegendDot color="var(--fg-dim)" label={`F ${fPct}%`} />
+            </div>
+            {mismatch ? (
+              <div className={styles.mismatchWarn}>
+                Heads up — your macros add up to {derivedKcal} kcal, not {kcal}.
+              </div>
+            ) : null}
+          </div>
+
+          {error !== null && (
+            <div className={`mono tiny ${styles.errorText}`}>{error}</div>
+          )}
+        </div>
+
+        <div className={styles.accountSection}>
+          <div className={`mono tiny caps ${styles.sectionLabel}`}>Account</div>
+          <div className={styles.accountCard}>
+            <div className={`mono tiny caps ${styles.accountCardLabel}`}>Signed in as</div>
+            <div className={`mono ${styles.accountCardEmail}`}>
+              {userEmail ?? 'you@example.com'}
+            </div>
+          </div>
+          <button onClick={onLogout} className={`btn-ghost ${styles.logoutBtn}`}>
+            Sign out
+          </button>
+        </div>
+
+        <div className={styles.footer}>kcal. v1</div>
+      </div>
+    </div>
+  );
+}

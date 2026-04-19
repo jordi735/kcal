@@ -1,0 +1,56 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.list {
+  flex: 1;
+  overflow: auto;
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.loading {
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--fg-dimmer);
+  letter-spacing: 0.14em;
+}
+
+.emptyBtn {
+  width: 100%;
+  padding: 80px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.plusIcon {
+  width: 40px;
+  height: 40px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plusGlyph {
+  color: var(--fg-dimmer);
+  font-size: 20px;
+}
+
+.emptyLabel {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--fg-dim);
+}
+
+.emptyHint {
+  font-size: 13px;
+  color: var(--fg-dimmer);
+  max-width: 220px;
+}

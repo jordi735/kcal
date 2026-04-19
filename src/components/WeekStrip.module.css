@@ -1,0 +1,113 @@
+.wrap {
+  padding: 0 20px;
+  padding-top: 8px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.prevBtn {
+  padding: 4px 8px;
+  color: var(--fg-dim);
+  font-size: 18px;
+  margin-left: -8px;
+}
+
+.nextBtn {
+  padding: 4px 8px;
+  color: var(--fg-dim);
+  font-size: 18px;
+  margin-right: -8px;
+}
+
+.headerCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.monthLabel {
+  color: var(--fg-dimmer);
+}
+
+.weekLabel {
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: var(--fg);
+}
+
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 8px;
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--fg);
+  opacity: 1;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.pill.today {
+  border-color: var(--border-strong);
+}
+
+.pill.future {
+  opacity: 0.4;
+  color: var(--fg-dimmest);
+}
+
+.pill.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.dayLetter {
+  color: var(--fg-dimmer);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+.pill.selected .dayLetter {
+  color: var(--accent-ink);
+}
+
+.dayNum {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 2px;
+  background: transparent;
+  opacity: var(--dot-opacity, 0);
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.pill.hasProgress .dot {
+  background: var(--fg-dim);
+}
+
+.pill.complete .dot {
+  background: var(--accent);
+}
+
+.pill.selected.hasProgress .dot {
+  background: var(--accent-ink);
+}

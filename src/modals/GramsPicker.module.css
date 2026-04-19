@@ -1,0 +1,171 @@
+.header {
+  padding: 18px 20px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.title {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--fg-dim);
+}
+
+.cancelBtn {
+  color: var(--fg-dim);
+}
+
+.productRow {
+  padding: 0 20px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.productInfo {
+  min-width: 0;
+  flex: 1;
+}
+
+.productName {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+}
+
+.productBrand {
+  color: var(--fg-dimmer);
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+}
+
+.editBtn {
+  color: var(--fg-dim);
+  letter-spacing: 0.14em;
+  flex-shrink: 0;
+}
+
+.gramsBox {
+  margin: 0 20px;
+  padding: 24px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.bumpBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+  border: 1px solid var(--border-strong);
+  color: var(--fg);
+  font-size: 20px;
+}
+
+.gramsRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.gramsInput {
+  font-size: 56px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--fg);
+  width: calc(var(--ch, 2) * 1ch);
+  text-align: center;
+}
+
+.gramsUnit {
+  font-size: 18px;
+  color: var(--fg-dimmer);
+}
+
+.quickRow {
+  padding: 14px 20px 4px;
+  display: flex;
+  gap: 6px;
+}
+
+.quickBtn {
+  flex: 1;
+  padding: 10px 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg-dim);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.quickBtn.quickBtnActive {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.macros {
+  margin: 14px 20px 0;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.macroCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.macroLabel {
+  color: var(--fg-dimmer);
+  letter-spacing: 0.12em;
+  font-size: 9px;
+}
+
+.macroRow {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.macroValue {
+  font-size: 18px;
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.macroUnit {
+  color: var(--fg-dimmer);
+}
+
+.actions {
+  padding: 18px 20px 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.deleteBtn {
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 90, 74, 0.3);
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirmBtn:global(.btn-primary) {
+  flex: 1;
+}
