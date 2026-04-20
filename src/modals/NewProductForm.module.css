@@ -136,7 +136,7 @@
   width: 48px;
   flex-shrink: 0;
   border-radius: 12px;
-  background: var(--macro-p);
+  background: var(--accent);
   color: var(--bg);
   display: flex;
   align-items: center;

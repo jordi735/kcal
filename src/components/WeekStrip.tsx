@@ -180,23 +180,16 @@ export function WeekStrip({
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
     >
-      <div className={styles.header}>
+      <div className={`mono tiny caps ${styles.caption}`}>
+        {monthLabel} · W{String(weekNum).padStart(2, '0')}
+      </div>
+
+      <div className={styles.row}>
         <button onClick={() => shiftWeek(-1)} className={styles.prevBtn}>
           <ArrowLeftIcon size={16} />
         </button>
-        <div className={styles.headerCenter}>
-          <span className={`mono tiny caps ${styles.monthLabel}`}>{monthLabel}</span>
-          <span className={`mono caps ${styles.weekLabel}`}>
-            Week {String(weekNum).padStart(2, '0')}
-          </span>
-        </div>
-        <button onClick={() => shiftWeek(1)} className={styles.nextBtn}>
-          <ArrowRightIcon size={16} />
-        </button>
-      </div>
-
-      <div className={styles.days} ref={daysRef}>
-        {days.map((d, i) => {
+        <div className={styles.days} ref={daysRef}>
+          {days.map((d, i) => {
           const isSelected = isSameDay(d, selectedDate);
           const isToday = isSameDay(d, today);
           const totals = totalsByDate[toLocalDateString(d)];
@@ -215,6 +208,10 @@ export function WeekStrip({
             />
           );
         })}
+        </div>
+        <button onClick={() => shiftWeek(1)} className={styles.nextBtn}>
+          <ArrowRightIcon size={16} />
+        </button>
       </div>
     </div>
   );
