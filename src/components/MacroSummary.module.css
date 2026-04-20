@@ -32,6 +32,7 @@
   font-weight: 500;
   letter-spacing: -0.02em;
   color: var(--fg);
+  transition: color 0.3s ease;
 }
 
 .kcalNum.kcalNumOver {
@@ -76,7 +77,7 @@
   width: var(--kcal-pct, 0%);
   background: var(--accent);
   border-radius: 3px;
-  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .kcalBarFill.kcalBarFillOver {
@@ -105,7 +106,7 @@
   align-items: center;
   justify-content: center;
   color: var(--fg);
-  transition: background 0.2s ease;
+  transition: background 0.3s ease;
 }
 
 .settingsBtn:active {

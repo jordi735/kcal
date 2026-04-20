@@ -18,6 +18,11 @@
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
+  transition: border-color 0.3s ease;
+}
+
+.nutFieldBox:focus-within {
+  border-color: var(--fg-dim);
 }
 
 .nutFieldInput {
@@ -77,7 +82,7 @@
   border: 1px dashed var(--border-strong);
   background: var(--bg-elev-2);
   text-align: left;
-  transition: all 0.3s ease;
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .aiBanner.aiBannerPrefilled {
@@ -141,7 +146,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.15s ease;
+  transition: transform 0.3s ease;
 }
 
 .barcodeScanBtn:active {
@@ -165,6 +170,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 .unitBtn.unitBtnActive {
@@ -202,6 +208,7 @@
   border-radius: 8px;
   background: color-mix(in oklab, var(--danger) 12%, transparent);
   color: var(--danger);
+  animation: fadeIn 0.3s ease;
 }
 
 .atwaterWarnText {
@@ -233,7 +240,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 .deleteBtn.deleteBtnArmed {

@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 
-export const FADE_EXIT_MS = 250;
+export const FADE_EXIT_MS = 300;
 
 export function useFadeClose(onClose: () => void): {
   closing: boolean;

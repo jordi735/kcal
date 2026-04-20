@@ -17,7 +17,7 @@
 }
 
 .shell:global(.fullscreen-exit) {
-  animation: fadeOut 0.2s ease forwards;
+  animation: fadeOut 0.3s ease forwards;
 }
 
 .center {

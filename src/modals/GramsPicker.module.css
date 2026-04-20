@@ -66,6 +66,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.bumpBtn:active {
+  background: var(--bg-elev);
 }
 
 .gramsRow {
@@ -103,6 +108,7 @@
   color: var(--fg-dim);
   font-family: var(--mono);
   font-size: 12px;
+  transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 .quickBtn.quickBtnActive {

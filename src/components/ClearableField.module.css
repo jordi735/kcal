@@ -20,7 +20,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
+  opacity: 0;
+  pointer-events: none;
+  transition: background 0.3s ease, color 0.3s ease, opacity 0.3s ease;
+}
+
+.clear.clearVisible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .clear:active {

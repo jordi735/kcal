@@ -11,9 +11,9 @@
   color: var(--danger);
   letter-spacing: 0.14em;
   text-align: center;
-  animation: fadeIn 0.25s ease;
+  animation: fadeIn 0.3s ease;
 }
 
 .toast:global(.fullscreen-exit) {
-  animation: fadeOut 0.2s ease forwards;
+  animation: fadeOut 0.3s ease forwards;
 }

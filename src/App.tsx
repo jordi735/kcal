@@ -162,7 +162,7 @@ export function App() {
       window.setTimeout(() => {
         setTransientError((cur) => (cur === msg ? null : cur));
         setErrorExiting(false);
-      }, 250);
+      }, FADE_EXIT_MS);
     }, 3750);
   }, []);
 

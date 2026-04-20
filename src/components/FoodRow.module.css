@@ -3,7 +3,7 @@
   overflow: hidden;
 }
 
-.row.selected::before {
+.row::before {
   content: '';
   position: absolute;
   left: 0;
@@ -12,6 +12,12 @@
   width: 3px;
   background: var(--accent);
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.row.selected::before {
+  opacity: 1;
 }
 
 .main {
@@ -23,7 +29,7 @@
   background: var(--bg);
   text-align: left;
   gap: 12px;
-  transition: background 0.15s ease;
+  transition: background 0.3s ease;
 }
 
 .row.selected .main {

@@ -123,7 +123,7 @@ export function Sheet({ onClose, children, style }: SheetProps) {
       // `style` prop doesn't mention these keys.
       if (exitingRef.current) return;
       exitingRef.current = true;
-      sheet.style.transition = 'transform 0.25s ease-in';
+      sheet.style.transition = 'transform 0.3s ease-in';
       sheet.style.transform = 'translateY(100%)';
       sheet.style.pointerEvents = 'none';
       exitTimerRef.current = setTimeout(() => onCloseRef.current(), FADE_EXIT_MS);

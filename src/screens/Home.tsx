@@ -108,13 +108,12 @@ export function Home({
         )}
       </div>
 
-      {selectionMode && (
-        <SelectionBar
-          selected={selectedEntries}
-          onClear={clearSelection}
-          onDelete={handleDelete}
-        />
-      )}
+      <SelectionBar
+        visible={selectionMode}
+        selected={selectedEntries}
+        onClear={clearSelection}
+        onDelete={handleDelete}
+      />
 
       <MacroSummary
         entries={entries}

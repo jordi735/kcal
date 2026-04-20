@@ -17,6 +17,7 @@
 .value {
   font-size: 11px;
   color: var(--fg);
+  transition: color 0.3s ease;
 }
 
 .value.valueOver {
@@ -43,6 +44,6 @@
   width: var(--fill-pct, 0%);
   background: var(--bar-color, var(--accent));
   border-radius: 2px;
-  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.3s ease;
+  transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.3s ease;
   transform-origin: left;
 }

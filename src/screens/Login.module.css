@@ -39,6 +39,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  animation: fadeIn 0.3s ease;
 }
 
 .submitBtn:global(.btn-primary) {
@@ -53,6 +54,7 @@
   color: var(--danger);
   letter-spacing: 0.06em;
   margin-top: 2px;
+  animation: fadeIn 0.3s ease;
 }
 
 .helpMsg {
@@ -60,6 +62,7 @@
   color: var(--fg-dimmer);
   letter-spacing: 0.06em;
   margin-top: 4px;
+  animation: fadeIn 0.3s ease;
 }
 
 .sentCard {
@@ -104,6 +107,7 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
   padding: 12px;
+  transition: opacity 0.3s ease;
 }
 
 .differentEmail:disabled {

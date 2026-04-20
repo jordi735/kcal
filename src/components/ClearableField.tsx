@@ -35,19 +35,19 @@ export function ClearableField({
         onInput={(e) => onChange(e.currentTarget.value)}
         className={inputClass}
       />
-      {value.length > 0 && (
-        <button
-          type="button"
-          onClick={() => {
-            onChange('');
-            ref.current?.focus();
-          }}
-          className={styles.clear}
-          aria-label="Clear"
-        >
-          <XMarkIcon size={14} />
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => {
+          onChange('');
+          ref.current?.focus();
+        }}
+        className={`${styles.clear}${value.length > 0 ? ` ${styles.clearVisible}` : ''}`}
+        tabIndex={value.length > 0 ? 0 : -1}
+        aria-hidden={value.length === 0}
+        aria-label="Clear"
+      >
+        <XMarkIcon size={14} />
+      </button>
     </div>
   );
 }
