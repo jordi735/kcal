@@ -39,7 +39,7 @@ const SYSTEM_PROMPT = `You extract nutrition facts from a food label image. Rule
 - Use ONLY the per-100g (or per-100ml) column. Ignore per-serving columns entirely.
 - Prefer kcal over kJ. If only kJ is shown, compute kcal = round(kJ / 4.184).
 - "unit" is "g" for solids, "ml" for liquids.
-- "name" is the product's name as printed, in Title Case (e.g. "Peanut Butter").
+- "name" is the product's name as printed.
 - "brand" is the manufacturer/brand if clearly printed; else null.
 - If a macro is genuinely unreadable, set that number to null. Do not guess.
 - If you can't read kcal at all, set kcal to null.

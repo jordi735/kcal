@@ -171,6 +171,8 @@ input[type="number"] {
 
 .sheet--snapping { transition: transform 0.2s ease-out; }
 
+.week-strip--snap { transition: transform 0.2s ease; }
+
 .no-scroll { overscroll-behavior: contain; }
 
 /* Exit animations. Overlay fades, sheet slides down, fullscreen modals

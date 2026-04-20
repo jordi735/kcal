@@ -1,5 +1,10 @@
-// Week strip: week number, prev/next, 7 day pills with dots for progress
+// Week strip: week number, prev/next, 7 day pills with dots for progress.
+// A horizontal swipe past ~50px shifts the visible week (same as the
+// prev/next arrows). Pointer events axis-lock on first move so a vertical
+// gesture starting here doesn't hijack the food list's page scroll.
 
+import type { JSX } from 'preact';
+import { useRef } from 'preact/hooks';
 import type { Macros } from '../types';
 import {
   DAY_LETTERS,
@@ -11,6 +16,9 @@ import {
 } from '../dates';
 import { ArrowLeftIcon, ArrowRightIcon } from './Icon';
 import styles from './WeekStrip.module.css';
+
+const AXIS_LOCK_PX = 8;
+const COMMIT_THRESHOLD_PX = 50;
 
 type WeekStripProps = {
   selectedDate: Date;
@@ -65,6 +73,15 @@ export function WeekStrip({
   totalsByDate,
   goalKcal,
 }: WeekStripProps) {
+  const daysRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef({
+    startX: 0,
+    startY: 0,
+    pointerId: -1,
+    lock: null as 'x' | 'y' | null,
+    active: false,
+  });
+
   const today = new Date();
   const days = weekDays(weekStart);
   const firstDay = days[0];
@@ -94,8 +111,75 @@ export function WeekStrip({
     onChangeWeek(next);
   };
 
+  const resetDays = (animated: boolean) => {
+    const el = daysRef.current;
+    if (el === null) return;
+    if (animated) {
+      const onEnd = () => {
+        el.removeEventListener('transitionend', onEnd);
+        el.classList.remove('week-strip--snap');
+      };
+      el.addEventListener('transitionend', onEnd);
+      el.classList.add('week-strip--snap');
+    }
+    el.style.transform = 'translateX(0)';
+  };
+
+  const onPointerDown = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      pointerId: e.pointerId,
+      lock: null,
+      active: true,
+    };
+    // Cancel any in-flight snap so subsequent translate is 1:1 with the finger.
+    daysRef.current?.classList.remove('week-strip--snap');
+  };
+
+  const onPointerMove = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag.active) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (drag.lock === null) {
+      if (Math.abs(dx) < AXIS_LOCK_PX && Math.abs(dy) < AXIS_LOCK_PX) return;
+      drag.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (drag.lock === 'x') {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }
+    }
+    if (drag.lock === 'x' && daysRef.current !== null) {
+      daysRef.current.style.transform = `translateX(${dx}px)`;
+    }
+  };
+
+  const onPointerEnd = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag.active) return;
+    const dx = e.clientX - drag.startX;
+    const lock = drag.lock;
+    drag.active = false;
+    drag.lock = null;
+    if (lock !== 'x') return;
+    if (Math.abs(dx) >= COMMIT_THRESHOLD_PX) {
+      // Finger went left → slide forward in time (next week).
+      resetDays(false);
+      shiftWeek(dx < 0 ? 1 : -1);
+    } else {
+      resetDays(true);
+    }
+  };
+
   return (
-    <div className={styles.wrap}>
+    <div
+      className={styles.wrap}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerEnd}
+      onPointerCancel={onPointerEnd}
+    >
       <div className={styles.header}>
         <button onClick={() => shiftWeek(-1)} className={styles.prevBtn}>
           <ArrowLeftIcon size={16} />
@@ -111,7 +195,7 @@ export function WeekStrip({
         </button>
       </div>
 
-      <div className={styles.days}>
+      <div className={styles.days} ref={daysRef}>
         {days.map((d, i) => {
           const isSelected = isSameDay(d, selectedDate);
           const isToday = isSameDay(d, today);
