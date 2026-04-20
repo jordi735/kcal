@@ -67,11 +67,6 @@
   border-color: var(--border-strong);
 }
 
-.pill.future {
-  opacity: 0.4;
-  color: var(--fg-dimmest);
-}
-
 .pill.selected {
   background: var(--accent);
   border-color: var(--accent);

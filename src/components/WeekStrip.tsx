@@ -26,7 +26,6 @@ type DayPillProps = {
   dayLetter: string;
   isSelected: boolean;
   isToday: boolean;
-  isFuture: boolean;
   progress: number;
   onSelect: (d: Date) => void;
 };
@@ -34,17 +33,15 @@ type DayPillProps = {
 const cx = (...xs: (string | false | null | undefined)[]) =>
   xs.filter(Boolean).join(' ');
 
-function DayPill({ date, dayLetter, isSelected, isToday, isFuture, progress, onSelect }: DayPillProps) {
+function DayPill({ date, dayLetter, isSelected, isToday, progress, onSelect }: DayPillProps) {
   const dotOpacity = progress > 0 ? Math.max(0.4, progress) : 0;
 
   return (
     <button
-      onClick={() => { if (!isFuture) onSelect(date); }}
-      disabled={isFuture}
+      onClick={() => onSelect(date)}
       className={cx(
         styles.pill,
         isToday && styles.today,
-        isFuture && styles.future,
         isSelected && styles.selected,
         progress > 0 && styles.hasProgress,
         progress > 0.9 && styles.complete,
@@ -118,7 +115,6 @@ export function WeekStrip({
         {days.map((d, i) => {
           const isSelected = isSameDay(d, selectedDate);
           const isToday = isSameDay(d, today);
-          const isFuture = d > today;
           const totals = totalsByDate[toLocalDateString(d)];
           const progress = totals ? Math.min(1, totals.kcal / goalKcal) : 0;
           const dayLetter = DAY_LETTERS[i] ?? '';
@@ -130,7 +126,6 @@ export function WeekStrip({
               dayLetter={dayLetter}
               isSelected={isSelected}
               isToday={isToday}
-              isFuture={isFuture}
               progress={progress}
               onSelect={onSelectDate}
             />
