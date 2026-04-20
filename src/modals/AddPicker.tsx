@@ -18,7 +18,7 @@ type AddPickerProps = {
 
 export function AddPicker(props: AddPickerProps) {
   return (
-    <Sheet onClose={props.onClose} style={{ ['--sheet-height' as any]: '80%' }}>
+    <Sheet onClose={props.onClose} style={{ ['--sheet-height' as any]: '92%' }}>
       <AddPickerInner {...props} />
     </Sheet>
   );

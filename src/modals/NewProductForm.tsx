@@ -72,7 +72,7 @@ function toField(n: number | undefined): NumField {
 
 export function NewProductForm(props: NewProductFormProps) {
   return (
-    <Sheet onClose={props.onClose}>
+    <Sheet onClose={props.onClose} style={{ ['--sheet-max-height' as any]: '100%' }}>
       <NewProductFormInner {...props} />
     </Sheet>
   );
