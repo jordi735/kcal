@@ -20,6 +20,21 @@ const app = express();
 app.use(express.json({ limit: '2mb' }));
 app.use(log.requestLogger);
 
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Frame-Options', 'DENY');
+  next();
+});
+
+app.use((req, res, next) => {
+  const isApi = API_PREFIXES.some((p) => req.path === p || req.path.startsWith(p + '/'));
+  if (isApi) {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  }
+  next();
+});
+
 app.use('/auth', authRouter);
 app.use('/settings', settingsRouter);
 app.use('/products', productsRouter);
@@ -28,7 +43,22 @@ app.use('/debug', debugRouter);
 
 const distDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 
-app.use(express.static(distDir, { index: false }));
+app.use(
+  express.static(distDir, {
+    index: false,
+    setHeaders: (res, filePath) => {
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        return;
+      }
+      if (filePath.endsWith(`${path.sep}sw.js`)) {
+        res.setHeader('Cache-Control', 'no-cache');
+        return;
+      }
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+    },
+  }),
+);
 
 // Unknown API paths must not fall through to the SPA — otherwise a buggy
 // fetch('/auth/typo') returns HTML and the client JSON-parses it.

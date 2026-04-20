@@ -4,6 +4,7 @@
 import { useState } from 'preact/hooks';
 import type { Macros } from '../types';
 import { Sheet, useSheetClose } from '../components/Sheet';
+import { ClearableField } from '../components/ClearableField';
 import { ArrowRightIcon, BarcodeIcon, ExclamationTriangleIcon, SparklesIcon, TrashIcon } from '../components/Icon';
 import styles from './NewProductForm.module.css';
 
@@ -46,6 +47,7 @@ function NutField({ label, value, onChange, unit }: NutFieldProps) {
           type="number"
           inputMode="decimal"
           value={value === '' ? '' : String(value)}
+          onFocus={() => onChange('')}
           onInput={(e) => {
             const raw = e.currentTarget.value;
             if (raw === '') {
@@ -198,20 +200,18 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
 
         <div className="field">
           <label className="field-label">Name *</label>
-          <input
-            className="field-input"
+          <ClearableField
             value={name}
-            onInput={(e) => setName(e.currentTarget.value)}
+            onChange={setName}
             placeholder="e.g. Peanut Butter"
           />
         </div>
 
         <div className="field">
           <label className="field-label">Brand</label>
-          <input
-            className="field-input"
+          <ClearableField
             value={brand}
-            onInput={(e) => setBrand(e.currentTarget.value)}
+            onChange={setBrand}
             placeholder="optional"
           />
         </div>
@@ -219,14 +219,14 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
         <div className="field">
           <label className="field-label">Barcode</label>
           <div className={styles.barcodeRow}>
-            <input
-              className={`field-input ${styles.barcodeInput}`}
+            <ClearableField
               value={barcode}
-              onInput={(e) => setBarcode(e.currentTarget.value)}
+              onChange={setBarcode}
               placeholder="optional"
               maxLength={64}
               inputMode="numeric"
               autoComplete="off"
+              wrapClassName={styles.barcodeInput}
             />
             <button
               type="button"

@@ -113,12 +113,6 @@
   gap: 6px;
 }
 
-.title {
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  color: var(--fg-dim);
-}
-
 .saveBtn {
   color: var(--accent);
   letter-spacing: 0.14em;

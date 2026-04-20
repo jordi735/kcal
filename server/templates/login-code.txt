@@ -1,0 +1,7 @@
+kcal.
+
+Enter this code in the app to sign in. It expires in {{expiryMinutes}} minutes.
+
+{{code}}
+
+Didn't ask for this? Ignore this email.

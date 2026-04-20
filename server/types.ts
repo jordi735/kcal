@@ -21,7 +21,7 @@ import type { Macros } from '../shared/types.js';
 
 // --- auth / sessions ---
 
-export type MagicEntry = { email: string; expiresAt: number };
+export type LoginCodeEntry = { code: string; expiresAt: number; attempts: number };
 
 export type SessionInfo = { token: string; expiresAt: number };
 

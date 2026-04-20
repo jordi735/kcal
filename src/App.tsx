@@ -15,7 +15,6 @@ import { mockGoals } from './mocks';
 import { Login } from './screens/Login';
 import { Settings } from './screens/Settings';
 import { Home } from './screens/Home';
-import { Verify } from './screens/Verify';
 import { AddPicker } from './modals/AddPicker';
 import { BarcodeScanner } from './modals/BarcodeScanner';
 import { AILabelScanner } from './modals/AILabelScanner';
@@ -148,8 +147,6 @@ export function App() {
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [modal, setModal] = useState<ModalState>({ kind: 'none' });
-  const [loginError, setLoginError] = useState<string | undefined>(undefined);
-  const [route, setRoute] = useState<string>(() => window.location.pathname);
   const [transientError, setTransientError] = useState<string | null>(null);
   const [errorExiting, setErrorExiting] = useState(false);
   const activeSheetCloseRef = useRef<(() => void) | null>(null);
@@ -186,14 +183,6 @@ export function App() {
     document.documentElement.style.setProperty('--accent', pickAccent(ratio));
   }, [todayTotals.kcal, goals.kcal]);
 
-  // If logged in but landed on /verify (shouldn't happen normally), bounce to /.
-  useEffect(() => {
-    if (route === '/verify' && user !== null) {
-      window.history.replaceState(null, '', '/');
-      setRoute('/');
-    }
-  }, [route, user]);
-
   // Load entries for the selected day and today whenever either changes.
   useEffect(() => {
     if (user === null) return;
@@ -214,48 +203,28 @@ export function App() {
     void loadWeek(toLocalDateString(next));
   }, [user, weekStart, loadWeek]);
 
-  // Handle login — request a magic link.
-  const onLoginSubmit = async (email: string): Promise<void> => {
-    setLoginError(undefined);
-    try {
-      await api<{ ok: true }>('/auth/magic-link', {
-        method: 'POST',
-        body: { email },
-      });
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Could not send magic link';
-      setLoginError(message);
-      throw err;
-    }
+  // Handle login — request a 6-digit sign-in code by email.
+  const onRequestCode = async (email: string): Promise<void> => {
+    await api<{ ok: true }>('/auth/request-code', {
+      method: 'POST',
+      body: { email },
+    });
   };
 
-  // Handle successful verify.
-  const onVerified = (verifiedUser: User, token: string): void => {
-    localStorage.setItem(SESSION_TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(verifiedUser));
-    window.history.replaceState(null, '', '/');
-    setRoute('/');
-    setGoals(userToGoals(verifiedUser));
-    setUser(verifiedUser);
+  // Verify the 6-digit code and persist the session.
+  const onVerifyCode = async (email: string, code: string): Promise<void> => {
+    const res = await api<{ session_token: string; user: User }>('/auth/verify-code', {
+      method: 'POST',
+      body: { email, code },
+    });
+    localStorage.setItem(SESSION_TOKEN_KEY, res.session_token);
+    localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+    setGoals(userToGoals(res.user));
+    setUser(res.user);
   };
 
-  const onVerifyFailure = (): void => {
-    window.history.replaceState(null, '', '/');
-    setRoute('/');
-  };
-
-  // Auth — verify route first, then login if logged out.
-  if (route === '/verify' && user === null) {
-    return <Verify onVerified={onVerified} onFailure={onVerifyFailure} />;
-  }
   if (user === null) {
-    return (
-      <Login
-        onSubmit={onLoginSubmit}
-        {...(loginError !== undefined ? { error: loginError } : {})}
-      />
-    );
+    return <Login onRequestCode={onRequestCode} onVerifyCode={onVerifyCode} />;
   }
 
   const closeModal = () => setModal({ kind: 'none' });

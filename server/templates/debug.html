@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>kcal · debug</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #1d2021;
+      color: #ebdbb2;
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    h1 { font-size: 18px; margin: 0 0 4px; color: #fabd2f; }
+    h2 { font-size: 15px; margin: 32px 0 8px; color: #83a598; }
+    .count { color: #928374; font-size: 12px; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 8px;
+      background: #282828;
+    }
+    th, td {
+      padding: 6px 10px;
+      text-align: left;
+      border-bottom: 1px solid #3c3836;
+      white-space: nowrap;
+    }
+    th {
+      background: #32302f;
+      color: #d3869b;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+    }
+    tr:hover td { background: #32302f; }
+    td.null { color: #504945; font-style: italic; }
+    .empty { color: #928374; padding: 12px 0; }
+  </style>
+</head>
+<body>
+  <h1>kcal · debug</h1>
+  <div class="count">generated {{generatedAt}}</div>
+
+  <h2>users <span class="count">({{usersCount}})</span></h2>
+  {{usersSection}}
+
+  <h2>products <span class="count">({{productsCount}})</span></h2>
+  {{productsSection}}
+</body>
+</html>

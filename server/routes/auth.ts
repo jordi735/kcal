@@ -1,17 +1,16 @@
-// POST /auth/magic-link, /auth/verify, /auth/logout.
-// Deliberately does not leak account existence via /auth/magic-link.
+// POST /auth/request-code, /auth/verify-code, /auth/logout.
+// Deliberately does not leak account existence via /auth/request-code.
 
 import { Router } from 'express';
 import {
   authMiddleware,
-  consumeMagicLink,
+  consumeLoginCode,
   createSession,
   deleteSession,
-  issueMagicLink,
+  issueLoginCode,
 } from '../auth.js';
-import { sendMagicLink } from '../email.js';
-import { env } from '../env.js';
-import { EMAIL_RE, isObject } from '../guards.js';
+import { sendLoginCode } from '../email.js';
+import { EMAIL_RE, isObject, LOGIN_CODE_RE } from '../guards.js';
 import { statements } from '../statements.js';
 import type { UserRow } from '../types.js';
 
@@ -21,36 +20,46 @@ function isEmailBody(v: unknown): v is { email: string } {
   return isObject(v) && typeof v.email === 'string' && EMAIL_RE.test(v.email);
 }
 
-function isTokenBody(v: unknown): v is { token: string } {
-  return isObject(v) && typeof v.token === 'string' && v.token.length > 0;
+function isVerifyCodeBody(v: unknown): v is { email: string; code: string } {
+  return (
+    isObject(v) &&
+    typeof v.email === 'string' &&
+    EMAIL_RE.test(v.email) &&
+    typeof v.code === 'string' &&
+    LOGIN_CODE_RE.test(v.code)
+  );
 }
 
-authRouter.post('/magic-link', async (req, res) => {
+authRouter.post('/request-code', async (req, res) => {
   if (!isEmailBody(req.body)) {
     res.status(400).json({ error: 'invalid_email' });
     return;
   }
   const email = req.body.email.trim().toLowerCase();
   statements.users.upsert.run(email, Date.now());
-  const token = issueMagicLink(email);
-  const url = `${env.MAGIC_LINK_BASE_URL}/verify?token=${token}`;
-  await sendMagicLink(email, url);
+  const code = issueLoginCode(email);
+  await sendLoginCode(email, code);
   res.json({ ok: true });
 });
 
-authRouter.post('/verify', (req, res) => {
-  if (!isTokenBody(req.body)) {
-    res.status(400).json({ error: 'invalid_or_expired_token' });
+authRouter.post('/verify-code', (req, res) => {
+  if (!isVerifyCodeBody(req.body)) {
+    res.status(400).json({ error: 'invalid_or_expired_code' });
     return;
   }
-  const email = consumeMagicLink(req.body.token);
-  if (email === null) {
-    res.status(400).json({ error: 'invalid_or_expired_token' });
+  const email = req.body.email.trim().toLowerCase();
+  const result = consumeLoginCode(email, req.body.code);
+  if (result === 'exhausted') {
+    res.status(400).json({ error: 'too_many_attempts' });
+    return;
+  }
+  if (result !== 'ok') {
+    res.status(400).json({ error: 'invalid_or_expired_code' });
     return;
   }
   const user = statements.users.selectByEmail.get(email) as UserRow | undefined;
   if (user === undefined) {
-    res.status(400).json({ error: 'invalid_or_expired_token' });
+    res.status(400).json({ error: 'invalid_or_expired_code' });
     return;
   }
   const session = createSession(user.id);

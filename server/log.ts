@@ -65,8 +65,7 @@ function emailHash(email: string): string {
 }
 
 // Logs a "request" line with { method, path, status, ms } on response finish.
-// Uses req.path (not originalUrl) to keep magic-link ?token= query strings out
-// of logs.
+// Uses req.path (not originalUrl) to keep query-string secrets out of logs.
 const requestLogger: RequestHandler = (req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {

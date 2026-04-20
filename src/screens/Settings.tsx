@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { useFadeClose } from '../hooks/useFadeClose';
 import type { Goals } from '../types';
 import { ArrowLeftIcon, MinusIcon, PlusIcon } from '../components/Icon';
@@ -22,6 +22,13 @@ type GoalFieldProps = {
 };
 
 function GoalField({ label, value, onChange, suffix = 'g', step = 5, isLast = false }: GoalFieldProps) {
+  const [text, setText] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setText(String(value));
+  }, [value, focused]);
+
   return (
     <div className={`${styles.field}${isLast ? ` ${styles.fieldLast}` : ''}`}>
       <div className={styles.fieldInfo}>
@@ -39,10 +46,22 @@ function GoalField({ label, value, onChange, suffix = 'g', step = 5, isLast = fa
           <input
             type="number"
             inputMode="numeric"
-            value={value}
-            onInput={(e) => onChange(Number(e.currentTarget.value) || 0)}
+            value={text}
+            onFocus={() => {
+              setFocused(true);
+              setText('');
+            }}
+            onBlur={() => {
+              setFocused(false);
+              if (text === '') setText(String(value));
+            }}
+            onInput={(e) => {
+              const raw = e.currentTarget.value;
+              setText(raw);
+              onChange(Math.max(0, Number(raw) || 0));
+            }}
             className={`mono ${styles.valueInput}`}
-            style={{ ['--ch' as any]: String(value).length }}
+            style={{ ['--ch' as any]: text.length }}
           />
           {suffix ? (
             <span className={`mono tiny ${styles.valueSuffix}`}>{suffix}</span>
@@ -118,7 +137,6 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
           <ArrowLeftIcon size={12} />
           Close
         </button>
-        <span className={`mono caps ${styles.title}`}>Settings</span>
         <button
           onClick={save}
           disabled={saving}

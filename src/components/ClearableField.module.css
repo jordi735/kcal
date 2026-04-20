@@ -1,0 +1,29 @@
+.wrap {
+  position: relative;
+  display: block;
+}
+
+.input {
+  padding-right: 40px;
+  width: 100%;
+}
+
+.clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  color: var(--fg-dimmer);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.clear:active {
+  background: var(--bg);
+  color: var(--fg);
+}

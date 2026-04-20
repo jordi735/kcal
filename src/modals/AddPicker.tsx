@@ -4,7 +4,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { Product } from '../types';
 import { api } from '../api';
 import { Sheet, useSheetClose } from '../components/Sheet';
-import { BarcodeIcon, MagnifyingGlassIcon, PlusIcon } from '../components/Icon';
+import { BarcodeIcon, MagnifyingGlassIcon, PlusIcon, XMarkIcon } from '../components/Icon';
 import styles from './AddPicker.module.css';
 
 type AddPickerProps = {
@@ -159,8 +159,12 @@ function AddPickerInner({
             className={styles.searchInput}
           />
           {q && (
-            <button onClick={() => setQ('')} className={styles.clearBtn}>
-              ×
+            <button
+              onClick={() => setQ('')}
+              className={styles.clearBtn}
+              aria-label="Clear"
+            >
+              <XMarkIcon size={14} />
             </button>
           )}
         </div>

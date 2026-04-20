@@ -62,13 +62,6 @@
   margin-top: 4px;
 }
 
-.sentBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  animation: fadeIn 0.4s ease;
-}
-
 .sentCard {
   padding: 20px;
   background: var(--bg-elev);
@@ -91,10 +84,28 @@
   color: var(--fg);
 }
 
+.codeInput {
+  text-align: center;
+  font-size: 28px;
+  letter-spacing: 0.3em;
+  padding: 18px 14px;
+}
+
+.codeActions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .differentEmail {
   font-size: 12px;
   color: var(--fg-dimmer);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   padding: 12px;
+}
+
+.differentEmail:disabled {
+  opacity: 0.4;
 }

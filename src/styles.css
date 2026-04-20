@@ -103,6 +103,18 @@ input[type="number"] {
 .caps { text-transform: uppercase; letter-spacing: 0.08em; }
 .tiny { font-size: 10px; letter-spacing: 0.12em; }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* hide scrollbars */
 .no-scroll::-webkit-scrollbar { display: none; }
 .no-scroll { scrollbar-width: none; }

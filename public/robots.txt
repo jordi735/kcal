@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /$
+Disallow: /auth/
+Disallow: /settings/
+Disallow: /products/
+Disallow: /entries/
+Disallow: /debug/
+
+Sitemap: https://usekcal.com/sitemap.xml

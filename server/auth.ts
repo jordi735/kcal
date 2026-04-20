@@ -1,6 +1,8 @@
-// Magic-link issuance + session lifecycle + bearer-token middleware.
-// Magic-link tokens live in memory only (lost on restart by design).
-// Session tokens are stored as-is — simplicity wins at our scale.
+// Login-code issuance + session lifecycle + bearer-token middleware.
+// Login codes live in memory only, keyed by lowercased email — a second
+// request for the same email atomically overwrites the prior code (resend
+// semantics). Safe in single-process Node where the event loop serialises
+// concurrent access.
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -12,24 +14,26 @@ declare global {
   }
 }
 
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import type { RequestHandler, Response } from 'express';
 import { env } from './env.js';
 import { log } from './log.js';
 import { statements } from './statements.js';
-import type { MagicEntry, SessionInfo, SessionRow } from './types.js';
+import type { LoginCodeEntry, SessionInfo, SessionRow } from './types.js';
 
-const magicLinks = new Map<string, MagicEntry>();
+const loginCodes = new Map<string, LoginCodeEntry>();
 
-const MAGIC_LINK_EXPIRY_MS = env.MAGIC_LINK_EXPIRY_MINUTES * 60_000;
+const LOGIN_CODE_EXPIRY_MS = env.LOGIN_CODE_EXPIRY_MINUTES * 60_000;
 const SESSION_EXPIRY_MS = env.SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+const MAX_CODE_ATTEMPTS = 5;
 
-// Purge expired magic-link tokens every 5 minutes. .unref() so this timer
-// does not keep the process alive on graceful shutdown.
+// Purge expired login codes every 5 minutes. .unref() so this timer does not
+// keep the process alive on graceful shutdown.
 const purge = setInterval(() => {
   const now = Date.now();
-  for (const [token, entry] of magicLinks) {
-    if (entry.expiresAt < now) magicLinks.delete(token);
+  for (const [email, entry] of loginCodes) {
+    if (entry.expiresAt < now) loginCodes.delete(email);
   }
 }, 5 * 60_000);
 purge.unref();
@@ -39,19 +43,40 @@ function rejectUnauthorized(res: Response, reason: string, path: string): void {
   res.status(401).json({ error: 'unauthorized' });
 }
 
-export function issueMagicLink(email: string): string {
-  const token = randomBytes(32).toString('base64url');
-  magicLinks.set(token, { email, expiresAt: Date.now() + MAGIC_LINK_EXPIRY_MS });
-  log.info('magic link issued', { emailHash: log.emailHash(email) });
-  return token;
+export function issueLoginCode(email: string): string {
+  const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
+  loginCodes.set(email, {
+    code,
+    expiresAt: Date.now() + LOGIN_CODE_EXPIRY_MS,
+    attempts: 0,
+  });
+  log.info('login code issued', { emailHash: log.emailHash(email) });
+  return code;
 }
 
-export function consumeMagicLink(token: string): string | null {
-  const entry = magicLinks.get(token);
-  if (entry === undefined) return null;
-  magicLinks.delete(token);
-  if (entry.expiresAt < Date.now()) return null;
-  return entry.email;
+export type ConsumeResult = 'ok' | 'invalid' | 'expired' | 'exhausted';
+
+export function consumeLoginCode(email: string, code: string): ConsumeResult {
+  const entry = loginCodes.get(email);
+  if (entry === undefined) return 'invalid';
+  if (entry.expiresAt < Date.now()) {
+    loginCodes.delete(email);
+    return 'expired';
+  }
+  const a = Buffer.from(entry.code, 'utf8');
+  const b = Buffer.from(code, 'utf8');
+  const matches = a.length === b.length && timingSafeEqual(a, b);
+  if (matches) {
+    loginCodes.delete(email);
+    return 'ok';
+  }
+  entry.attempts += 1;
+  if (entry.attempts >= MAX_CODE_ATTEMPTS) {
+    loginCodes.delete(email);
+    log.info('login code exhausted', { emailHash: log.emailHash(email) });
+    return 'exhausted';
+  }
+  return 'invalid';
 }
 
 export function createSession(userId: number): SessionInfo {

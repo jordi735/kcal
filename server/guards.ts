@@ -5,6 +5,7 @@
 export const EMAIL_RE = /\S+@\S+\.\S+/;
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export const TIME_RE = /^\d{2}:\d{2}$/;
+export const LOGIN_CODE_RE = /^\d{6}$/;
 
 export function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;

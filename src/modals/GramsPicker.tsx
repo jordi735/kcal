@@ -39,7 +39,13 @@ function GramsPickerInner({
   const [history, setHistory] = useState<number[] | null>(null);
   const [grams, setGrams] = useState<number>(initialGrams ?? 100);
   const [userChangedGrams, setUserChangedGrams] = useState(false);
+  const [text, setText] = useState<string>(String(initialGrams ?? 100));
+  const [focused, setFocused] = useState(false);
   const unit = product.unit;
+
+  useEffect(() => {
+    if (!focused) setText(String(grams));
+  }, [grams, focused]);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,13 +132,23 @@ function GramsPickerInner({
           <input
             type="number"
             inputMode="numeric"
-            value={grams}
+            value={text}
+            onFocus={() => {
+              setFocused(true);
+              setText('');
+            }}
+            onBlur={() => {
+              setFocused(false);
+              if (text === '') setText(String(grams));
+            }}
             onInput={(e) => {
-              const n = Number(e.currentTarget.value);
+              const raw = e.currentTarget.value;
+              setText(raw);
+              const n = Number(raw);
               updateGrams(Math.max(1, Number.isFinite(n) ? n : 0));
             }}
             className={`mono ${styles.gramsInput}`}
-            style={{ ['--ch' as any]: Math.max(2, String(grams).length) }}
+            style={{ ['--ch' as any]: Math.max(2, text.length) }}
           />
           <span className={`mono ${styles.gramsUnit}`}>{unit}</span>
         </div>
