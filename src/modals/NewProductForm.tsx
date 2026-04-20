@@ -4,7 +4,7 @@
 import { useState } from 'preact/hooks';
 import type { Macros } from '../types';
 import { Sheet, useSheetClose } from '../components/Sheet';
-import { ArrowRightIcon, BarcodeIcon, SparklesIcon, TrashIcon } from '../components/Icon';
+import { ArrowRightIcon, BarcodeIcon, ExclamationTriangleIcon, SparklesIcon, TrashIcon } from '../components/Icon';
 import styles from './NewProductForm.module.css';
 
 export type ProductDraft = {
@@ -104,6 +104,20 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
     protein !== '' &&
     carbs !== '' &&
     fat !== '';
+
+  // Soft Atwater check: kcal should roughly equal 4·protein + 4·carbs + 9·fat.
+  // Tolerates 5% (alcohol and fiber-heavy products can legitimately diverge).
+  const atwaterExpected =
+    kcal !== '' && protein !== '' && carbs !== '' && fat !== ''
+      ? 4 * Number(protein) + 4 * Number(carbs) + 9 * Number(fat)
+      : null;
+  const atwaterMismatch =
+    atwaterExpected !== null &&
+    (() => {
+      const actual = Number(kcal);
+      const denom = Math.max(actual, atwaterExpected);
+      return denom > 0 && Math.abs(actual - atwaterExpected) / denom > 0.05;
+    })();
 
   const submit = async () => {
     if (!valid || submitting) return;
@@ -248,6 +262,14 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
             <NutField label="Carbs" value={carbs} onChange={setCarbs} unit="g" />
             <NutField label="Fat" value={fat} onChange={setFat} unit="g" />
           </div>
+          {atwaterMismatch && atwaterExpected !== null && (
+            <div className={styles.atwaterWarn}>
+              <ExclamationTriangleIcon size={14} />
+              <span className={`mono tiny ${styles.atwaterWarnText}`}>
+                Macros imply ~{Math.round(atwaterExpected)} kcal — double-check the label.
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

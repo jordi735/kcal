@@ -194,6 +194,21 @@
   gap: 10px;
 }
 
+.atwaterWarn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.atwaterWarnText {
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+
 .footer {
   padding: 0 20px 20px;
   display: flex;
