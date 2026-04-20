@@ -11,8 +11,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  position: relative;
-  z-index: 2;
   transform: translateY(0);
   animation: slideUp 0.3s ease;
   transition: transform 0.3s ease;
@@ -21,7 +19,6 @@
 .exiting {
   transform: translateY(100%);
   pointer-events: none;
-  z-index: 0;
 }
 
 .count {
