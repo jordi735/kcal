@@ -1,3 +1,8 @@
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 .bar {
   background: var(--bg-elev-2);
   border-top: 1px solid var(--border);
