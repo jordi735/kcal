@@ -2,6 +2,8 @@
   background: var(--bg-elev);
   border-top: 1px solid var(--border);
   padding: 18px 20px 16px;
+  position: relative;
+  z-index: 1;
 }
 
 .headline {

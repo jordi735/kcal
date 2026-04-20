@@ -21,17 +21,24 @@ type SelectionBarProps = {
 
 export function SelectionBar({ visible, selected, onClear, onDelete }: SelectionBarProps) {
   const [render, setRender] = useState(visible);
+  const [entered, setEntered] = useState(false);
   const [exiting, setExiting] = useState(false);
   const lastSelectedRef = useRef(selected);
   if (visible) lastSelectedRef.current = selected;
 
+  // Entry: mount at translateY(100%), then flip to translateY(0) one frame
+  // later so the transition has two distinct paints to interpolate between.
+  // Exit: remove `entered`, add `exiting` — transform goes back to
+  // translateY(100%) and transitions out.
   useEffect(() => {
     if (visible) {
       setRender(true);
       setExiting(false);
-      return;
+      const id = requestAnimationFrame(() => setEntered(true));
+      return () => cancelAnimationFrame(id);
     }
     if (!render) return;
+    setEntered(false);
     setExiting(true);
     const t = window.setTimeout(() => {
       setRender(false);
@@ -48,7 +55,9 @@ export function SelectionBar({ visible, selected, onClear, onDelete }: Selection
   const n = shown.length;
 
   return (
-    <div className={`${styles.bar}${exiting ? ` ${styles.exiting}` : ''}`}>
+    <div
+      className={`${styles.bar}${entered && !exiting ? ` ${styles.entered}` : ''}${exiting ? ` ${styles.exiting}` : ''}`}
+    >
       <div className={styles.count}>
         <span className={`mono tiny caps ${styles.countLabel}`}>{n} selected</span>
         <div className={styles.totals}>

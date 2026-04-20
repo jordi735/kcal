@@ -6,9 +6,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  transform: translateY(0);
-  animation: slideUp 0.3s ease;
+  transform: translateY(100%);
   transition: transform 0.3s ease;
+}
+
+.entered {
+  transform: translateY(0);
 }
 
 .exiting {
