@@ -1,7 +1,6 @@
 // AddPicker — server-side search + recents + actions (scan barcode / create new product).
 
-import type { RefObject } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import type { Product } from '../types';
 import { api } from '../api';
 import { Sheet, useSheetClose } from '../components/Sheet';
@@ -18,17 +17,14 @@ type AddPickerProps = {
 };
 
 export function AddPicker(props: AddPickerProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
   return (
-    <Sheet onClose={props.onClose} style={{ ['--sheet-height' as any]: '80%' }} scrollRef={scrollRef}>
-      <AddPickerInner {...props} scrollRef={scrollRef} />
+    <Sheet onClose={props.onClose} style={{ ['--sheet-height' as any]: '80%' }}>
+      <AddPickerInner {...props} />
     </Sheet>
   );
 }
 
-type InnerProps = Omit<AddPickerProps, 'onClose'> & {
-  scrollRef: RefObject<HTMLDivElement>;
-};
+type InnerProps = Omit<AddPickerProps, 'onClose'>;
 
 function AddPickerInner({
   onPick,
@@ -36,7 +32,6 @@ function AddPickerInner({
   onAddTemp,
   onScanBarcode,
   addedProductIds,
-  scrollRef,
 }: InnerProps) {
   const close = useSheetClose();
   const [q, setQ] = useState('');
@@ -189,7 +184,7 @@ function AddPickerInner({
         </button>
       </div>
 
-      <div ref={scrollRef} className={`no-scroll ${styles.list}`}>
+      <div className={`no-scroll ${styles.list}`}>
         {showingSearch ? (
           searchLoading ? (
             <div className={`mono tiny caps ${styles.loadingMsg}`}>Searching...</div>

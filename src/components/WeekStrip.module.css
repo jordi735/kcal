@@ -36,6 +36,17 @@
 
 .days {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.track {
+  display: flex;
+  width: 300%;
+}
+
+.weekGrid {
+  flex: 0 0 33.333%;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 6px;

@@ -1,10 +1,11 @@
 // Week strip: week number, prev/next, 7 day pills with dots for progress.
-// A horizontal swipe past ~50px shifts the visible week (same as the
-// prev/next arrows). Pointer events axis-lock on first move so a vertical
-// gesture starting here doesn't hijack the food list's page scroll.
+// Layout is a 3-week carousel track (prev / current / next) inside .days,
+// so a horizontal swipe reveals neighbors 1:1 and commits animate the
+// neighbor fully into view before state swaps. Pointer events axis-lock
+// on first move so vertical gestures pass through to page scroll.
 
 import type { JSX } from 'preact';
-import { useRef } from 'preact/hooks';
+import { useLayoutEffect, useRef } from 'preact/hooks';
 import type { Macros } from '../types';
 import {
   DAY_LETTERS,
@@ -19,6 +20,12 @@ import styles from './WeekStrip.module.css';
 
 const AXIS_LOCK_PX = 8;
 const COMMIT_THRESHOLD_PX = 50;
+
+// Track has 3 grids, each 1/3 of track width. -33.333% centers the
+// current week in the viewport; -66.666% slides to next, 0% to prev.
+const TRACK_CENTER = 'translateX(-33.333%)';
+const TRACK_NEXT = 'translateX(-66.666%)';
+const TRACK_PREV = 'translateX(0%)';
 
 type WeekStripProps = {
   selectedDate: Date;
@@ -38,8 +45,23 @@ type DayPillProps = {
   onSelect: (d: Date) => void;
 };
 
+type WeekGridProps = {
+  monday: Date;
+  selectedDate: Date;
+  today: Date;
+  totalsByDate: Record<string, Macros>;
+  goalKcal: number;
+  onSelect: (d: Date) => void;
+};
+
 const cx = (...xs: (string | false | null | undefined)[]) =>
   xs.filter(Boolean).join(' ');
+
+function addDays(d: Date, n: number): Date {
+  const out = new Date(d);
+  out.setDate(d.getDate() + n);
+  return out;
+}
 
 function DayPill({ date, dayLetter, isSelected, isToday, progress, onSelect }: DayPillProps) {
   const dotOpacity = progress > 0 ? Math.max(0.4, progress) : 0;
@@ -65,6 +87,39 @@ function DayPill({ date, dayLetter, isSelected, isToday, progress, onSelect }: D
   );
 }
 
+function WeekGrid({
+  monday,
+  selectedDate,
+  today,
+  totalsByDate,
+  goalKcal,
+  onSelect,
+}: WeekGridProps) {
+  const days = weekDays(monday);
+  return (
+    <div className={styles.weekGrid}>
+      {days.map((d, i) => {
+        const isSelected = isSameDay(d, selectedDate);
+        const isToday = isSameDay(d, today);
+        const totals = totalsByDate[toLocalDateString(d)];
+        const progress = totals ? Math.min(1, totals.kcal / goalKcal) : 0;
+        const dayLetter = DAY_LETTERS[i] ?? '';
+        return (
+          <DayPill
+            key={toLocalDateString(d)}
+            date={d}
+            dayLetter={dayLetter}
+            isSelected={isSelected}
+            isToday={isToday}
+            progress={progress}
+            onSelect={onSelect}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export function WeekStrip({
   selectedDate,
   onSelectDate,
@@ -73,22 +128,40 @@ export function WeekStrip({
   totalsByDate,
   goalKcal,
 }: WeekStripProps) {
-  const daysRef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const animatingRef = useRef(false);
+  const commitEndRef = useRef<(() => void) | null>(null);
   const dragRef = useRef({
     startX: 0,
     startY: 0,
     pointerId: -1,
+    viewportWidth: 0,
     lock: null as 'x' | 'y' | null,
     active: false,
   });
 
+  // After weekStart changes (from an arrow click OR a committed swipe),
+  // snap the track back to center synchronously — before paint — so the
+  // newly-rendered middle grid lands in the viewport without a one-frame
+  // flash of the wrong grid at the old committed position.
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (track === null) return;
+    if (commitEndRef.current !== null) {
+      track.removeEventListener('transitionend', commitEndRef.current);
+      commitEndRef.current = null;
+    }
+    track.classList.remove('week-strip--snap');
+    track.style.transform = TRACK_CENTER;
+    animatingRef.current = false;
+  }, [weekStart]);
+
   const today = new Date();
-  const days = weekDays(weekStart);
-  const firstDay = days[0];
-  const lastDay = days[6];
-  if (!firstDay || !lastDay) {
-    return null;
-  }
+  const firstDay = weekStart;
+  const lastDay = addDays(weekStart, 6);
+  const prevMonday = addDays(weekStart, -7);
+  const nextMonday = addDays(weekStart, 7);
   const weekNum = getWeekNumber(firstDay);
   const firstYear = firstDay.getFullYear();
   const lastYear = lastDay.getFullYear();
@@ -111,31 +184,54 @@ export function WeekStrip({
     onChangeWeek(next);
   };
 
-  const resetDays = (animated: boolean) => {
-    const el = daysRef.current;
-    if (el === null) return;
-    if (animated) {
-      const onEnd = () => {
-        el.removeEventListener('transitionend', onEnd);
-        el.classList.remove('week-strip--snap');
-      };
-      el.addEventListener('transitionend', onEnd);
-      el.classList.add('week-strip--snap');
+  const snapTrackBack = () => {
+    const track = trackRef.current;
+    if (track === null) return;
+    const onEnd = () => {
+      track.removeEventListener('transitionend', onEnd);
+      track.classList.remove('week-strip--snap');
+    };
+    track.addEventListener('transitionend', onEnd);
+    track.classList.add('week-strip--snap');
+    track.style.transform = TRACK_CENTER;
+  };
+
+  const commitTrack = (direction: 1 | -1) => {
+    const track = trackRef.current;
+    if (track === null) return;
+    // Remove any previous pending commit listener so it can't double-fire
+    // if a transitionend from a prior (non-interrupted) animation lands late.
+    if (commitEndRef.current !== null) {
+      track.removeEventListener('transitionend', commitEndRef.current);
     }
-    el.style.transform = 'translateX(0)';
+    animatingRef.current = true;
+    const onEnd = () => {
+      track.removeEventListener('transitionend', onEnd);
+      if (commitEndRef.current === onEnd) commitEndRef.current = null;
+      // useLayoutEffect clears the snap class, resets transform to
+      // TRACK_CENTER, and flips animatingRef off in the same render.
+      shiftWeek(direction);
+    };
+    commitEndRef.current = onEnd;
+    track.addEventListener('transitionend', onEnd);
+    track.classList.add('week-strip--snap');
+    track.style.transform = direction === 1 ? TRACK_NEXT : TRACK_PREV;
   };
 
   const onPointerDown = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+    if (animatingRef.current) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const viewportWidth = viewportRef.current?.clientWidth ?? 0;
     dragRef.current = {
       startX: e.clientX,
       startY: e.clientY,
       pointerId: e.pointerId,
+      viewportWidth,
       lock: null,
       active: true,
     };
-    // Cancel any in-flight snap so subsequent translate is 1:1 with the finger.
-    daysRef.current?.classList.remove('week-strip--snap');
+    // Cancel any in-flight snap so the next translate is 1:1 with the finger.
+    trackRef.current?.classList.remove('week-strip--snap');
   };
 
   const onPointerMove = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
@@ -150,8 +246,12 @@ export function WeekStrip({
         e.currentTarget.setPointerCapture(e.pointerId);
       }
     }
-    if (drag.lock === 'x' && daysRef.current !== null) {
-      daysRef.current.style.transform = `translateX(${dx}px)`;
+    if (drag.lock === 'x' && trackRef.current !== null) {
+      const w = drag.viewportWidth;
+      // Clamp to ±viewportWidth so the drag can't pan past the rendered
+      // neighbors into empty space.
+      const clamped = w > 0 ? Math.max(-w, Math.min(w, dx)) : dx;
+      trackRef.current.style.transform = `translateX(calc(-33.333% + ${clamped}px))`;
     }
   };
 
@@ -165,10 +265,9 @@ export function WeekStrip({
     if (lock !== 'x') return;
     if (Math.abs(dx) >= COMMIT_THRESHOLD_PX) {
       // Finger went left → slide forward in time (next week).
-      resetDays(false);
-      shiftWeek(dx < 0 ? 1 : -1);
+      commitTrack(dx < 0 ? 1 : -1);
     } else {
-      resetDays(true);
+      snapTrackBack();
     }
   };
 
@@ -188,26 +287,33 @@ export function WeekStrip({
         <button onClick={() => shiftWeek(-1)} className={styles.prevBtn}>
           <ArrowLeftIcon size={16} />
         </button>
-        <div className={styles.days} ref={daysRef}>
-          {days.map((d, i) => {
-          const isSelected = isSameDay(d, selectedDate);
-          const isToday = isSameDay(d, today);
-          const totals = totalsByDate[toLocalDateString(d)];
-          const progress = totals ? Math.min(1, totals.kcal / goalKcal) : 0;
-          const dayLetter = DAY_LETTERS[i] ?? '';
-
-          return (
-            <DayPill
-              key={toLocalDateString(d)}
-              date={d}
-              dayLetter={dayLetter}
-              isSelected={isSelected}
-              isToday={isToday}
-              progress={progress}
+        <div className={styles.days} ref={viewportRef}>
+          <div className={styles.track} ref={trackRef}>
+            <WeekGrid
+              monday={prevMonday}
+              selectedDate={selectedDate}
+              today={today}
+              totalsByDate={totalsByDate}
+              goalKcal={goalKcal}
               onSelect={onSelectDate}
             />
-          );
-        })}
+            <WeekGrid
+              monday={weekStart}
+              selectedDate={selectedDate}
+              today={today}
+              totalsByDate={totalsByDate}
+              goalKcal={goalKcal}
+              onSelect={onSelectDate}
+            />
+            <WeekGrid
+              monday={nextMonday}
+              selectedDate={selectedDate}
+              today={today}
+              totalsByDate={totalsByDate}
+              goalKcal={goalKcal}
+              onSelect={onSelectDate}
+            />
+          </div>
         </div>
         <button onClick={() => shiftWeek(1)} className={styles.nextBtn}>
           <ArrowRightIcon size={16} />

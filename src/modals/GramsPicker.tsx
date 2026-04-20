@@ -5,7 +5,7 @@ import type { Product } from '../types';
 import { computeMacros } from '../mocks';
 import { api } from '../api';
 import { Sheet } from '../components/Sheet';
-import { ArrowRightIcon, MinusIcon, PlusIcon, TrashIcon } from '../components/Icon';
+import { ArrowRightIcon, MinusIcon, PencilIcon, PlusIcon, TrashIcon } from '../components/Icon';
 import styles from './GramsPicker.module.css';
 
 type GramsPickerProps = {
@@ -98,6 +98,15 @@ function GramsPickerInner({
     <>
       <div className={styles.header}>
         <span className={`mono caps ${styles.title}`}>{title}</span>
+        {onEditProduct !== undefined && (
+          <button
+            onClick={onEditProduct}
+            className={styles.editBtn}
+            aria-label="Edit product"
+          >
+            <PencilIcon size={16} />
+          </button>
+        )}
       </div>
 
       <div className={styles.productRow}>
@@ -107,14 +116,6 @@ function GramsPickerInner({
             <div className={`mono tiny caps ${styles.productBrand}`}>{product.brand}</div>
           )}
         </div>
-        {onEditProduct !== undefined && (
-          <button
-            onClick={onEditProduct}
-            className={`mono tiny caps ${styles.editBtn}`}
-          >
-            Edit Product
-          </button>
-        )}
       </div>
 
       <div className={styles.gramsBox}>

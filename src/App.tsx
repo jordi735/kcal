@@ -201,10 +201,17 @@ export function App() {
     if (selectedKey !== todayKey) void loadEntries(todayKey);
   }, [user, selectedKey, todayKey, loadEntries]);
 
-  // Load week totals whenever the visible week changes.
+  // Load week totals for the visible week and both neighbors, so the
+  // week-strip carousel can show real progress dots on swipe-in weeks.
   useEffect(() => {
     if (user === null) return;
+    const prev = new Date(weekStart);
+    prev.setDate(weekStart.getDate() - 7);
+    const next = new Date(weekStart);
+    next.setDate(weekStart.getDate() + 7);
     void loadWeek(toLocalDateString(weekStart));
+    void loadWeek(toLocalDateString(prev));
+    void loadWeek(toLocalDateString(next));
   }, [user, weekStart, loadWeek]);
 
   // Handle login — request a magic link.

@@ -1,8 +1,7 @@
 // NewProductForm — manual product entry, optionally prefilled from an AI scan.
 // Banner at the top opens the AI label scanner (parent-routed via onScanLabel).
 
-import type { RefObject } from 'preact';
-import { useRef, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import type { Macros } from '../types';
 import { Sheet, useSheetClose } from '../components/Sheet';
 import { ArrowRightIcon, BarcodeIcon, SparklesIcon, TrashIcon } from '../components/Icon';
@@ -70,19 +69,16 @@ function toField(n: number | undefined): NumField {
 }
 
 export function NewProductForm(props: NewProductFormProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
   return (
-    <Sheet onClose={props.onClose} scrollRef={scrollRef}>
-      <NewProductFormInner {...props} scrollRef={scrollRef} />
+    <Sheet onClose={props.onClose}>
+      <NewProductFormInner {...props} />
     </Sheet>
   );
 }
 
-type InnerProps = Omit<NewProductFormProps, 'onClose'> & {
-  scrollRef: RefObject<HTMLDivElement>;
-};
+type InnerProps = Omit<NewProductFormProps, 'onClose'>;
 
-function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onScanLabel, onScanBarcode, scrollRef }: InnerProps) {
+function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onScanLabel, onScanBarcode }: InnerProps) {
   const close = useSheetClose();
   const initialPer100 = initial?.per100;
 
@@ -163,7 +159,7 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
         </button>
       </div>
 
-      <div ref={scrollRef} className={`no-scroll ${styles.scroll}`}>
+      <div className={`no-scroll ${styles.scroll}`}>
         {!isEdit && (
           <button
             onClick={onScanLabel}

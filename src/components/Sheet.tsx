@@ -1,9 +1,7 @@
 // Bottom-sheet wrapper with drag-to-dismiss on the handle and a matching
 // exit animation when closed via overlay click / Cancel button. Pointer
-// events only — they cover touch + mouse everywhere the app runs. The
-// handle is reactive only when the internal scroll container (if any)
-// is at scrollTop === 0; drag threshold is 80px before we commit to
-// dismissing.
+// events only — they cover touch + mouse everywhere the app runs. Drag
+// threshold is 80px before we commit to dismissing.
 //
 // Children inside the sheet can trigger a close-with-animation by calling
 // `useSheetClose()` from context. The component's `onClose` prop is the
@@ -16,14 +14,13 @@
 // on tap.
 
 import { createContext } from 'preact';
-import type { ComponentChildren, JSX, RefObject } from 'preact';
+import type { ComponentChildren, JSX } from 'preact';
 import { useCallback, useContext, useEffect, useRef, useState } from 'preact/hooks';
 import { FADE_EXIT_MS } from '../hooks/useFadeClose';
 
 type SheetProps = {
   onClose: () => void;
   children: ComponentChildren;
-  scrollRef?: RefObject<HTMLDivElement>;
   style?: JSX.CSSProperties;
 };
 
@@ -56,7 +53,7 @@ export function useSheetClose(): () => void {
   return close;
 }
 
-export function Sheet({ onClose, children, scrollRef, style }: SheetProps) {
+export function Sheet({ onClose, children, style }: SheetProps) {
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const [exiting, setExiting] = useState(false);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -95,11 +92,6 @@ export function Sheet({ onClose, children, scrollRef, style }: SheetProps) {
 
   const onPointerDown = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
     if (exiting) return;
-    // Only start a drag if the user can actually dismiss — list must be at
-    // the top. Cache this once at pointerdown so mid-drag scrolls don't
-    // retroactively enable dismissal.
-    const scrollTop = scrollRef?.current?.scrollTop ?? 0;
-    if (scrollTop > 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     dragRef.current = { startY: e.clientY, pointerId: e.pointerId, active: true };
     sheetRef.current?.classList.remove('sheet--snapping', 'sheet--dismissing');
