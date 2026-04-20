@@ -1,5 +1,13 @@
 // Fetch wrapper: injects Bearer from localStorage, handles 401 by logging out.
 
+export const SESSION_TOKEN_KEY = 'kcal_session_token';
+export const USER_KEY = 'kcal_user';
+
+export function clearStoredSession(): void {
+  localStorage.removeItem(SESSION_TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
 type Body = Record<string, unknown> | FormData | undefined;
 
 type ApiOpts = {
@@ -17,7 +25,7 @@ export class ApiError extends Error {
 
 export async function api<T>(path: string, opts?: ApiOpts): Promise<T> {
   const headers = new Headers();
-  const token = localStorage.getItem('kcal_session_token');
+  const token = localStorage.getItem(SESSION_TOKEN_KEY);
   if (token !== null && token !== '') {
     headers.set('Authorization', `Bearer ${token}`);
   }
@@ -40,8 +48,7 @@ export async function api<T>(path: string, opts?: ApiOpts): Promise<T> {
   const res = await fetch(path, init);
 
   if (res.status === 401) {
-    localStorage.removeItem('kcal_session_token');
-    localStorage.removeItem('kcal_user');
+    clearStoredSession();
     window.location.assign('/');
     throw new ApiError('unauthorized', 401);
   }

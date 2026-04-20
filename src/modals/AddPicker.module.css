@@ -36,8 +36,8 @@
   text-overflow: ellipsis;
 }
 
-.addedBadge {
-  color: var(--accent);
+.yoursBadge {
+  color: var(--fg-dim);
   letter-spacing: 0.14em;
   flex-shrink: 0;
 }
@@ -138,6 +138,32 @@
   align-items: center;
   justify-content: center;
   color: var(--fg);
+}
+
+.scopeRow {
+  padding: 0 20px 14px;
+  display: flex;
+  gap: 8px;
+}
+
+.scopeBtn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.scopeBtn.scopeBtnActive {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
 }
 
 .list {

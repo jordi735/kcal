@@ -21,6 +21,19 @@ export class InvalidExtractionError extends Error {
   }
 }
 
+function buildUsageCtx(messages: SDKMessage[]): Record<string, unknown> {
+  const r = messages.find(
+    (m): m is Extract<SDKMessage, { type: 'result' }> => m.type === 'result',
+  );
+  return r === undefined
+    ? {}
+    : {
+        cost_usd: r.total_cost_usd,
+        input_tokens: r.usage.input_tokens,
+        output_tokens: r.usage.output_tokens,
+      };
+}
+
 const SYSTEM_PROMPT = `You extract nutrition facts from a food label image. Rules:
 - Output ONE JSON object, nothing else. No markdown, no prose, no code fences.
 - Use ONLY the per-100g (or per-100ml) column. Ignore per-serving columns entirely.
@@ -202,21 +215,12 @@ export async function probeClaude(): Promise<void> {
       messages.push(msg);
     }
 
-    const resultMsg = messages.find(
-      (m): m is Extract<SDKMessage, { type: 'result' }> => m.type === 'result',
-    );
     const text = extractResultText(messages).trim();
-
-    const ctx: Record<string, unknown> = {
+    log.info('claude probe ok', {
       ms: Date.now() - startedAt,
       response: text,
-    };
-    if (resultMsg !== undefined) {
-      ctx.cost_usd = resultMsg.total_cost_usd;
-      ctx.input_tokens = resultMsg.usage.input_tokens;
-      ctx.output_tokens = resultMsg.usage.output_tokens;
-    }
-    log.info('claude probe ok', ctx);
+      ...buildUsageCtx(messages),
+    });
   } catch (err) {
     log.error('claude probe failed', {
       ms: Date.now() - startedAt,
@@ -257,16 +261,10 @@ export async function extractNutrition(
     messages.push(msg);
   }
 
-  const resultMsg = messages.find(
-    (m): m is Extract<SDKMessage, { type: 'result' }> => m.type === 'result',
-  );
-  const doneCtx: Record<string, unknown> = { ms: Date.now() - startedAt };
-  if (resultMsg !== undefined) {
-    doneCtx.cost_usd = resultMsg.total_cost_usd;
-    doneCtx.input_tokens = resultMsg.usage.input_tokens;
-    doneCtx.output_tokens = resultMsg.usage.output_tokens;
-  }
-  log.info('extraction done', doneCtx);
+  log.info('extraction done', {
+    ms: Date.now() - startedAt,
+    ...buildUsageCtx(messages),
+  });
 
   const text = extractResultText(messages);
   const stripped = stripCodeFences(text);

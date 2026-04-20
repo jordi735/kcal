@@ -12,7 +12,6 @@
     "server:dev": "tsx watch --env-file=.env server/index.ts",
     "server:start": "tsx --env-file=.env server/index.ts",
     "start": "npm run build && npm run server:start",
-    "seed": "tsx --env-file=.env server/seed.ts",
     "test": "echo \"no tests\" && exit 0"
   },
   "repository": {

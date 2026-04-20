@@ -207,3 +207,26 @@
   justify-content: center;
   gap: 8px;
 }
+
+.deleteBtn {
+  flex: 0 0 auto;
+  min-width: 54px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 90, 74, 0.3);
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.deleteBtn.deleteBtnArmed {
+  background: var(--danger);
+  color: var(--bg);
+  border-color: var(--danger);
+}
+
+.deleteBtn:disabled {
+  opacity: 0.6;
+}

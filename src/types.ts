@@ -1,47 +1,15 @@
-export type Macros = {
-  kcal: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-};
-
-export type Product = {
-  id: number;
-  name: string;
-  brand: string | null;
-  unit: 'g' | 'ml';
-  barcode: string | null;
-  per100: Macros;
-  is_temp: boolean;
-  // Only set on /products/search rows — undefined elsewhere.
-  is_mine?: boolean;
-};
-
-// Cross-user prefill payload from GET /products/barcode/:code (kind: 'template').
-export type ProductTemplate = Pick<
+export type {
+  Macros,
   Product,
-  'name' | 'brand' | 'unit' | 'barcode' | 'per100'
->;
+  ProductTemplate,
+  BarcodeLookupResponse,
+  EntryWithMacros,
+  ExtractedLabel,
+} from '../shared/types.js';
 
-export type BarcodeLookupResponse =
-  | { kind: 'own'; product: Product }
-  | { kind: 'template'; template: ProductTemplate };
+import type { EntryWithMacros, Macros } from '../shared/types.js';
 
-export type EntryWithMacros = {
-  id: number;
-  product: Product;
-  grams: number;
-  local_date: string;
-  local_time: string;
-  macros: Macros;
-};
-
-export type Goals = {
-  kcal: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-};
+export type Goals = Macros;
 
 export type User = {
   id: number;

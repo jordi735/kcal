@@ -2,7 +2,7 @@
 
 import styles from './MacroBar.module.css';
 
-export type MacroBarProps = {
+type MacroBarProps = {
   label: string;
   consumed: number;
   goal: number;

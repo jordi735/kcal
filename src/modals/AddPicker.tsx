@@ -8,7 +8,7 @@ import { Sheet, useSheetClose } from '../components/Sheet';
 import { BarcodeIcon, MagnifyingGlassIcon, PlusIcon } from '../components/Icon';
 import styles from './AddPicker.module.css';
 
-export type AddPickerProps = {
+type AddPickerProps = {
   onPick: (product: Product) => void;
   onCreateNew: (name: string) => void;
   onAddTemp: (name: string) => void;
@@ -44,6 +44,9 @@ function AddPickerInner({
   const [recents, setRecents] = useState<Product[] | null>(null);
   const [allProducts, setAllProducts] = useState<Product[] | null>(null);
   const [results, setResults] = useState<Product[] | null>(null);
+  // false = own library only (default). true = blended with the cross-user
+  // barcoded catalog. Toggling retriggers the debounced-search effect.
+  const [global, setGlobal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,7 +87,7 @@ function AddPickerInner({
     (async () => {
       try {
         const data = await api<Product[]>(
-          `/products/search?q=${encodeURIComponent(trimmed)}`,
+          `/products/search?q=${encodeURIComponent(trimmed)}${global ? '&global=1' : ''}`,
         );
         if (!cancelled) setResults(data);
       } catch {
@@ -94,7 +97,7 @@ function AddPickerInner({
     return () => {
       cancelled = true;
     };
-  }, [debouncedQ]);
+  }, [debouncedQ, global]);
 
   const trimmed = q.trim();
   const showingSearch = trimmed.length > 0;
@@ -117,8 +120,8 @@ function AddPickerInner({
         <div className={styles.rowInfo}>
           <div className={`${styles.rowName}${added ? ` ${styles.rowNameAdded}` : ''}`}>
             <span className={styles.rowNameText}>{p.name}</span>
-            {added && (
-              <span className={`mono tiny caps ${styles.addedBadge}`}>ADDED</span>
+            {p.is_mine === true && (
+              <span className={`mono tiny caps ${styles.yoursBadge}`}>YOURS</span>
             )}
           </div>
           {p.brand && (
@@ -168,6 +171,21 @@ function AddPickerInner({
         </div>
         <button onClick={onScanBarcode} className={styles.scanBtn} aria-label="Scan barcode">
           <BarcodeIcon size={20} />
+        </button>
+      </div>
+
+      <div className={styles.scopeRow}>
+        <button
+          onClick={() => setGlobal(false)}
+          className={`${styles.scopeBtn}${!global ? ` ${styles.scopeBtnActive}` : ''}`}
+        >
+          My Library
+        </button>
+        <button
+          onClick={() => setGlobal(true)}
+          className={`${styles.scopeBtn}${global ? ` ${styles.scopeBtnActive}` : ''}`}
+        >
+          Global
         </button>
       </div>
 

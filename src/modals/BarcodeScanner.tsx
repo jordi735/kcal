@@ -21,7 +21,7 @@ type BarcodeDetectorInstance = {
 const FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'];
 const POLL_MS = 300;
 
-export type BarcodeScannerProps = {
+type BarcodeScannerProps = {
   onDetect: (barcode: string) => void;
   onClose: () => void;
 };
@@ -31,13 +31,25 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
   const firedRef = useRef(false);
   const onDetectRef = useRef(onDetect);
   onDetectRef.current = onDetect;
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { closing, requestClose } = useFadeClose(onClose);
 
+  const closeNow = () => {
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (streamRef.current !== null) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    requestClose();
+  };
+
   useEffect(() => {
     let cancelled = false;
-    let stream: MediaStream | null = null;
-    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const Ctor = window.BarcodeDetector;
     if (Ctor === undefined) {
@@ -59,7 +71,7 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
 
     (async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        streamRef.current = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' },
         });
       } catch (err) {
@@ -76,16 +88,18 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
       }
 
       if (cancelled) {
-        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
         return;
       }
 
       const video = videoRef.current;
       if (video === null) {
-        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
         return;
       }
-      video.srcObject = stream;
+      video.srcObject = streamRef.current;
       try {
         await video.play();
       } catch {
@@ -94,7 +108,7 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
 
       if (cancelled) return;
 
-      intervalId = setInterval(async () => {
+      intervalRef.current = setInterval(async () => {
         if (firedRef.current) return;
         const el = videoRef.current;
         if (el === null || el.readyState < 2) return;
@@ -113,8 +127,14 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
 
     return () => {
       cancelled = true;
-      if (intervalId !== null) clearInterval(intervalId);
-      if (stream !== null) stream.getTracks().forEach((t) => t.stop());
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (streamRef.current !== null) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
     };
   }, []);
 
@@ -122,12 +142,12 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
     <>
       <div
         className={`overlay ${styles.overlayDark}${closing ? ' exiting' : ''}`}
-        onClick={requestClose}
+        onClick={closeNow}
       />
       <div className={`${styles.shell}${closing ? ' fullscreen-exit' : ''}`}>
         <div className={styles.topbar}>
           <span className={`mono caps ${styles.topbarTitle}`}>SCAN BARCODE</span>
-          <button onClick={requestClose} className={styles.closeBtn}>×</button>
+          <button onClick={closeNow} className={styles.closeBtn}>×</button>
         </div>
 
         <div className={styles.viewfinder}>
@@ -153,7 +173,7 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
               <div className={`mono tiny caps ${styles.errorTitle}`}>Scanner unavailable</div>
               <div className={styles.errorMsg}>{error}</div>
               <button
-                onClick={requestClose}
+                onClick={closeNow}
                 className={`mono tiny caps ${styles.errorCloseBtn}`}
               >
                 Close

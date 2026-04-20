@@ -9,7 +9,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run server:start` — same as above without watch. In prod, this one process serves both the SPA (`dist/`) and the API.
 - `npm run build` — runs `typecheck` then `vite build` (outputs to `dist/`).
 - `npm start` — `build` then `server:start`. The single prod entry point.
-- `npm run seed -- <email>` — inserts the 12 starter products from `shared/seedProducts.ts` for an existing user. Idempotent (skips by name).
 - `npm run typecheck` — typechecks the frontend project (`src/`, `shared/`, `vite.config.ts`).
 - `npm run typecheck:server` — typechecks the backend project (`server/`, `shared/`).
 - `npm test` — currently a no-op (prints "no tests").
@@ -29,7 +28,7 @@ Two TypeScript projects share the `shared/` folder but use different module-reso
 
 - **Boot order matters.** `server/index.ts` imports `env.ts` FIRST; that module validates every required env var and exits the process on any missing key — so nothing else can accidentally read `process.env` before validation. Then `db.ts` opens SQLite (WAL, FKs on), applies forward-only migrations from `server/migrations/*.sql`, and prunes expired sessions on startup.
 - **Every prepared statement lives in `server/statements.ts`**, grouped by domain. Convention: user-scoped reads/writes take `user_id` as the FIRST parameter, then the resource id. When adding new queries, follow this pattern and keep migration-bookkeeping statements in `db.ts` itself.
-- **Single-tenant isolation is enforced at the SQL layer.** Every `/entries`, `/products`, and `/settings` query filters by `created_by`/`user_id`. Don't add queries that omit this scope.
+- **Per-user isolation is the default, with a deliberate carve-out for the shared barcode catalog.** Every `/entries` and `/settings` query filters by `user_id`/`created_by` at the SQL layer — don't add queries that omit this scope. `/products` is mostly the same, but barcoded products form a community catalog that any user can read or fork: `statements.products.byBarcodeAnyUser`, `byIdAnyUser`, and the cross-user branch of `search` (rows where `barcode IS NOT NULL`) are the only sanctioned cross-user reads. The privacy invariant is **barcode = shared, no barcode = private**: non-barcoded rows never appear in another user's results, and `POST /products/adopt/:id` enforces this at the route layer with a `400 not_adoptable` when `source.barcode === null`. Adopt is also idempotent on `(created_by, barcode)` so concurrent forks return the existing copy instead of duplicating. Logs (`entries`) and product *ownership* always stay strictly per-user — adoption inserts a fresh row owned by the scanning user.
 - **Macros are computed, never stored.** `entries` stores only `grams` + `product_id`; kcal/protein/carbs/fat come from `products.*_per100 * grams / 100` via JOINs (see `statements.entries.selectForDay`, `weekSum`). This means editing a product retroactively updates every past day's totals — intentional.
 - **Auth model:** magic-link tokens live only in memory (`Map` in `server/auth.ts`, purged by a self-`unref`'d timer); session tokens are stored raw in the `sessions` table. Bearer auth via `authMiddleware`, which slides `expires_at` on every valid request. The `/auth/magic-link` endpoint deliberately never leaks whether an account exists.
 - **AI label extraction (`server/claude.ts`)** uses the Claude Agent SDK with `tools: []`, `allowedTools: []`, `settingSources: []`, and `maxTurns: 1` to force pure vision-to-JSON inference. Output is stripped of code fences, JSON-parsed, then hard-validated by `validateAndCoerce` (throws `InvalidExtractionError` on bad data; per-macro caps of kcal≤2000 and protein/carbs/fat≤200). A per-user daily cap (`AI_SCAN_DAILY_CAP`) is tracked in memory in `server/routes/products.ts`.
@@ -62,7 +61,7 @@ The app is an installable PWA with no offline caching — the service worker exi
 
 ### Shared (`shared/`)
 
-- `shared/seedProducts.ts` is the ONE source of starter-product data. Used by the server seed script to insert real rows, and structurally mirrors the frontend `Product.per100` shape so no remapping is needed. If you change product shape, update both projects.
+- `shared/types.ts` is the ONE source of wire-contract types (`Macros`, `Product`, `ProductTemplate`, `BarcodeLookupResponse`, `EntryWithMacros`, `ExtractedLabel`). Both `src/types.ts` and `server/types.ts` re-export from here so call sites keep importing from their local `./types`.
 - `shared/apiPrefixes.ts` is the ONE source of API path prefixes. Consumed by `vite.config.ts` (to build the dev proxy map) and `server/index.ts` (to decide which unmatched requests are 404 JSON vs SPA HTML). When adding a new top-level router, add its prefix here too — otherwise Vite won't proxy it in dev and the SPA fallback will swallow it in prod.
 
 ### Data flow example (adding an entry)

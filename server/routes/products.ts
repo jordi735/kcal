@@ -1,5 +1,7 @@
 // GET /products/search, /products/recent, /products/all, /products/barcode/:code.
 // POST /products, PUT /products/:id for creating/editing the authed user's products.
+// POST /products/adopt/:id clones a barcoded cross-user product into the caller's
+// own row (idempotent on barcode).
 // POST /products/from-image runs AI label extraction — multer memory storage scoped
 // to this route, daily per-user cap tracked in memory.
 // Every query scoped by req.userId (created_by). Macros are computed on read via
@@ -10,6 +12,7 @@ import multer from 'multer';
 import { normalizeBrandName, normalizeProductName } from '../../shared/normalize.js';
 import { authMiddleware } from '../auth.js';
 import { extractNutrition, InvalidExtractionError } from '../claude.js';
+import { db } from '../db.js';
 import { env } from '../env.js';
 import { isObject } from '../guards.js';
 import { log } from '../log.js';
@@ -109,14 +112,27 @@ productsRouter.get('/search', (req, res) => {
     return;
   }
   const pattern = `%${q}%`;
-  const rows = statements.products.search.all(
+  // ?global=1 opts into the blended catalog (own + cross-user barcoded).
+  // Default (absent/any-other-value) returns own-library only.
+  const rawGlobal = req.query.global;
+  const global = typeof rawGlobal === 'string' && rawGlobal === '1';
+  if (global) {
+    const rows = statements.products.search.all(
+      pattern,
+      pattern,
+      req.userId!,
+      req.userId!,
+      req.userId!,
+    ) as ProductSearchRow[];
+    res.json(rows.map(searchRowToProduct));
+    return;
+  }
+  const rows = statements.products.searchOwn.all(
+    req.userId!,
     pattern,
     pattern,
-    req.userId!,
-    req.userId!,
-    req.userId!,
-  ) as ProductSearchRow[];
-  res.json(rows.map(searchRowToProduct));
+  ) as ProductRow[];
+  res.json(rows.map(rowToProduct));
 });
 
 productsRouter.get('/recent', (req, res) => {
@@ -308,6 +324,30 @@ productsRouter.put('/:id', (req, res) => {
   }
   log.info('product updated', { userId: req.userId, productId: row.id });
   res.json(rowToProduct(row));
+});
+
+// Destructive: removes the product AND every entry this user logged against it
+// (macros are computed at read time via JOIN, so the entries would orphan
+// otherwise and the ON DELETE RESTRICT FK would block the product DELETE).
+// Scoped by created_by, so adopted copies count as owned and the source row
+// plus any other user's adopted copies are untouched.
+productsRouter.delete('/:id', (req, res) => {
+  const id = parsePositiveInt(req.params.id);
+  if (id === null) {
+    res.status(400).json({ error: 'invalid_id' });
+    return;
+  }
+  const run = db.transaction((userId: number, productId: number) => {
+    statements.entries.deleteForProduct.run(userId, productId);
+    return statements.products.delete.run(userId, productId) as { changes: number };
+  });
+  const result = run(req.userId!, id);
+  if (result.changes === 0) {
+    res.status(404).json({ error: 'not_found' });
+    return;
+  }
+  log.info('product deleted', { userId: req.userId, productId: id });
+  res.json({ ok: true });
 });
 
 productsRouter.post('/from-image', upload.single('image'), async (req, res, next) => {

@@ -18,8 +18,9 @@
 import { createContext } from 'preact';
 import type { ComponentChildren, JSX, RefObject } from 'preact';
 import { useCallback, useContext, useEffect, useRef, useState } from 'preact/hooks';
+import { FADE_EXIT_MS } from '../hooks/useFadeClose';
 
-export type SheetProps = {
+type SheetProps = {
   onClose: () => void;
   children: ComponentChildren;
   scrollRef?: RefObject<HTMLDivElement>;
@@ -27,7 +28,6 @@ export type SheetProps = {
 };
 
 const DISMISS_THRESHOLD_PX = 80;
-const EXIT_MS = 250;
 
 const SheetCloseContext = createContext<(() => void) | null>(null);
 
@@ -76,7 +76,7 @@ export function Sheet({ onClose, children, scrollRef, style }: SheetProps) {
     if (exitingRef.current) return;
     exitingRef.current = true;
     setExiting(true);
-    exitTimerRef.current = setTimeout(() => onCloseRef.current(), EXIT_MS);
+    exitTimerRef.current = setTimeout(() => onCloseRef.current(), FADE_EXIT_MS);
   }, []);
 
   // Guard: if this component unmounts mid-exit (e.g. parent force-closes),
@@ -134,7 +134,7 @@ export function Sheet({ onClose, children, scrollRef, style }: SheetProps) {
       sheet.style.transition = 'transform 0.25s ease-in';
       sheet.style.transform = 'translateY(100%)';
       sheet.style.pointerEvents = 'none';
-      exitTimerRef.current = setTimeout(() => onCloseRef.current(), EXIT_MS);
+      exitTimerRef.current = setTimeout(() => onCloseRef.current(), FADE_EXIT_MS);
     } else {
       const onSnap = () => {
         sheet.removeEventListener('transitionend', onSnap);

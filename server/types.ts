@@ -8,12 +8,16 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 // --- shared shapes ---
 
-export type Macros = {
-  kcal: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-};
+export type {
+  Macros,
+  Product,
+  ProductTemplate,
+  BarcodeLookupResponse,
+  EntryWithMacros,
+  ExtractedLabel,
+} from '../shared/types.js';
+
+import type { Macros } from '../shared/types.js';
 
 // --- auth / sessions ---
 
@@ -21,15 +25,9 @@ export type MagicEntry = { email: string; expiresAt: number };
 
 export type SessionInfo = { token: string; expiresAt: number };
 
-export type SessionUserRow = {
+export type SessionRow = {
   user_id: number;
   expires_at: number;
-  id: number;
-  email: string;
-  goal_kcal: number;
-  goal_protein: number;
-  goal_carbs: number;
-  goal_fat: number;
 };
 
 // --- users / settings ---
@@ -42,9 +40,6 @@ export type UserRow = {
   goal_carbs: number;
   goal_fat: number;
 };
-
-// Structurally identical to UserRow — the DB row IS the authed-user shape.
-export type AuthedUser = UserRow;
 
 export type GoalsBody = Macros;
 
@@ -75,31 +70,6 @@ export type ProductSearchRow = ProductRow & { is_mine: number };
 
 // Adopt-source rows include the owner so the route can branch on ownership.
 export type ProductRowWithOwner = ProductRow & { created_by: number };
-
-export type Product = {
-  id: number;
-  name: string;
-  brand: string | null;
-  unit: 'g' | 'ml';
-  barcode: string | null;
-  per100: Macros;
-  is_temp: boolean;
-  // Only set on /products/search results — undefined elsewhere.
-  is_mine?: boolean;
-};
-
-// Cross-user prefill payload: omits id/is_temp/created_by by construction.
-export type ProductTemplate = {
-  name: string;
-  brand: string | null;
-  unit: 'g' | 'ml';
-  barcode: string | null;
-  per100: Macros;
-};
-
-export type BarcodeLookupResponse =
-  | { kind: 'own'; product: Product }
-  | { kind: 'template'; template: ProductTemplate };
 
 export type NewProductBody = {
   name: string;
@@ -133,22 +103,12 @@ export type EntryJoinRow = {
   p_is_temp: number;
 };
 
-export type EntryWithMacros = {
-  id: number;
-  product: Product;
-  grams: number;
-  local_date: string;
-  local_time: string;
-  macros: Macros;
-};
-
 export type WeekSumRow = {
   date: string;
   kcal: number;
   protein: number;
   carbs: number;
   fat: number;
-  entry_count: number;
 };
 
 export type NewEntryBody = {
@@ -163,13 +123,6 @@ export type NewEntryBody = {
 export type MigrationRow = { filename: string };
 
 // --- claude vision extraction ---
-
-export type ExtractedLabel = {
-  name: string;
-  brand: string | null;
-  unit: 'g' | 'ml';
-  per100: Macros;
-};
 
 export type Base64ImageMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
 

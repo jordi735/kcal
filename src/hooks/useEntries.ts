@@ -20,7 +20,7 @@ export type UseEntriesReturn = {
   remove: (id: number, date: string) => Promise<void>;
 };
 
-type WeekResponse = Record<string, { consumed: Macros; entry_count: number }>;
+type WeekResponse = Record<string, { consumed: Macros }>;
 
 export function useEntries(): UseEntriesReturn {
   const [entriesByDate, setEntriesByDate] = useState<Record<string, EntryWithMacros[]>>({});

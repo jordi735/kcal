@@ -5,17 +5,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, ApiError } from '../api';
 import { useFadeClose } from '../hooks/useFadeClose';
-import type { Macros } from '../types';
+import type { ExtractedLabel } from '../types';
 import styles from './AILabelScanner.module.css';
 
-export type ExtractedLabel = {
-  name: string;
-  brand: string | null;
-  unit: 'g' | 'ml';
-  per100: Macros;
-};
-
-export type AILabelScannerProps = {
+type AILabelScannerProps = {
   onExtracted: (label: ExtractedLabel) => void;
   onClose: () => void;
 };

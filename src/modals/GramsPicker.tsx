@@ -8,7 +8,7 @@ import { Sheet } from '../components/Sheet';
 import { ArrowRightIcon, MinusIcon, PlusIcon, TrashIcon } from '../components/Icon';
 import styles from './GramsPicker.module.css';
 
-export type GramsPickerProps = {
+type GramsPickerProps = {
   product: Product;
   initialGrams?: number;
   mode: 'add' | 'edit';

@@ -17,7 +17,7 @@ import type { RequestHandler, Response } from 'express';
 import { env } from './env.js';
 import { log } from './log.js';
 import { statements } from './statements.js';
-import type { AuthedUser, MagicEntry, SessionInfo, SessionUserRow } from './types.js';
+import type { MagicEntry, SessionInfo, SessionRow } from './types.js';
 
 const magicLinks = new Map<string, MagicEntry>();
 
@@ -63,20 +63,13 @@ export function createSession(userId: number): SessionInfo {
   return { token, expiresAt };
 }
 
-export function verifySession(token: string): AuthedUser | null {
-  const row = statements.sessions.selectWithUser.get(token) as SessionUserRow | undefined;
+export function verifySession(token: string): number | null {
+  const row = statements.sessions.selectByToken.get(token) as SessionRow | undefined;
   if (row === undefined) return null;
   const now = Date.now();
   if (row.expires_at < now) return null;
   statements.sessions.slide.run(now, now + SESSION_EXPIRY_MS, token);
-  return {
-    id: row.id,
-    email: row.email,
-    goal_kcal: row.goal_kcal,
-    goal_protein: row.goal_protein,
-    goal_carbs: row.goal_carbs,
-    goal_fat: row.goal_fat,
-  };
+  return row.user_id;
 }
 
 export function deleteSession(token: string): void {
@@ -93,11 +86,11 @@ export const authMiddleware: RequestHandler = (req, res, next) => {
   if (token === '') {
     return rejectUnauthorized(res, 'empty_token', req.path);
   }
-  const user = verifySession(token);
-  if (user === null) {
+  const userId = verifySession(token);
+  if (userId === null) {
     return rejectUnauthorized(res, 'invalid_session', req.path);
   }
-  req.userId = user.id;
+  req.userId = userId;
   req.sessionToken = token;
   next();
 };

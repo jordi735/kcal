@@ -6,7 +6,7 @@ import { MacroBar } from './MacroBar';
 import { CogIcon, PlusIcon } from './Icon';
 import styles from './MacroSummary.module.css';
 
-export type MacroSummaryProps = {
+type MacroSummaryProps = {
   entries: EntryWithMacros[];
   goals: Goals;
   onSettings: () => void;
@@ -18,7 +18,7 @@ export function MacroSummary({ entries, goals, onSettings, onAdd }: MacroSummary
 
   const kcalLeft = Math.max(0, goals.kcal - totals.kcal);
   const kcalOver = totals.kcal > goals.kcal;
-  const kcalPct = Math.min(100, (totals.kcal / goals.kcal) * 100);
+  const kcalPct = goals.kcal > 0 ? Math.min(100, (totals.kcal / goals.kcal) * 100) : 0;
 
   return (
     <div className={styles.dock}>

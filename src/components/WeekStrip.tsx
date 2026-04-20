@@ -12,7 +12,7 @@ import {
 import { ArrowLeftIcon, ArrowRightIcon } from './Icon';
 import styles from './WeekStrip.module.css';
 
-export type WeekStripProps = {
+type WeekStripProps = {
   selectedDate: Date;
   onSelectDate: (d: Date) => void;
   weekStart: Date;

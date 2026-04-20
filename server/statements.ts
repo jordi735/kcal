@@ -37,20 +37,9 @@ export const statements = {
     insert: db.prepare(
       'INSERT INTO sessions (token, user_id, created_at, last_used_at, expires_at) VALUES (?, ?, ?, ?, ?)',
     ),
-    selectWithUser: db.prepare(`
-      SELECT
-        s.user_id      AS user_id,
-        s.expires_at   AS expires_at,
-        u.id           AS id,
-        u.email        AS email,
-        u.goal_kcal    AS goal_kcal,
-        u.goal_protein AS goal_protein,
-        u.goal_carbs   AS goal_carbs,
-        u.goal_fat     AS goal_fat
-      FROM sessions s
-      JOIN users u ON u.id = s.user_id
-      WHERE s.token = ?
-    `),
+    selectByToken: db.prepare(
+      'SELECT user_id, expires_at FROM sessions WHERE token = ?',
+    ),
     slide: db.prepare(
       'UPDATE sessions SET last_used_at = ?, expires_at = ? WHERE token = ?',
     ),
@@ -76,6 +65,18 @@ export const statements = {
   },
 
   products: {
+    // (user_id, name_pattern, brand_pattern) — default search scope: own only.
+    // No is_mine projection — every row is tautologically the caller's own,
+    // so the wire omits the flag (undefined client-side).
+    searchOwn: db.prepare(`
+      SELECT ${PRODUCT_COLS}
+      FROM products
+      WHERE created_by = ?
+        AND is_temp = 0
+        AND (name LIKE ? OR (brand IS NOT NULL AND brand LIKE ?))
+      ORDER BY name COLLATE NOCASE ASC
+      LIMIT 50
+    `),
     // (name_pattern, brand_pattern, user_id, user_id, user_id)
     //   - patterns: name + brand LIKE
     //   - user_id #1: candidate filter (own OR has barcode)
@@ -83,6 +84,8 @@ export const statements = {
     //   - user_id #3: is_mine flag in the projection
     // The COALESCE(barcode, 'self-' || id) partition keeps non-barcoded rows
     // (which can only be the user's own per the candidates filter) ungrouped.
+    // Outer ORDER BY sorts the user's own rows first (is_mine DESC), then
+    // alphabetic — referenced by alias, no extra binding required.
     search: db.prepare(`
       WITH candidates AS (
         SELECT id, name, brand, unit, barcode,
@@ -108,7 +111,7 @@ export const statements = {
              (created_by = ?) AS is_mine
       FROM ranked
       WHERE rn = 1
-      ORDER BY name COLLATE NOCASE ASC
+      ORDER BY is_mine DESC, name COLLATE NOCASE ASC
       LIMIT 50
     `),
     // (user_id, user_id) — first for the inner subquery, second for the outer WHERE.
@@ -172,13 +175,14 @@ export const statements = {
           kcal_per100 = ?, protein_per100 = ?, carbs_per100 = ?, fat_per100 = ?
       WHERE created_by = ? AND id = ?
     `),
-    // (user_id, name) — seed idempotency check.
-    existsByNameForUser: db.prepare(
-      'SELECT 1 AS hit FROM products WHERE created_by = ? AND name = ?',
-    ),
     // (user_id, id) — lightweight ownership existence check.
     ownedByUser: db.prepare(
       'SELECT 1 AS hit FROM products WHERE created_by = ? AND id = ?',
+    ),
+    // (user_id, id) — user-scoped destructive. Paired with entries.deleteForProduct
+    // inside a transaction because entries.product_id has ON DELETE RESTRICT.
+    delete: db.prepare(
+      'DELETE FROM products WHERE created_by = ? AND id = ?',
     ),
   },
 
@@ -197,8 +201,7 @@ export const statements = {
         SUM(e.grams * p.kcal_per100    / 100.0)   AS kcal,
         SUM(e.grams * p.protein_per100 / 100.0)   AS protein,
         SUM(e.grams * p.carbs_per100   / 100.0)   AS carbs,
-        SUM(e.grams * p.fat_per100     / 100.0)   AS fat,
-        COUNT(*)                                  AS entry_count
+        SUM(e.grams * p.fat_per100     / 100.0)   AS fat
       ${ENTRY_JOIN_FROM}
       WHERE e.user_id = ?
         AND e.local_date >= ?
@@ -223,6 +226,11 @@ export const statements = {
     // (user_id, id)
     delete: db.prepare(
       'DELETE FROM entries WHERE user_id = ? AND id = ?',
+    ),
+    // (user_id, product_id) — prunes every row referencing a to-be-deleted
+    // product for this user. Runs before products.delete inside a transaction.
+    deleteForProduct: db.prepare(
+      'DELETE FROM entries WHERE user_id = ? AND product_id = ?',
     ),
     // (user_id, product_id)
     recentGrams: db.prepare(`

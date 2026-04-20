@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useState, useRef } from 'preact/hooks';
 import { BrandMark } from '../components/BrandMark';
 import type { User } from '../types';
 import { api } from '../api';
@@ -19,6 +19,13 @@ type State =
 export function Verify({ onVerified, onFailure }: VerifyProps) {
   const [state, setState] = useState<State>({ kind: 'verifying' });
 
+  const onVerifiedRef = useRef(onVerified);
+  const onFailureRef = useRef(onFailure);
+  useEffect(() => {
+    onVerifiedRef.current = onVerified;
+    onFailureRef.current = onFailure;
+  });
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
@@ -34,19 +41,19 @@ export function Verify({ onVerified, onFailure }: VerifyProps) {
           body: { token },
         });
         if (cancelled) return;
-        onVerified(res.user, res.session_token);
+        onVerifiedRef.current(res.user, res.session_token);
       } catch {
         if (cancelled) return;
         setState({ kind: 'invalid' });
         setTimeout(() => {
-          if (!cancelled) onFailure();
+          if (!cancelled) onFailureRef.current();
         }, 1600);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [onVerified, onFailure]);
+  }, []);
 
   return (
     <div className={styles.shell}>

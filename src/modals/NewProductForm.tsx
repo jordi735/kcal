@@ -5,7 +5,7 @@ import type { RefObject } from 'preact';
 import { useRef, useState } from 'preact/hooks';
 import type { Macros } from '../types';
 import { Sheet, useSheetClose } from '../components/Sheet';
-import { ArrowRightIcon, BarcodeIcon, SparklesIcon } from '../components/Icon';
+import { ArrowRightIcon, BarcodeIcon, SparklesIcon, TrashIcon } from '../components/Icon';
 import styles from './NewProductForm.module.css';
 
 export type ProductDraft = {
@@ -17,10 +17,13 @@ export type ProductDraft = {
   is_temp: boolean;
 };
 
-export type NewProductFormProps = {
+type NewProductFormProps = {
   initial?: Partial<ProductDraft>;
   mode?: 'create' | 'edit';
   onSave: (draft: ProductDraft) => void | Promise<void>;
+  // Only meaningful in edit mode. Two-tap inline-confirm UX; tapping the
+  // first time arms the button, second tap invokes.
+  onDelete?: () => void | Promise<void>;
   onClose: () => void;
   onScanLabel: () => void;
   onScanBarcode: () => void;
@@ -79,7 +82,7 @@ type InnerProps = Omit<NewProductFormProps, 'onClose'> & {
   scrollRef: RefObject<HTMLDivElement>;
 };
 
-function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, onScanBarcode, scrollRef }: InnerProps) {
+function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onScanLabel, onScanBarcode, scrollRef }: InnerProps) {
   const close = useSheetClose();
   const initialPer100 = initial?.per100;
 
@@ -92,12 +95,12 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, on
   const [fat, setFat] = useState<NumField>(toField(initialPer100?.fat));
   const [barcode, setBarcode] = useState<string>(initial?.barcode ?? '');
   const [submitting, setSubmitting] = useState(false);
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const isEdit = mode === 'edit';
   const isTemp = !isEdit && (initial?.is_temp ?? false);
-  const prefilled = initial !== undefined && (
-    initial.name !== undefined || initial.per100 !== undefined
-  );
+  const prefilled = initial?.per100 !== undefined;
 
   const valid =
     name.trim().length > 0 &&
@@ -125,6 +128,20 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, on
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete || deleting) return;
+    if (!deleteArmed) {
+      setDeleteArmed(true);
+      return;
+    }
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -239,9 +256,24 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onScanLabel, on
       </div>
 
       <div className={styles.footer}>
+        {isEdit && onDelete && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting || submitting}
+            className={`${styles.deleteBtn}${deleteArmed ? ` ${styles.deleteBtnArmed}` : ''}`}
+            aria-label={deleteArmed ? 'Confirm delete' : 'Delete product'}
+          >
+            {deleteArmed ? (
+              <span className="mono tiny caps">{deleting ? 'Deleting…' : 'Confirm'}</span>
+            ) : (
+              <TrashIcon size={16} />
+            )}
+          </button>
+        )}
         <button
           className={`btn-primary ${styles.submitBtn}`}
-          disabled={!valid || submitting}
+          disabled={!valid || submitting || deleting}
           onClick={submit}
         >
           {submitting ? (

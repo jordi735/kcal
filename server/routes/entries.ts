@@ -1,4 +1,5 @@
-// GET /entries, GET /entries/week, POST /entries, PATCH /entries/:id, DELETE /entries/:id.
+// GET /entries, GET /entries/recent-grams, GET /entries/week,
+// POST /entries, PATCH /entries/:id, DELETE /entries/:id.
 // Macros computed on read; never stored. Every query scoped by req.userId.
 
 import { Router } from 'express';
@@ -77,16 +78,14 @@ function sevenDatesFromStart(start: string): string[] {
 
 type DaySummary = {
   consumed: { kcal: number; protein: number; carbs: number; fat: number };
-  entry_count: number;
 };
 
 function summariseDay(r: WeekSumRow | undefined): DaySummary {
   if (r === undefined) {
-    return { consumed: { kcal: 0, protein: 0, carbs: 0, fat: 0 }, entry_count: 0 };
+    return { consumed: { kcal: 0, protein: 0, carbs: 0, fat: 0 } };
   }
   return {
     consumed: { kcal: r.kcal, protein: r.protein, carbs: r.carbs, fat: r.fat },
-    entry_count: r.entry_count,
   };
 }
 

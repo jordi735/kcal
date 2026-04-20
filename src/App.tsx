@@ -5,6 +5,7 @@ import {
   sumMacros,
   type BarcodeLookupResponse,
   type EntryWithMacros,
+  type ExtractedLabel,
   type Goals,
   type Product,
   type User,
@@ -17,13 +18,13 @@ import { Home } from './screens/Home';
 import { Verify } from './screens/Verify';
 import { AddPicker } from './modals/AddPicker';
 import { BarcodeScanner } from './modals/BarcodeScanner';
-import { AILabelScanner, type ExtractedLabel } from './modals/AILabelScanner';
+import { AILabelScanner } from './modals/AILabelScanner';
 import { NewProductForm, type ProductDraft } from './modals/NewProductForm';
 import { GramsPicker } from './modals/GramsPicker';
 import { SheetCloseRegisterProvider } from './components/Sheet';
 import { useEntries } from './hooks/useEntries';
 import { FADE_EXIT_MS } from './hooks/useFadeClose';
-import { api, ApiError } from './api';
+import { api, ApiError, clearStoredSession, SESSION_TOKEN_KEY, USER_KEY } from './api';
 import styles from './App.module.css';
 
 // Shared backdrop for sheet-style modals — stays mounted across sheet-to-sheet
@@ -52,7 +53,7 @@ function SheetOverlay({ visible, onClick }: { visible: boolean; onClick: () => v
 }
 
 function readStoredUser(): User | null {
-  const raw = localStorage.getItem('kcal_user');
+  const raw = localStorage.getItem(USER_KEY);
   if (raw === null) return null;
   try {
     return JSON.parse(raw) as User;
@@ -62,7 +63,7 @@ function readStoredUser(): User | null {
 }
 
 function readStoredToken(): string | null {
-  const raw = localStorage.getItem('kcal_session_token');
+  const raw = localStorage.getItem(SESSION_TOKEN_KEY);
   if (raw === null || raw === '') return null;
   return raw;
 }
@@ -105,6 +106,25 @@ function pickAccent(ratio: number): string {
   return '#b8bb26';
 }
 
+function productToDraft(p: Product): Partial<ProductDraft> {
+  return {
+    name: p.name,
+    brand: p.brand,
+    unit: p.unit,
+    barcode: p.barcode,
+    per100: p.per100,
+  };
+}
+
+function userToGoals(u: User): Goals {
+  return {
+    kcal: u.goal_kcal,
+    protein: u.goal_protein,
+    carbs: u.goal_carbs,
+    fat: u.goal_fat,
+  };
+}
+
 export function App() {
   const initialToken = readStoredToken();
   const initialUser = readStoredUser();
@@ -121,17 +141,9 @@ export function App() {
     update: updateEntry,
     remove: removeEntry,
   } = useEntries();
-  const [goals, setGoals] = useState<Goals>(() => {
-    if (initialUser !== null) {
-      return {
-        kcal: initialUser.goal_kcal,
-        protein: initialUser.goal_protein,
-        carbs: initialUser.goal_carbs,
-        fat: initialUser.goal_fat,
-      };
-    }
-    return mockGoals;
-  });
+  const [goals, setGoals] = useState<Goals>(() =>
+    initialUser !== null ? userToGoals(initialUser) : mockGoals,
+  );
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -213,16 +225,11 @@ export function App() {
 
   // Handle successful verify.
   const onVerified = (verifiedUser: User, token: string): void => {
-    localStorage.setItem('kcal_session_token', token);
-    localStorage.setItem('kcal_user', JSON.stringify(verifiedUser));
+    localStorage.setItem(SESSION_TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(verifiedUser));
     window.history.replaceState(null, '', '/');
     setRoute('/');
-    setGoals({
-      kcal: verifiedUser.goal_kcal,
-      protein: verifiedUser.goal_protein,
-      carbs: verifiedUser.goal_carbs,
-      fat: verifiedUser.goal_fat,
-    });
+    setGoals(userToGoals(verifiedUser));
     setUser(verifiedUser);
   };
 
@@ -332,13 +339,7 @@ export function App() {
         draftSoFar: modal.initial ?? {},
       });
     } else if (modal.kind === 'edit-product') {
-      const draftSoFar: Partial<ProductDraft> = modal.initialOverride ?? {
-        name: modal.product.name,
-        brand: modal.product.brand,
-        unit: modal.product.unit,
-        barcode: modal.product.barcode,
-        per100: modal.product.per100,
-      };
+      const draftSoFar = modal.initialOverride ?? productToDraft(modal.product);
       setModal({
         kind: 'barcode-scanner-fill',
         returnTo: 'edit',
@@ -388,6 +389,24 @@ export function App() {
     }
   };
 
+  // Destructive: server cascades to every entry this user logged against the
+  // product (macros are computed at read time, so we can't just null them out).
+  // Reload selected day + today + week to clear any cached rows that had it.
+  const onProductDelete = async (): Promise<void> => {
+    if (modal.kind !== 'edit-product') return;
+    const productId = modal.product.id;
+    try {
+      await api<{ ok: true }>(`/products/${productId}`, { method: 'DELETE' });
+      setModal({ kind: 'none' });
+      await loadEntries(selectedKey);
+      if (selectedKey !== todayKey) await loadEntries(todayKey);
+      await loadWeek(toLocalDateString(weekStart));
+    } catch (err) {
+      reportError(err instanceof Error ? err.message : "Couldn't delete product");
+      // Leave modal open so user can retry.
+    }
+  };
+
   // GramsPicker handlers
   const onGramsConfirm = (grams: number) => {
     if (modal.kind !== 'grams-picker') return;
@@ -432,7 +451,7 @@ export function App() {
         goal_carbs: saved.carbs,
         goal_fat: saved.fat,
       };
-      localStorage.setItem('kcal_user', JSON.stringify(updatedUser));
+      localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
       setUser(updatedUser);
     }
     setSettingsOpen(false);
@@ -443,8 +462,7 @@ export function App() {
     } catch {
       // Even if logout fails server-side, clear local state.
     }
-    localStorage.removeItem('kcal_session_token');
-    localStorage.removeItem('kcal_user');
+    clearStoredSession();
     setSettingsOpen(false);
     setModal({ kind: 'none' });
     setUser(null);
@@ -528,15 +546,10 @@ export function App() {
 
         {modal.kind === 'edit-product' && (
           <NewProductForm
-            initial={modal.initialOverride ?? {
-              name: modal.product.name,
-              brand: modal.product.brand,
-              unit: modal.product.unit,
-              barcode: modal.product.barcode,
-              per100: modal.product.per100,
-            }}
+            initial={modal.initialOverride ?? productToDraft(modal.product)}
             mode="edit"
             onSave={onProductEditSave}
+            onDelete={onProductDelete}
             onClose={() =>
               setModal({
                 kind: 'grams-picker',

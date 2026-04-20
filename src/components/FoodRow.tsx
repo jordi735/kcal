@@ -4,7 +4,7 @@ import { useState } from 'preact/hooks';
 import type { EntryWithMacros } from '../types';
 import styles from './FoodRow.module.css';
 
-export type FoodRowProps = {
+type FoodRowProps = {
   entry: EntryWithMacros;
   onEdit: (entry: EntryWithMacros) => void;
   onDelete: (entry: EntryWithMacros) => void;
