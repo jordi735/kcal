@@ -243,8 +243,8 @@ export async function extractNutrition(
   const response = query({
     prompt: userMessageStream(imageBase64, mediaType),
     options: {
-      model: 'claude-sonnet-4-6',
-      fallbackModel: 'claude-opus-4-7',
+      model: 'sonnet',
+      fallbackModel: 'opus',
       systemPrompt: SYSTEM_PROMPT,
       tools: [],
       allowedTools: [],
