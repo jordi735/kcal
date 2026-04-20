@@ -8,3 +8,4 @@ data/
 *.tsbuildinfo
 .tsbuildinfo/
 .DS_Store
+package-lock.json
