@@ -1,39 +1,39 @@
-// Food entry row — tap to edit, long-press / context-menu to reveal swipe delete
+// Food entry row — tap to edit, long-press to enter multi-select.
 
-import { useState } from 'preact/hooks';
 import type { EntryWithMacros } from '../types';
 import styles from './FoodRow.module.css';
 
 type FoodRowProps = {
   entry: EntryWithMacros;
+  selected: boolean;
+  selectionMode: boolean;
   onEdit: (entry: EntryWithMacros) => void;
-  onDelete: (entry: EntryWithMacros) => void;
+  onToggleSelect: (entry: EntryWithMacros) => void;
+  onLongPress: (entry: EntryWithMacros) => void;
 };
 
-export function FoodRow({ entry, onEdit, onDelete }: FoodRowProps) {
-  const [swipe, setSwipe] = useState(false);
+export function FoodRow({
+  entry,
+  selected,
+  selectionMode,
+  onEdit,
+  onToggleSelect,
+  onLongPress,
+}: FoodRowProps) {
   const { product, macros, grams, local_time } = entry;
 
   return (
-    <div className={`food-row ${styles.row}`}>
-      {swipe && (
-        <button
-          onClick={() => {
-            onDelete(entry);
-            setSwipe(false);
-          }}
-          className={styles.deleteBtn}
-        >
-          DELETE
-        </button>
-      )}
+    <div className={`food-row ${styles.row}${selected ? ` ${styles.selected}` : ''}`}>
       <button
-        onClick={() => onEdit(entry)}
+        onClick={() => {
+          if (selectionMode) onToggleSelect(entry);
+          else onEdit(entry);
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
-          setSwipe((s) => !s);
+          onLongPress(entry);
         }}
-        className={`${styles.main}${swipe ? ` ${styles.swiping}` : ''}`}
+        className={styles.main}
       >
         <div className={styles.info}>
           <div className={styles.name}>

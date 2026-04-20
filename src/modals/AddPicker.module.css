@@ -8,6 +8,10 @@
   text-align: left;
 }
 
+.row:last-child {
+  border-bottom: none;
+}
+
 .rowInfo {
   display: flex;
   flex-direction: column;
@@ -32,14 +36,9 @@
 }
 
 .rowNameText {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.yoursBadge {
-  color: var(--fg-dim);
-  letter-spacing: 0.14em;
-  flex-shrink: 0;
 }
 
 .rowBrand {

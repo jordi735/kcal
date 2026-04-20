@@ -1,0 +1,88 @@
+.bar {
+  background: var(--bg-elev-2);
+  border-top: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  animation: slideUp 0.2s ease;
+}
+
+.count {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.countLabel {
+  color: var(--fg-dim);
+}
+
+.totals {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.kcal {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--fg);
+}
+
+.kcalUnit {
+  font-size: 11px;
+  color: var(--fg-dimmer);
+}
+
+.macros {
+  font-size: 11px;
+  color: var(--fg-dimmer);
+  margin-left: 6px;
+  letter-spacing: 0.04em;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.clearBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-dim);
+  transition: background 0.2s ease;
+}
+
+.clearBtn:active {
+  background: var(--bg-elev);
+}
+
+.deleteBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: transform 0.1s ease;
+}
+
+.deleteBtn:active {
+  transform: scale(0.98);
+}

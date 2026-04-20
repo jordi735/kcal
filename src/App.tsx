@@ -260,10 +260,12 @@ export function App() {
     setModal({ kind: 'grams-picker', product: entry.product, entry });
   };
 
-  const onDeleteEntry = (entry: EntryWithMacros) => {
-    removeEntry(entry.id, entry.local_date).catch((err) => {
-      reportError(err instanceof Error ? err.message : "Couldn't remove entry");
-    });
+  const onDeleteEntries = (list: EntryWithMacros[]) => {
+    for (const entry of list) {
+      removeEntry(entry.id, entry.local_date).catch((err) => {
+        reportError(err instanceof Error ? err.message : "Couldn't remove entry");
+      });
+    }
   };
 
   // AddPicker handlers
@@ -487,7 +489,7 @@ export function App() {
         goals={goals}
         onAddEntry={onAddEntry}
         onEditEntry={onEditEntry}
-        onDeleteEntry={onDeleteEntry}
+        onDeleteEntries={onDeleteEntries}
         onOpenSettings={() => setSettingsOpen(true)}
       />
 

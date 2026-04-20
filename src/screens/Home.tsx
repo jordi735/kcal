@@ -1,9 +1,11 @@
-// Home screen — week strip, flat entry list, bottom macro summary
+// Home screen — week strip, flat entry list, selection strip, bottom macro summary.
 
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { EntryWithMacros, Goals, Macros } from '../types';
 import { WeekStrip } from '../components/WeekStrip';
 import { MacroSummary } from '../components/MacroSummary';
 import { FoodRow } from '../components/FoodRow';
+import { SelectionBar } from '../components/SelectionBar';
 import { PlusIcon } from '../components/Icon';
 import styles from './Home.module.css';
 
@@ -18,7 +20,7 @@ type HomeProps = {
   goals: Goals;
   onAddEntry: () => void;
   onEditEntry: (entry: EntryWithMacros) => void;
-  onDeleteEntry: (entry: EntryWithMacros) => void;
+  onDeleteEntries: (entries: EntryWithMacros[]) => void;
   onOpenSettings: () => void;
 };
 
@@ -33,9 +35,38 @@ export function Home({
   goals,
   onAddEntry,
   onEditEntry,
-  onDeleteEntry,
+  onDeleteEntries,
   onOpenSettings,
 }: HomeProps) {
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+
+  // Reset selection when the user navigates to a different day.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [selectedDate]);
+
+  const selectionMode = selectedIds.size > 0;
+  const selectedEntries = useMemo(
+    () => entries.filter((e) => selectedIds.has(e.id)),
+    [entries, selectedIds],
+  );
+
+  const toggleSelect = (entry: EntryWithMacros) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(entry.id)) next.delete(entry.id);
+      else next.add(entry.id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleDelete = () => {
+    onDeleteEntries(selectedEntries);
+    setSelectedIds(new Set());
+  };
+
   return (
     <div className={styles.shell}>
       <WeekStrip
@@ -66,13 +97,24 @@ export function Home({
               <FoodRow
                 key={e.id}
                 entry={e}
+                selected={selectedIds.has(e.id)}
+                selectionMode={selectionMode}
                 onEdit={onEditEntry}
-                onDelete={onDeleteEntry}
+                onToggleSelect={toggleSelect}
+                onLongPress={toggleSelect}
               />
             ))}
           </div>
         )}
       </div>
+
+      {selectionMode && (
+        <SelectionBar
+          selected={selectedEntries}
+          onClear={clearSelection}
+          onDelete={handleDelete}
+        />
+      )}
 
       <MacroSummary
         entries={entries}

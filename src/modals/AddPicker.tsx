@@ -120,9 +120,6 @@ function AddPickerInner({
         <div className={styles.rowInfo}>
           <div className={`${styles.rowName}${added ? ` ${styles.rowNameAdded}` : ''}`}>
             <span className={styles.rowNameText}>{p.name}</span>
-            {p.is_mine === true && (
-              <span className={`mono tiny caps ${styles.yoursBadge}`}>YOURS</span>
-            )}
           </div>
           {p.brand && (
             <div className={`mono tiny ${styles.rowBrand}`}>{p.brand.toUpperCase()}</div>
@@ -161,6 +158,9 @@ function AddPickerInner({
             placeholder="Search products..."
             value={q}
             onInput={(e) => setQ(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
             className={styles.searchInput}
           />
           {q && (

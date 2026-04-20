@@ -3,18 +3,15 @@
   overflow: hidden;
 }
 
-.deleteBtn {
+.row.selected::before {
+  content: '';
   position: absolute;
-  right: 0;
+  left: 0;
   top: 0;
   bottom: 0;
-  width: 72px;
-  background: var(--danger);
-  color: #fff;
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  font-family: var(--mono);
+  width: 3px;
+  background: var(--accent);
+  pointer-events: none;
 }
 
 .main {
@@ -25,13 +22,12 @@
   padding: 16px 20px;
   background: var(--bg);
   text-align: left;
-  transform: translateX(0);
-  transition: transform 0.25s ease;
   gap: 12px;
+  transition: background 0.15s ease;
 }
 
-.main.swiping {
-  transform: translateX(-72px);
+.row.selected .main {
+  background: var(--bg-elev);
 }
 
 .info {
