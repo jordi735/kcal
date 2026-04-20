@@ -79,6 +79,19 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
   const [error, setError] = useState<string | null>(null);
   const { closing, requestClose } = useFadeClose(onClose);
 
+  const onChangeP = (v: number) => {
+    setP(v);
+    setKcal(Math.round(v * 4 + c * 4 + f * 9));
+  };
+  const onChangeC = (v: number) => {
+    setC(v);
+    setKcal(Math.round(p * 4 + v * 4 + f * 9));
+  };
+  const onChangeF = (v: number) => {
+    setF(v);
+    setKcal(Math.round(p * 4 + c * 4 + v * 9));
+  };
+
   const total = p * 4 + c * 4 + f * 9;
   const derivedKcal = Math.round(total);
   const mismatch = Math.abs(derivedKcal - kcal) > 50;
@@ -118,10 +131,10 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
       <div className={`no-scroll ${styles.content}`}>
         <div className={styles.section}>
           <div className={`mono tiny caps ${styles.sectionLabel}`}>Daily goals</div>
-          <GoalField label="Kcal" value={kcal} onChange={setKcal} suffix="" step={50} />
-          <GoalField label="Protein" value={p} onChange={setP} suffix="g" step={5} />
-          <GoalField label="Carbs" value={c} onChange={setC} suffix="g" step={5} />
-          <GoalField label="Fat" value={f} onChange={setF} suffix="g" isLast />
+          <GoalField label="Protein" value={p} onChange={onChangeP} suffix="g" step={5} />
+          <GoalField label="Carbs" value={c} onChange={onChangeC} suffix="g" step={5} />
+          <GoalField label="Fat" value={f} onChange={onChangeF} suffix="g" />
+          <GoalField label="Kcal" value={kcal} onChange={setKcal} suffix="" step={50} isLast />
 
           <div className={styles.macroCard}>
             <div className={styles.macroHeader}>
