@@ -88,9 +88,3 @@
   font-weight: 500;
 }
 
-.macroBreakdown {
-  font-size: 10px;
-  color: var(--fg-dimmer);
-  display: flex;
-  gap: 6px;
-}

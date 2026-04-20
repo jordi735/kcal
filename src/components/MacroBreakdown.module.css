@@ -1,0 +1,6 @@
+.breakdown {
+  display: inline-flex;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--fg-dimmer);
+}

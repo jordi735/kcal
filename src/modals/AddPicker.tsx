@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { Product } from '../types';
 import { api } from '../api';
+import { cssVars } from '../styles';
+import { MacroBreakdown } from '../components/MacroBreakdown';
 import { Sheet, useSheetClose } from '../components/Sheet';
 import { BarcodeIcon, MagnifyingGlassIcon, PlusIcon, XMarkIcon } from '../components/Icon';
 import styles from './AddPicker.module.css';
@@ -18,7 +20,7 @@ type AddPickerProps = {
 
 export function AddPicker(props: AddPickerProps) {
   return (
-    <Sheet onClose={props.onClose} style={{ ['--sheet-height' as any]: '92%' }}>
+    <Sheet onClose={props.onClose} style={cssVars({ '--sheet-height': '92%' })}>
       <AddPickerInner {...props} />
     </Sheet>
   );
@@ -122,9 +124,7 @@ function AddPickerInner({
         </div>
         <div className={styles.rowMacros}>
           <span className={`mono ${styles.rowKcal}`}>{Math.round(p.per100.kcal)}</span>
-          <span className={`mono tiny ${styles.rowBreakdown}`}>
-            P{Math.round(p.per100.protein)} C{Math.round(p.per100.carbs)} F{Math.round(p.per100.fat)}
-          </span>
+          <MacroBreakdown macros={p.per100} />
         </div>
       </button>
     );

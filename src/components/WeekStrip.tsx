@@ -7,6 +7,7 @@
 import type { JSX } from 'preact';
 import { useLayoutEffect, useRef } from 'preact/hooks';
 import type { Macros } from '../types';
+import { cssVars } from '../styles';
 import {
   DAY_LETTERS,
   MONTH_NAMES,
@@ -81,7 +82,7 @@ function DayPill({ date, dayLetter, isSelected, isToday, progress, onSelect }: D
       <span className={`mono ${styles.dayNum}`}>{date.getDate()}</span>
       <div
         className={styles.dot}
-        style={{ ['--dot-opacity' as any]: dotOpacity }}
+        style={cssVars({ '--dot-opacity': dotOpacity })}
       />
     </button>
   );

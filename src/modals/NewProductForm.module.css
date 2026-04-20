@@ -5,9 +5,10 @@
 }
 
 .nutFieldLabel {
-  color: var(--fg-dimmer);
+  color: var(--field-color, var(--fg-dimmer));
   letter-spacing: 0.12em;
   font-size: 9px;
+  transition: color 0.3s ease;
 }
 
 .nutFieldBox {
@@ -22,7 +23,7 @@
 }
 
 .nutFieldBox:focus-within {
-  border-color: var(--fg-dim);
+  border-color: var(--field-color, var(--fg-dim));
 }
 
 .nutFieldInput {
@@ -38,7 +39,7 @@
 }
 
 .header {
-  padding: 18px 20px 12px;
+  padding: 0 20px 12px;
   display: flex;
   justify-content: space-between;
   align-items: baseline;

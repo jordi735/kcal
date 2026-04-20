@@ -98,13 +98,6 @@ function isSheetModal(kind: ModalState['kind']): boolean {
   );
 }
 
-function pickAccent(ratio: number): string {
-  if (ratio >= 1) return '#fb4934';
-  if (ratio >= 2 / 3) return '#fe8019';
-  if (ratio >= 1 / 3) return '#d79921';
-  return '#b8bb26';
-}
-
 function productToDraft(p: Product): Partial<ProductDraft> {
   return {
     name: p.name,
@@ -171,17 +164,10 @@ export function App() {
   const entriesForSelected = entriesByDate[selectedKey] ?? [];
   const selectedLoaded = loadedDates.has(selectedKey);
   const todayEntries = entriesByDate[todayKey] ?? [];
-  const todayTotals = sumMacros(todayEntries);
   const addedProductIds = useMemo(
     () => new Set(todayEntries.map((e) => e.product.id)),
     [todayEntries],
   );
-
-  // Dynamic accent based on today's kcal ratio
-  useEffect(() => {
-    const ratio = goals.kcal > 0 ? todayTotals.kcal / goals.kcal : 0;
-    document.documentElement.style.setProperty('--accent', pickAccent(ratio));
-  }, [todayTotals.kcal, goals.kcal]);
 
   // Load entries for the selected day and today whenever either changes.
   useEffect(() => {
@@ -509,6 +495,12 @@ export function App() {
         {modal.kind === 'grams-picker' && (
           <GramsPicker
             product={modal.product}
+            goals={goals}
+            existingTotals={sumMacros(
+              modal.entry !== undefined
+                ? entriesForSelected.filter((e) => e.id !== modal.entry!.id)
+                : entriesForSelected,
+            )}
             {...(modal.entry !== undefined
               ? {
                   initialGrams: modal.entry.grams,

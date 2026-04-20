@@ -49,11 +49,8 @@
   color: var(--fg-dimmer);
 }
 
-.macros {
-  font-size: 11px;
-  color: var(--fg-dimmer);
+.macrosOffset {
   margin-left: 6px;
-  letter-spacing: 0.04em;
 }
 
 .actions {

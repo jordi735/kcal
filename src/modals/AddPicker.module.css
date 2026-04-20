@@ -63,10 +63,6 @@
   color: var(--fg);
 }
 
-.rowBreakdown {
-  color: var(--fg-dimmer);
-}
-
 .sectionHeader {
   padding: 14px 20px 6px;
   display: flex;
@@ -83,7 +79,7 @@
 }
 
 .header {
-  padding: 18px 20px 12px;
+  padding: 0 20px 12px;
   display: flex;
   justify-content: space-between;
   align-items: baseline;

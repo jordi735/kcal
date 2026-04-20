@@ -18,7 +18,8 @@
 
 .fieldLabel {
   font-size: 15px;
-  color: var(--fg);
+  color: var(--field-color, var(--fg));
+  transition: color 0.3s ease;
 }
 
 .fieldSub {
@@ -184,19 +185,8 @@
 
 .macroSlice {
   width: var(--w, 0%);
+  background: var(--slice-color, var(--fg));
   transition: width 0.3s ease;
-}
-
-.macroSliceP {
-  background: var(--macro-p);
-}
-
-.macroSliceC {
-  background: var(--macro-c);
-}
-
-.macroSliceF {
-  background: var(--macro-f);
 }
 
 .legend {

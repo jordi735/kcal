@@ -1,7 +1,9 @@
 // GramsPicker — pick an amount (grams or ml) before adding/editing an entry.
 
 import { useEffect, useState } from 'preact/hooks';
-import type { Product } from '../types';
+import type { Goals, Macros, Product } from '../types';
+import { MACRO_KEYS, MACRO_META } from '../macros';
+import { cssVars } from '../styles';
 import { computeMacros } from '../mocks';
 import { api } from '../api';
 import { Sheet } from '../components/Sheet';
@@ -12,6 +14,8 @@ type GramsPickerProps = {
   product: Product;
   initialGrams?: number;
   mode: 'add' | 'edit';
+  goals: Goals;
+  existingTotals: Macros;
   onConfirm: (grams: number) => void;
   onClose: () => void;
   onDelete?: () => void;
@@ -19,6 +23,9 @@ type GramsPickerProps = {
 };
 
 const DEFAULT_QUICK_VALUES = [50, 100, 150, 200, 250];
+
+const fmtInt = (n: number): string => String(Math.round(n));
+const fmtOneDecimal = (n: number): string => (Math.round(n * 10) / 10).toFixed(1);
 
 export function GramsPicker(props: GramsPickerProps) {
   return (
@@ -28,10 +35,71 @@ export function GramsPicker(props: GramsPickerProps) {
   );
 }
 
+type GoalRowProps = {
+  label: string;
+  existing: number;
+  entry: number;
+  goal: number;
+  unit: string;
+  fmt: (n: number) => string;
+  color: string;
+  colorDim: string;
+};
+
+function GoalRow({ label, existing, entry, goal, unit, fmt, color, colorDim }: GoalRowProps) {
+  const total = existing + entry;
+  const over = total >= goal && goal > 0;
+
+  const toTrackPct = (val: number): number =>
+    goal > 0 ? Math.min((val / goal) * 100, 100) : 0;
+
+  const existingWidth = toTrackPct(existing);
+  const totalWidth = toTrackPct(total);
+  const entryWidth = Math.max(0, totalWidth - existingWidth);
+
+  return (
+    <div className={styles.row}>
+      <span
+        className={`mono tiny caps ${styles.rowLabel}`}
+        style={{ color }}
+      >
+        {label}
+      </span>
+      <div className={styles.track}>
+        <div
+          className={styles.fillExisting}
+          style={{
+            width: `${existingWidth}%`,
+            background: over ? 'var(--danger)' : colorDim,
+          }}
+        />
+        <div
+          className={styles.fillEntry}
+          style={{
+            left: `${existingWidth}%`,
+            width: `${entryWidth}%`,
+            background: over ? 'var(--danger)' : color,
+          }}
+        />
+      </div>
+      <span className={`mono ${styles.numbers}`}>
+        <span className={`${styles.current}${over ? ` ${styles.currentOver}` : ''}`}>
+          {fmt(total)}
+        </span>
+        <span className={styles.goal}>
+          / {fmtInt(goal)}{unit}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 function GramsPickerInner({
   product,
   initialGrams,
   mode,
+  goals,
+  existingTotals,
   onConfirm,
   onDelete,
   onEditProduct,
@@ -83,7 +151,6 @@ function GramsPickerInner({
       : DEFAULT_QUICK_VALUES;
 
   const macros = computeMacros(product, grams);
-  const round1 = (n: number): number => Math.round(n * 10) / 10;
 
   const bump = (delta: number) => {
     setUserChangedGrams(true);
@@ -92,13 +159,6 @@ function GramsPickerInner({
 
   const title = mode === 'edit' ? 'Edit amount' : 'How much?';
   const confirmLabel = mode === 'edit' ? 'Save' : 'Add to day';
-
-  const preview: Array<{ label: string; val: number; unit: string }> = [
-    { label: 'KCAL', val: Math.round(macros.kcal), unit: '' },
-    { label: 'P', val: round1(macros.protein), unit: 'g' },
-    { label: 'C', val: round1(macros.carbs), unit: 'g' },
-    { label: 'F', val: round1(macros.fat), unit: 'g' },
-  ];
 
   return (
     <>
@@ -115,70 +175,93 @@ function GramsPickerInner({
         )}
       </div>
 
-      <div className={styles.productRow}>
-        <div className={styles.productInfo}>
-          <div className={styles.productName}>{product.name}</div>
-          {product.brand && (
-            <div className={`mono tiny caps ${styles.productBrand}`}>{product.brand}</div>
-          )}
-        </div>
-      </div>
-
-      <div className={styles.gramsBox}>
-        <button onClick={() => bump(-10)} className={styles.bumpBtn}>
-          <MinusIcon size={18} />
-        </button>
-        <div className={styles.gramsRow}>
-          <input
-            type="number"
-            inputMode="numeric"
-            value={text}
-            onFocus={() => {
-              setFocused(true);
-              setText('');
-            }}
-            onBlur={() => {
-              setFocused(false);
-              if (text === '') setText(String(grams));
-            }}
-            onInput={(e) => {
-              const raw = e.currentTarget.value;
-              setText(raw);
-              const n = Number(raw);
-              updateGrams(Math.max(1, Number.isFinite(n) ? n : 0));
-            }}
-            className={`mono ${styles.gramsInput}`}
-            style={{ ['--ch' as any]: Math.max(2, text.length) }}
-          />
-          <span className={`mono ${styles.gramsUnit}`}>{unit}</span>
-        </div>
-        <button onClick={() => bump(10)} className={styles.bumpBtn}>
-          <PlusIcon size={18} />
-        </button>
-      </div>
-
-      <div className={styles.quickRow}>
-        {quickValues.map((v) => (
-          <button
-            key={v}
-            onClick={() => updateGrams(v)}
-            className={`${styles.quickBtn}${grams === v ? ` ${styles.quickBtnActive}` : ''}`}
-          >
-            {v}
-          </button>
-        ))}
-      </div>
-
-      <div className={styles.macros}>
-        {preview.map((x) => (
-          <div key={x.label} className={styles.macroCol}>
-            <span className={`mono tiny caps ${styles.macroLabel}`}>{x.label}</span>
-            <div className={styles.macroRow}>
-              <span className={`mono ${styles.macroValue}`}>{x.val}</span>
-              {x.unit && <span className={`mono tiny ${styles.macroUnit}`}>{x.unit}</span>}
-            </div>
+      <div className={styles.scroll}>
+        <div className={styles.productRow}>
+          <div className={styles.productInfo}>
+            <div className={styles.productName}>{product.name}</div>
+            {product.brand && (
+              <div className={`mono tiny caps ${styles.productBrand}`}>{product.brand}</div>
+            )}
           </div>
-        ))}
+        </div>
+
+        <div className={styles.macros}>
+          <GoalRow
+            label="Kcal"
+            existing={existingTotals.kcal}
+            entry={macros.kcal}
+            goal={goals.kcal}
+            unit=""
+            fmt={fmtInt}
+            color="var(--fg)"
+            colorDim="var(--fg-dimmer)"
+          />
+          {MACRO_KEYS.map((k) => (
+            <GoalRow
+              key={k}
+              label={MACRO_META[k].label}
+              color={MACRO_META[k].color}
+              colorDim={MACRO_META[k].colorDim}
+              existing={existingTotals[k]}
+              entry={macros[k]}
+              goal={goals[k]}
+              unit="g"
+              fmt={fmtOneDecimal}
+            />
+          ))}
+        </div>
+
+        <div className={styles.gramsBox}>
+          <button onClick={() => bump(-10)} className={styles.bumpBtn}>
+            <MinusIcon size={18} />
+          </button>
+          <div className={styles.gramsRow}>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={text}
+              onFocus={() => {
+                setFocused(true);
+                setText('');
+              }}
+              onBlur={() => {
+                setFocused(false);
+                if (text === '') setText(String(grams));
+              }}
+              onInput={(e) => {
+                const raw = e.currentTarget.value;
+                setText(raw);
+                const n = Number(raw);
+                updateGrams(Math.max(1, Number.isFinite(n) ? n : 0));
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                  onConfirm(grams);
+                }
+              }}
+              className={`mono ${styles.gramsInput}`}
+              style={cssVars({ '--ch': Math.max(2, text.length) })}
+            />
+            <span className={`mono ${styles.gramsUnit}`}>{unit}</span>
+          </div>
+          <button onClick={() => bump(10)} className={styles.bumpBtn}>
+            <PlusIcon size={18} />
+          </button>
+        </div>
+
+        <div className={styles.quickRow}>
+          {quickValues.map((v) => (
+            <button
+              key={v}
+              onClick={() => updateGrams(v)}
+              className={`${styles.quickBtn}${grams === v ? ` ${styles.quickBtnActive}` : ''}`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className={styles.actions}>

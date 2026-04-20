@@ -2,6 +2,8 @@
 
 import { useMemo } from 'preact/hooks';
 import { sumMacros, type EntryWithMacros, type Goals } from '../types';
+import { MACRO_KEYS } from '../macros';
+import { cssVars } from '../styles';
 import { MacroBar } from './MacroBar';
 import { CogIcon, PlusIcon } from './Icon';
 import styles from './MacroSummary.module.css';
@@ -45,14 +47,14 @@ export function MacroSummary({ entries, goals, onSettings, onAdd }: MacroSummary
       <div className={styles.kcalBar}>
         <div
           className={`${styles.kcalBarFill}${kcalOver ? ` ${styles.kcalBarFillOver}` : ''}`}
-          style={{ ['--kcal-pct' as any]: `${kcalPct}%` }}
+          style={cssVars({ '--kcal-pct': `${kcalPct}%` })}
         />
       </div>
 
       <div className={styles.macroGrid}>
-        <MacroBar label="Protein" consumed={totals.protein} goal={goals.protein} />
-        <MacroBar label="Carbs" consumed={totals.carbs} goal={goals.carbs} />
-        <MacroBar label="Fat" consumed={totals.fat} goal={goals.fat} />
+        {MACRO_KEYS.map((k) => (
+          <MacroBar key={k} macroKey={k} consumed={totals[k]} goal={goals[k]} />
+        ))}
       </div>
 
       <div className={styles.actions}>

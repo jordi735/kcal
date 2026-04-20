@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { sumMacros, type EntryWithMacros } from '../types';
 import { FADE_EXIT_MS } from '../hooks/useFadeClose';
+import { MacroBreakdown } from './MacroBreakdown';
 import { TrashIcon, XMarkIcon } from './Icon';
 import styles from './SelectionBar.module.css';
 
@@ -58,9 +59,7 @@ export function SelectionBar({ visible, selected, onClear, onDelete }: Selection
         <div className={styles.totals}>
           <span className={`mono ${styles.kcal}`}>{Math.round(totals.kcal)}</span>
           <span className={`mono ${styles.kcalUnit}`}>kcal</span>
-          <span className={`mono ${styles.macros}`}>
-            P{Math.round(totals.protein)} C{Math.round(totals.carbs)} F{Math.round(totals.fat)}
-          </span>
+          <MacroBreakdown macros={totals} className={styles.macrosOffset} />
         </div>
       </div>
       <div className={styles.actions}>

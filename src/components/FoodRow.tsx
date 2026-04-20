@@ -1,6 +1,7 @@
 // Food entry row — tap to edit, long-press to enter multi-select.
 
 import type { EntryWithMacros } from '../types';
+import { MacroBreakdown } from './MacroBreakdown';
 import styles from './FoodRow.module.css';
 
 type FoodRowProps = {
@@ -50,11 +51,7 @@ export function FoodRow({
         </div>
         <div className={styles.macros}>
           <div className={`mono ${styles.kcal}`}>{Math.round(macros.kcal)}</div>
-          <div className={`mono ${styles.macroBreakdown}`}>
-            <span>P{Math.round(macros.protein)}</span>
-            <span>C{Math.round(macros.carbs)}</span>
-            <span>F{Math.round(macros.fat)}</span>
-          </div>
+          <MacroBreakdown macros={macros} />
         </div>
       </button>
     </div>

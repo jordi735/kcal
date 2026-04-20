@@ -13,13 +13,20 @@
   --fg-dim: #d5c4a1;       /* fg2 */
   --fg-dimmer: #928374;    /* gray */
   --fg-dimmest: #665c54;
-  --accent: #b8bb26;       /* bright green */
+  --accent: #ebdbb2;       /* fg1 — warm off-white, static */
   --accent-ink: #1d2021;
-  --danger: #fb4934;       /* bright red */
+  --danger: #fb4934;       /* bright red — errors + over-threshold only */
 
-  --macro-p: #b8bb26;      /* bright green */
-  --macro-c: #fe8019;      /* bright orange */
-  --macro-f: #fabd2f;      /* bright yellow */
+  --macro-p: #83a598;      /* bright blue */
+  --macro-c: #d3869b;      /* bright purple */
+  --macro-f: #8ec07c;      /* bright aqua */
+
+  --macro-p-dim: #458588;  /* blue — Gruvbox non-bright pair of --macro-p */
+  --macro-c-dim: #b16286;  /* purple — pair of --macro-c */
+  --macro-f-dim: #689d6a;  /* aqua — pair of --macro-f */
+
+  --track-height: 6px;
+  --track-radius: 3px;
 
   --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   --sans: 'Geist', -apple-system, system-ui, sans-serif;

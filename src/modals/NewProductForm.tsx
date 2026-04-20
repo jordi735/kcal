@@ -3,6 +3,8 @@
 
 import { useState } from 'preact/hooks';
 import type { Macros } from '../types';
+import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
+import { cssVars } from '../styles';
 import { Sheet, useSheetClose } from '../components/Sheet';
 import { ClearableField } from '../components/ClearableField';
 import { ArrowRightIcon, BarcodeIcon, ExclamationTriangleIcon, SparklesIcon, TrashIcon } from '../components/Icon';
@@ -36,11 +38,16 @@ type NutFieldProps = {
   value: NumField;
   onChange: (v: NumField) => void;
   unit?: string;
+  macroKey?: MacroKey;
 };
 
-function NutField({ label, value, onChange, unit }: NutFieldProps) {
+function NutField({ label, value, onChange, unit, macroKey }: NutFieldProps) {
+  const color = macroKey !== undefined ? MACRO_META[macroKey].color : undefined;
   return (
-    <div className={styles.nutField}>
+    <div
+      className={styles.nutField}
+      style={color ? cssVars({ '--field-color': color }) : undefined}
+    >
       <label className={`mono tiny caps ${styles.nutFieldLabel}`}>{label}</label>
       <div className={styles.nutFieldBox}>
         <input
@@ -72,7 +79,7 @@ function toField(n: number | undefined): NumField {
 
 export function NewProductForm(props: NewProductFormProps) {
   return (
-    <Sheet onClose={props.onClose} style={{ ['--sheet-max-height' as any]: '100%' }}>
+    <Sheet onClose={props.onClose} style={cssVars({ '--sheet-max-height': '100%' })}>
       <NewProductFormInner {...props} />
     </Sheet>
   );
@@ -99,6 +106,13 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
   const isEdit = mode === 'edit';
   const isTemp = !isEdit && (initial?.is_temp ?? false);
   const prefilled = initial?.per100 !== undefined;
+
+  const macroValues: Record<MacroKey, NumField> = { protein, carbs, fat };
+  const macroSetters: Record<MacroKey, (v: NumField) => void> = {
+    protein: setProtein,
+    carbs: setCarbs,
+    fat: setFat,
+  };
 
   const valid =
     name.trim().length > 0 &&
@@ -258,9 +272,16 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
           <div className={`mono tiny caps ${styles.macroCardLabel}`}>Per 100{unit}</div>
           <div className={styles.macroGrid}>
             <NutField label="Kcal" value={kcal} onChange={setKcal} />
-            <NutField label="Protein" value={protein} onChange={setProtein} unit="g" />
-            <NutField label="Carbs" value={carbs} onChange={setCarbs} unit="g" />
-            <NutField label="Fat" value={fat} onChange={setFat} unit="g" />
+            {MACRO_KEYS.map((k) => (
+              <NutField
+                key={k}
+                label={MACRO_META[k].label}
+                unit="g"
+                macroKey={k}
+                value={macroValues[k]}
+                onChange={macroSetters[k]}
+              />
+            ))}
           </div>
           {atwaterMismatch && atwaterExpected !== null && (
             <div className={styles.atwaterWarn}>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useFadeClose } from '../hooks/useFadeClose';
 import type { Goals } from '../types';
+import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
+import { cssVars } from '../styles';
 import { ArrowLeftIcon, MinusIcon, PlusIcon } from '../components/Icon';
 import styles from './Settings.module.css';
 
@@ -16,21 +18,26 @@ type GoalFieldProps = {
   label: string;
   value: number;
   onChange: (n: number) => void;
+  macroKey?: MacroKey;
   suffix?: string;
   step?: number;
   isLast?: boolean;
 };
 
-function GoalField({ label, value, onChange, suffix = 'g', step = 5, isLast = false }: GoalFieldProps) {
+function GoalField({ label, value, onChange, macroKey, suffix = 'g', step = 5, isLast = false }: GoalFieldProps) {
   const [text, setText] = useState(String(value));
   const [focused, setFocused] = useState(false);
+  const color = macroKey !== undefined ? MACRO_META[macroKey].color : undefined;
 
   useEffect(() => {
     if (!focused) setText(String(value));
   }, [value, focused]);
 
   return (
-    <div className={`${styles.field}${isLast ? ` ${styles.fieldLast}` : ''}`}>
+    <div
+      className={`${styles.field}${isLast ? ` ${styles.fieldLast}` : ''}`}
+      style={color ? cssVars({ '--field-color': color }) : undefined}
+    >
       <div className={styles.fieldInfo}>
         <span className={styles.fieldLabel}>{label}</span>
         <span className={`mono tiny caps ${styles.fieldSub}`}>per day</span>
@@ -61,7 +68,7 @@ function GoalField({ label, value, onChange, suffix = 'g', step = 5, isLast = fa
               onChange(Math.max(0, Number(raw) || 0));
             }}
             className={`mono ${styles.valueInput}`}
-            style={{ ['--ch' as any]: text.length }}
+            style={cssVars({ '--ch': text.length })}
           />
           {suffix ? (
             <span className={`mono tiny ${styles.valueSuffix}`}>{suffix}</span>
@@ -78,12 +85,12 @@ function GoalField({ label, value, onChange, suffix = 'g', step = 5, isLast = fa
   );
 }
 
-type LegendDotProps = { color: string; label: string };
+type LegendDotProps = { macroKey: MacroKey; label: string };
 
-function LegendDot({ color, label }: LegendDotProps) {
+function LegendDot({ macroKey, label }: LegendDotProps) {
   return (
     <div className={styles.legendItem}>
-      <div className={styles.legendDot} style={{ ['--dot-color' as any]: color }} />
+      <div className={styles.legendDot} style={cssVars({ '--dot-color': MACRO_META[macroKey].color })} />
       <span className={`mono tiny caps ${styles.legendLabel}`}>{label}</span>
     </div>
   );
@@ -127,6 +134,13 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
   const pPct = total ? Math.round(((p * 4) / total) * 100) : 0;
   const cPct = total ? Math.round(((c * 4) / total) * 100) : 0;
   const fPct = total ? 100 - pPct - cPct : 0;
+  const pctByKey: Record<MacroKey, number> = { protein: pPct, carbs: cPct, fat: fPct };
+  const valueByKey: Record<MacroKey, number> = { protein: p, carbs: c, fat: f };
+  const setterByKey: Record<MacroKey, (v: number) => void> = {
+    protein: onChangeP,
+    carbs: onChangeC,
+    fat: onChangeF,
+  };
 
   const save = async () => {
     setSaving(true);
@@ -161,9 +175,15 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
       <div className={`no-scroll ${styles.content}`}>
         <div className={styles.section}>
           <div className={`mono tiny caps ${styles.sectionLabel}`}>Daily goals</div>
-          <GoalField label="Protein" value={p} onChange={onChangeP} suffix="g" step={5} />
-          <GoalField label="Carbs" value={c} onChange={onChangeC} suffix="g" step={5} />
-          <GoalField label="Fat" value={f} onChange={onChangeF} suffix="g" />
+          {MACRO_KEYS.map((k) => (
+            <GoalField
+              key={k}
+              label={MACRO_META[k].label}
+              value={valueByKey[k]}
+              onChange={setterByKey[k]}
+              macroKey={k}
+            />
+          ))}
           <GoalField label="Kcal" value={kcal} onChange={setKcal} suffix="" step={50} isLast />
 
           <div className={styles.macroCard}>
@@ -174,23 +194,25 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
               </span>
             </div>
             <div className={styles.macroBar}>
-              <div
-                className={`${styles.macroSlice} ${styles.macroSliceP}`}
-                style={{ ['--w' as any]: `${pPct}%` }}
-              />
-              <div
-                className={`${styles.macroSlice} ${styles.macroSliceC}`}
-                style={{ ['--w' as any]: `${cPct}%` }}
-              />
-              <div
-                className={`${styles.macroSlice} ${styles.macroSliceF}`}
-                style={{ ['--w' as any]: `${fPct}%` }}
-              />
+              {MACRO_KEYS.map((k) => (
+                <div
+                  key={k}
+                  className={styles.macroSlice}
+                  style={cssVars({
+                    '--w': `${pctByKey[k]}%`,
+                    '--slice-color': MACRO_META[k].color,
+                  })}
+                />
+              ))}
             </div>
             <div className={styles.legend}>
-              <LegendDot color="var(--macro-p)" label={`P ${pPct}%`} />
-              <LegendDot color="var(--macro-c)" label={`C ${cPct}%`} />
-              <LegendDot color="var(--macro-f)" label={`F ${fPct}%`} />
+              {MACRO_KEYS.map((k) => (
+                <LegendDot
+                  key={k}
+                  macroKey={k}
+                  label={`${MACRO_META[k].short} ${pctByKey[k]}%`}
+                />
+              ))}
             </div>
             {mismatch ? (
               <div className={styles.mismatchWarn}>

@@ -15,7 +15,7 @@
 }
 
 .value {
-  font-size: 11px;
+  font-size: 16px;
   color: var(--fg);
   transition: color 0.3s ease;
 }
@@ -29,9 +29,9 @@
 }
 
 .track {
-  height: 3px;
+  height: var(--track-height);
   background: var(--bg-elev-2);
-  border-radius: 2px;
+  border-radius: var(--track-radius);
   overflow: hidden;
   position: relative;
 }
@@ -43,7 +43,7 @@
   bottom: 0;
   width: var(--fill-pct, 0%);
   background: var(--bar-color, var(--accent));
-  border-radius: 2px;
+  border-radius: var(--track-radius);
   transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.3s ease;
   transform-origin: left;
 }
