@@ -1,25 +1,19 @@
-// Barcode scanner modal — live camera viewfinder + BarcodeDetector polling.
+// Barcode scanner modal — live camera viewfinder decoded by @zxing/browser.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { BrowserMultiFormatOneDReader, type IScannerControls } from '@zxing/browser';
+import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 import { useFadeClose } from '../hooks/useFadeClose';
 import styles from './BarcodeScanner.module.css';
 
-declare global {
-  interface Window {
-    BarcodeDetector?: BarcodeDetectorConstructor;
-  }
-}
-type BarcodeDetectorConstructor = new (opts?: {
-  formats?: string[];
-}) => BarcodeDetectorInstance;
-type BarcodeDetectorInstance = {
-  detect: (
-    source: CanvasImageSource,
-  ) => Promise<Array<{ rawValue: string; format: string }>>;
-};
-
-const FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'];
-const POLL_MS = 300;
+const FORMATS: readonly BarcodeFormat[] = [
+  BarcodeFormat.EAN_13,
+  BarcodeFormat.EAN_8,
+  BarcodeFormat.UPC_A,
+  BarcodeFormat.UPC_E,
+  BarcodeFormat.CODE_128,
+  BarcodeFormat.CODE_39,
+];
 
 type BarcodeScannerProps = {
   onDetect: (barcode: string) => void;
@@ -31,19 +25,14 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
   const firedRef = useRef(false);
   const onDetectRef = useRef(onDetect);
   onDetectRef.current = onDetect;
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const controlsRef = useRef<IScannerControls | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { closing, requestClose } = useFadeClose(onClose);
 
   const closeNow = () => {
-    if (intervalRef.current !== null) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (streamRef.current !== null) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
+    if (controlsRef.current !== null) {
+      controlsRef.current.stop();
+      controlsRef.current = null;
     }
     requestClose();
   };
@@ -51,30 +40,38 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
   useEffect(() => {
     let cancelled = false;
 
-    const Ctor = window.BarcodeDetector;
-    if (Ctor === undefined) {
-      setError('Barcode scanning isn\u2019t supported on this browser.');
+    const video = videoRef.current;
+    if (video === null) {
       return () => {
         cancelled = true;
       };
     }
 
-    let detector: BarcodeDetectorInstance;
-    try {
-      detector = new Ctor({ formats: FORMATS });
-    } catch {
-      setError('Barcode scanning isn\u2019t supported on this browser.');
-      return () => {
-        cancelled = true;
-      };
-    }
+    const hints = new Map<DecodeHintType, unknown>();
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, FORMATS);
+    const reader = new BrowserMultiFormatOneDReader(hints);
 
-    (async () => {
-      try {
-        streamRef.current = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
-        });
-      } catch (err) {
+    reader
+      .decodeFromConstraints(
+        { video: { facingMode: 'environment' } },
+        video,
+        (result, _err, controls) => {
+          if (result === undefined) return;
+          if (firedRef.current) return;
+          firedRef.current = true;
+          controls.stop();
+          controlsRef.current = null;
+          onDetectRef.current(result.getText());
+        },
+      )
+      .then((controls) => {
+        if (cancelled) {
+          controls.stop();
+          return;
+        }
+        controlsRef.current = controls;
+      })
+      .catch((err: unknown) => {
         if (cancelled) return;
         const name = err instanceof Error ? err.name : '';
         if (name === 'NotAllowedError' || name === 'SecurityError') {
@@ -84,56 +81,13 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
         } else {
           setError('Camera could not be started.');
         }
-        return;
-      }
-
-      if (cancelled) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-        return;
-      }
-
-      const video = videoRef.current;
-      if (video === null) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-        return;
-      }
-      video.srcObject = streamRef.current;
-      try {
-        await video.play();
-      } catch {
-        // Autoplay can reject on some browsers; muted+playsInline keeps it quiet.
-      }
-
-      if (cancelled) return;
-
-      intervalRef.current = setInterval(async () => {
-        if (firedRef.current) return;
-        const el = videoRef.current;
-        if (el === null || el.readyState < 2) return;
-        try {
-          const results = await detector.detect(el);
-          const first = results[0];
-          if (first !== undefined && !firedRef.current) {
-            firedRef.current = true;
-            onDetectRef.current(first.rawValue);
-          }
-        } catch {
-          // Transient mid-frame errors are expected; keep polling.
-        }
-      }, POLL_MS);
-    })();
+      });
 
     return () => {
       cancelled = true;
-      if (intervalRef.current !== null) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (streamRef.current !== null) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
+      if (controlsRef.current !== null) {
+        controlsRef.current.stop();
+        controlsRef.current = null;
       }
     };
   }, []);
