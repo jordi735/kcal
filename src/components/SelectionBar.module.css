@@ -6,11 +6,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  transform: translateY(0);
   animation: slideUp 0.3s ease;
+  transition: transform 0.3s ease;
 }
 
-.bar.exiting {
-  animation: slideDown 0.3s ease forwards;
+.exiting {
+  transform: translateY(100%);
   pointer-events: none;
 }
 

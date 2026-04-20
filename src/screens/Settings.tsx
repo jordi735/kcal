@@ -97,6 +97,16 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { closing, requestClose } = useFadeClose(onClose);
+  const [mounted, setMounted] = useState(false);
+
+  // Slide in: mount at translateY(100%), then flip to translateY(0) next
+  // frame so the CSS transition has two distinct values to interpolate
+  // between. Setting it during the same render would apply translateY(0)
+  // on first paint and skip the animation.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   const onChangeP = (v: number) => {
     setP(v);
@@ -131,7 +141,9 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
   };
 
   return (
-    <div className={`${styles.shell}${closing ? ' fullscreen-exit' : ''}`}>
+    <div
+      className={`${styles.shell}${mounted && !closing ? ` ${styles.shellVisible}` : ''}${closing ? ' fullscreen-exit' : ''}`}
+    >
       <div className={styles.header}>
         <button onClick={requestClose} className={`mono tiny caps ${styles.closeBtn}`}>
           <ArrowLeftIcon size={12} />
