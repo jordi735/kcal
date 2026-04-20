@@ -10,6 +10,7 @@ import { authRouter } from './routes/auth.js';
 import { settingsRouter } from './routes/settings.js';
 import { productsRouter } from './routes/products.js';
 import { entriesRouter } from './routes/entries.js';
+import { debugRouter } from './routes/debug.js';
 import { probeClaude } from './claude.js';
 import { log } from './log.js';
 import { API_PREFIXES } from '../shared/apiPrefixes.js';
@@ -23,6 +24,7 @@ app.use('/auth', authRouter);
 app.use('/settings', settingsRouter);
 app.use('/products', productsRouter);
 app.use('/entries', entriesRouter);
+app.use('/debug', debugRouter);
 
 const distDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 
