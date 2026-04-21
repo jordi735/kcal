@@ -158,6 +158,7 @@ input[type="number"] {
   display: flex;
   flex-direction: column;
   border-top: 1px solid var(--border);
+  will-change: transform;
 }
 
 .sheet-handle {
@@ -198,6 +199,12 @@ input[type="number"] {
 .overlay.exiting {
   animation: fadeOut 0.3s ease forwards;
   pointer-events: none;
+  /* Drop the blur during fade-out: backdrop-filter forces per-frame
+     rasterization of the pixels behind this layer, and combined with
+     the sheet's simultaneous translate-down that's the dominant GPU
+     cost during dismiss. Users don't notice the blur disappearing once
+     the layer is already fading to transparent. */
+  backdrop-filter: none;
 }
 .sheet.exiting {
   pointer-events: none;
