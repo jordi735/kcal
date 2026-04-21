@@ -175,9 +175,9 @@
 }
 
 .unitBtn.unitBtnActive {
-  background: var(--fg);
-  color: var(--bg);
-  border-color: var(--fg);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
 }
 
 .macroCard {
@@ -236,7 +236,7 @@
   min-width: 54px;
   padding: 0 16px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 90, 74, 0.3);
+  border: 1px solid color-mix(in oklab, var(--danger) 30%, transparent);
   color: var(--danger);
   display: flex;
   align-items: center;

@@ -234,12 +234,12 @@
 
 .logoutBtn:global(.btn-ghost) {
   color: var(--danger);
-  border-color: rgba(255, 90, 74, 0.3);
+  border-color: color-mix(in oklab, var(--danger) 30%, transparent);
 }
 
 .footer {
   text-align: center;
-  color: var(--fg-dimmest);
+  color: var(--fg-dimmer);
   font-size: 10px;
   letter-spacing: 0.14em;
   font-family: var(--mono);

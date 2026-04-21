@@ -3,7 +3,7 @@
 }
 
 .overlayDark {
-  background: rgba(0, 0, 0, 0.94);
+  background: color-mix(in oklab, var(--bg) 94%, transparent);
   z-index: 70;
 }
 
@@ -34,7 +34,7 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 2px solid rgba(240, 240, 232, 0.15);
+  border: 2px solid color-mix(in oklab, var(--fg) 15%, transparent);
   border-top-color: var(--accent);
   animation: aiSpin 0.9s linear infinite;
 }

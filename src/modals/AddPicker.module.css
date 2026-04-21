@@ -173,9 +173,9 @@
 }
 
 .scopeBtn.scopeBtnActive {
-  background: var(--fg);
-  color: var(--bg);
-  border-color: var(--fg);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
 }
 
 .list {

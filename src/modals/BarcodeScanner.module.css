@@ -1,5 +1,5 @@
 .overlayDark {
-  background: rgba(0, 0, 0, 0.92);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
 }
 
 .shell {
