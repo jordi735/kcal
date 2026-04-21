@@ -175,7 +175,7 @@ function GramsPickerInner({
         )}
       </div>
 
-      <div className={styles.scroll}>
+      <div data-sheet-scroll className={styles.scroll}>
         <div className={styles.productRow}>
           <div className={styles.productInfo}>
             <div className={styles.productName}>{product.name}</div>

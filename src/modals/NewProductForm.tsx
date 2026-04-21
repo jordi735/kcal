@@ -189,7 +189,7 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
         </button>
       </div>
 
-      <div className={`no-scroll ${styles.scroll}`}>
+      <div data-sheet-scroll className={`no-scroll ${styles.scroll}`}>
         {!isEdit && (
           <button
             onClick={onScanLabel}

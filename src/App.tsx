@@ -86,7 +86,8 @@ type ModalState =
       product: Product;
       entry: EntryWithMacros | undefined;
       initialOverride?: Partial<ProductDraft>;
-    };
+    }
+  | { kind: 'settings' };
 
 // Modals that render inside <Sheet> and share the hoisted SheetOverlay.
 function isSheetModal(kind: ModalState['kind']): boolean {
@@ -94,7 +95,8 @@ function isSheetModal(kind: ModalState['kind']): boolean {
     kind === 'add-picker' ||
     kind === 'new-product' ||
     kind === 'grams-picker' ||
-    kind === 'edit-product'
+    kind === 'edit-product' ||
+    kind === 'settings'
   );
 }
 
@@ -138,7 +140,6 @@ export function App() {
   );
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [modal, setModal] = useState<ModalState>({ kind: 'none' });
   const [transientError, setTransientError] = useState<string | null>(null);
   const [errorExiting, setErrorExiting] = useState(false);
@@ -418,7 +419,6 @@ export function App() {
       localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
       setUser(updatedUser);
     }
-    setSettingsOpen(false);
   };
   const onLogout = async () => {
     try {
@@ -427,7 +427,6 @@ export function App() {
       // Even if logout fails server-side, clear local state.
     }
     clearStoredSession();
-    setSettingsOpen(false);
     setModal({ kind: 'none' });
     setUser(null);
   };
@@ -452,18 +451,8 @@ export function App() {
         onAddEntry={onAddEntry}
         onEditEntry={onEditEntry}
         onDeleteEntries={onDeleteEntries}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => setModal({ kind: 'settings' })}
       />
-
-      {settingsOpen && (
-        <Settings
-          goals={goals}
-          onSave={onSaveGoals}
-          onClose={() => setSettingsOpen(false)}
-          onLogout={onLogout}
-          userEmail={user.email}
-        />
-      )}
 
       <SheetOverlay
         visible={isSheetModal(modal.kind)}
@@ -529,6 +518,16 @@ export function App() {
             }
             onScanLabel={onScanLabel}
             onScanBarcode={onScanBarcodeFromForm}
+          />
+        )}
+
+        {modal.kind === 'settings' && (
+          <Settings
+            goals={goals}
+            onSave={onSaveGoals}
+            onClose={closeModal}
+            onLogout={onLogout}
+            userEmail={user.email}
           />
         )}
       </SheetCloseRegisterProvider>

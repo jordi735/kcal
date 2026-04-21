@@ -189,7 +189,7 @@ function AddPickerInner({
         </button>
       </div>
 
-      <div className={`no-scroll ${styles.list}`}>
+      <div data-sheet-scroll className={`no-scroll ${styles.list}`}>
         {showingSearch ? (
           searchLoading ? (
             <div className={`mono tiny caps ${styles.loadingMsg}`}>Searching...</div>

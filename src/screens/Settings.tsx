@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
-import { useFadeClose } from '../hooks/useFadeClose';
 import type { Goals } from '../types';
 import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
 import { cssVars } from '../styles';
+import { Sheet, useSheetClose } from '../components/Sheet';
 import { ArrowLeftIcon, MinusIcon, PlusIcon } from '../components/Icon';
 import styles from './Settings.module.css';
 
@@ -13,6 +13,16 @@ type SettingsProps = {
   onLogout: () => void;
   userEmail: string | null;
 };
+
+export function Settings(props: SettingsProps) {
+  return (
+    <Sheet onClose={props.onClose} style={cssVars({ '--sheet-height': '92%' })}>
+      <SettingsInner {...props} />
+    </Sheet>
+  );
+}
+
+type InnerProps = Omit<SettingsProps, 'onClose'>;
 
 type GoalFieldProps = {
   label: string;
@@ -96,24 +106,14 @@ function LegendDot({ macroKey, label }: LegendDotProps) {
   );
 }
 
-export function Settings({ goals, onSave, onClose, onLogout, userEmail }: SettingsProps) {
+function SettingsInner({ goals, onSave, onLogout, userEmail }: InnerProps) {
+  const close = useSheetClose();
   const [kcal, setKcal] = useState(goals.kcal);
   const [p, setP] = useState(goals.protein);
   const [c, setC] = useState(goals.carbs);
   const [f, setF] = useState(goals.fat);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { closing, requestClose } = useFadeClose(onClose);
-  const [mounted, setMounted] = useState(false);
-
-  // Slide in: mount at translateY(100%), then flip to translateY(0) next
-  // frame so the CSS transition has two distinct values to interpolate
-  // between. Setting it during the same render would apply translateY(0)
-  // on first paint and skip the animation.
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setMounted(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
 
   const onChangeP = (v: number) => {
     setP(v);
@@ -147,6 +147,7 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
     setError(null);
     try {
       await onSave({ kcal, protein: p, carbs: c, fat: f });
+      close();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed');
     } finally {
@@ -155,11 +156,9 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
   };
 
   return (
-    <div
-      className={`${styles.shell}${mounted && !closing ? ` ${styles.shellVisible}` : ''}${closing ? ' fullscreen-exit' : ''}`}
-    >
+    <>
       <div className={styles.header}>
-        <button onClick={requestClose} className={`mono tiny caps ${styles.closeBtn}`}>
+        <button onClick={close} className={`mono tiny caps ${styles.closeBtn}`}>
           <ArrowLeftIcon size={12} />
           Close
         </button>
@@ -172,7 +171,7 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
         </button>
       </div>
 
-      <div className={`no-scroll ${styles.content}`}>
+      <div data-sheet-scroll className={`no-scroll ${styles.content}`}>
         <div className={styles.section}>
           <div className={`mono tiny caps ${styles.sectionLabel}`}>Daily goals</div>
           {MACRO_KEYS.map((k) => (
@@ -241,6 +240,6 @@ export function Settings({ goals, onSave, onClose, onLogout, userEmail }: Settin
 
         <div className={styles.footer}>kcal. v1</div>
       </div>
-    </div>
+    </>
   );
 }
