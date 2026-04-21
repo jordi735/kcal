@@ -343,10 +343,12 @@ export function App() {
   const onLabelExtracted = (label: ExtractedLabel) => {
     const draftSoFar: Partial<ProductDraft> =
       modal.kind === 'ai-label-scanner' ? modal.draftSoFar : {};
-    setModal({
-      kind: 'new-product',
-      initial: { ...draftSoFar, ...label },
-    });
+    // User-typed name/brand win over AI extraction; macros + unit always come
+    // from the scan, since those are the point of invoking it.
+    const merged: Partial<ProductDraft> = { ...draftSoFar, ...label };
+    if (draftSoFar.name?.trim()) merged.name = draftSoFar.name;
+    if (draftSoFar.brand?.trim()) merged.brand = draftSoFar.brand;
+    setModal({ kind: 'new-product', initial: merged });
   };
 
   const onProductSave = async (draft: ProductDraft): Promise<void> => {
