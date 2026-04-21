@@ -37,8 +37,9 @@
   gap: 8px;
 }
 
-.rowName.rowNameAdded {
-  color: var(--accent);
+.addedCheck {
+  color: var(--fg-dim);
+  flex-shrink: 0;
 }
 
 .rowNameText {

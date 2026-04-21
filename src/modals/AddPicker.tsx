@@ -6,7 +6,7 @@ import { api } from '../api';
 import { cssVars } from '../styles';
 import { MacroBreakdown } from '../components/MacroBreakdown';
 import { Sheet, useSheetClose } from '../components/Sheet';
-import { BarcodeIcon, MagnifyingGlassIcon, PlusIcon, XMarkIcon } from '../components/Icon';
+import { BarcodeIcon, CheckIcon, MagnifyingGlassIcon, PlusIcon, XMarkIcon } from '../components/Icon';
 import styles from './AddPicker.module.css';
 
 type AddPickerProps = {
@@ -115,7 +115,8 @@ function AddPickerInner({
     return (
       <button key={p.id} onClick={() => onPick(p)} className={styles.row}>
         <div className={styles.rowInfo}>
-          <div className={`${styles.rowName}${added ? ` ${styles.rowNameAdded}` : ''}`}>
+          <div className={styles.rowName}>
+            {added && <CheckIcon size={12} className={styles.addedCheck} />}
             <span className={styles.rowNameText}>{p.name}</span>
           </div>
           {p.brand && (
