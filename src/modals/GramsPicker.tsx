@@ -7,6 +7,7 @@ import { cssVars } from '../styles';
 import { computeMacros } from '../mocks';
 import { api } from '../api';
 import { Sheet } from '../components/Sheet';
+import { useFocusClearableNumber } from '../hooks/useFocusClearableNumber';
 import { ArrowRightIcon, MinusIcon, PencilIcon, PlusIcon, TrashIcon } from '../components/Icon';
 import styles from './GramsPicker.module.css';
 
@@ -107,13 +108,8 @@ function GramsPickerInner({
   const [history, setHistory] = useState<number[] | null>(null);
   const [grams, setGrams] = useState<number>(initialGrams ?? 100);
   const [userChangedGrams, setUserChangedGrams] = useState(false);
-  const [text, setText] = useState<string>(String(initialGrams ?? 100));
-  const [focused, setFocused] = useState(false);
+  const { text, setText, onFocus, onBlur } = useFocusClearableNumber(grams);
   const unit = product.unit;
-
-  useEffect(() => {
-    if (!focused) setText(String(grams));
-  }, [grams, focused]);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,11 +136,6 @@ function GramsPickerInner({
     setGrams(history[0]!);
   }, [history, mode, initialGrams, userChangedGrams]);
 
-  const updateGrams = (next: number) => {
-    setUserChangedGrams(true);
-    setGrams(next);
-  };
-
   const quickValues =
     history !== null && history.length > 0
       ? history.map((v) => Math.round(v))
@@ -152,10 +143,18 @@ function GramsPickerInner({
 
   const macros = computeMacros(product, grams);
 
-  const bump = (delta: number) => {
+  // Button-triggered grams change (bump +/- and quick-value row). Syncs
+  // `text` alongside `grams` because iOS Safari keeps focus on the input
+  // when a sibling button is tapped — the hook's useEffect won't fire.
+  // The input's own onInput keeps its inline setText(raw) instead so the
+  // user's raw typing isn't clobbered by the clamped value.
+  const selectGrams = (next: number) => {
     setUserChangedGrams(true);
-    setGrams((g) => Math.max(1, g + delta));
+    setGrams(next);
+    setText(String(next));
   };
+
+  const bump = (delta: number) => selectGrams(Math.max(1, grams + delta));
 
   const title = mode === 'edit' ? 'Edit amount' : 'How much?';
   const confirmLabel = mode === 'edit' ? 'Save' : 'Add to day';
@@ -175,7 +174,7 @@ function GramsPickerInner({
         )}
       </div>
 
-      <div data-sheet-scroll className={styles.scroll}>
+      <div data-sheet-scroll className={`no-scroll ${styles.scroll}`}>
         <div className={styles.productRow}>
           <div className={styles.productInfo}>
             <div className={styles.productName}>{product.name}</div>
@@ -220,19 +219,14 @@ function GramsPickerInner({
               type="number"
               inputMode="numeric"
               value={text}
-              onFocus={() => {
-                setFocused(true);
-                setText('');
-              }}
-              onBlur={() => {
-                setFocused(false);
-                if (text === '') setText(String(grams));
-              }}
+              onFocus={onFocus}
+              onBlur={onBlur}
               onInput={(e) => {
                 const raw = e.currentTarget.value;
                 setText(raw);
                 const n = Number(raw);
-                updateGrams(Math.max(1, Number.isFinite(n) ? n : 0));
+                setUserChangedGrams(true);
+                setGrams(Math.max(1, Number.isFinite(n) ? n : 0));
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -255,7 +249,7 @@ function GramsPickerInner({
           {quickValues.map((v) => (
             <button
               key={v}
-              onClick={() => updateGrams(v)}
+              onClick={() => selectGrams(v)}
               className={`${styles.quickBtn}${grams === v ? ` ${styles.quickBtnActive}` : ''}`}
             >
               {v}

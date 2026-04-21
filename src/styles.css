@@ -164,9 +164,7 @@ input[type="number"] {
   flex-shrink: 0;
   height: 24px;
   position: relative;
-  touch-action: none;
   cursor: grab;
-  user-select: none;
 }
 .sheet-handle::before {
   content: '';
@@ -186,14 +184,12 @@ input[type="number"] {
 
 .no-scroll { overscroll-behavior: contain; }
 
-/* Exit animations. Overlay fades, sheet slides down, fullscreen modals
-   fade. Used on Cancel/overlay-click paths only — the drag path drives
-   its own slide-off via inline styles in Sheet.tsx so it can start from
-   the finger's release position rather than from translateY(0). */
-@keyframes slideDown {
-  from { transform: translateY(0); }
-  to   { transform: translateY(100%); }
-}
+/* Exit animations. Overlay + fullscreen modals fade via keyframes; the
+   sheet's slide-off is now driven by inline styles in Sheet.tsx
+   (beginExit) so the animation starts from wherever the sheet currently
+   is (the finger's release position during drag, or translateY(0) for a
+   manual close). The .sheet.exiting class is still set — it just blocks
+   further input during the 300 ms slide. */
 @keyframes fadeOut {
   from { opacity: 1; }
   to   { opacity: 0; }
@@ -204,7 +200,6 @@ input[type="number"] {
   pointer-events: none;
 }
 .sheet.exiting {
-  animation: slideDown 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
   pointer-events: none;
 }
 .fullscreen-exit {

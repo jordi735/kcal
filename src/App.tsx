@@ -27,28 +27,42 @@ import { api, ApiError, clearStoredSession, SESSION_TOKEN_KEY, USER_KEY } from '
 import styles from './App.module.css';
 
 // Shared backdrop for sheet-style modals — stays mounted across sheet-to-sheet
-// transitions so the dim layer never flashes between them.
-function SheetOverlay({ visible, onClick }: { visible: boolean; onClick: () => void }) {
+// transitions so the dim layer never flashes between them. `exiting` is
+// driven by the active Sheet via SheetExitNotifyContext so the overlay
+// fades in parallel with the sheet's slide-off (300 ms) instead of waiting
+// until the sheet unmounts to start its own fade (which would stack to
+// 600 ms of teardown).
+function SheetOverlay({
+  visible,
+  exiting,
+  onClick,
+}: {
+  visible: boolean;
+  exiting: boolean;
+  onClick: () => void;
+}) {
   const [render, setRender] = useState(visible);
-  const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
     if (visible) {
       setRender(true);
-      setExiting(false);
       return;
     }
     if (!render) return;
-    setExiting(true);
-    const t = window.setTimeout(() => {
+    // Sheet already signaled exit → fade has been running in parallel; the
+    // sheet is gone, unmount the overlay immediately (don't sit at
+    // opacity 0 for another FADE_EXIT_MS).
+    if (exiting) {
       setRender(false);
-      setExiting(false);
-    }, FADE_EXIT_MS);
+      return;
+    }
+    const t = window.setTimeout(() => setRender(false), FADE_EXIT_MS);
     return () => window.clearTimeout(t);
-  }, [visible, render]);
+  }, [visible, render, exiting]);
 
   if (!render) return null;
-  return <div className={`overlay${exiting ? ' exiting' : ''}`} onClick={onClick} />;
+  const fading = exiting || !visible;
+  return <div className={`overlay${fading ? ' exiting' : ''}`} onClick={onClick} />;
 }
 
 function readStoredUser(): User | null {
@@ -90,14 +104,16 @@ type ModalState =
   | { kind: 'settings' };
 
 // Modals that render inside <Sheet> and share the hoisted SheetOverlay.
+const SHEET_KINDS: ReadonlySet<ModalState['kind']> = new Set([
+  'add-picker',
+  'new-product',
+  'grams-picker',
+  'edit-product',
+  'settings',
+]);
+
 function isSheetModal(kind: ModalState['kind']): boolean {
-  return (
-    kind === 'add-picker' ||
-    kind === 'new-product' ||
-    kind === 'grams-picker' ||
-    kind === 'edit-product' ||
-    kind === 'settings'
-  );
+  return SHEET_KINDS.has(kind);
 }
 
 function productToDraft(p: Product): Partial<ProductDraft> {
@@ -147,6 +163,8 @@ export function App() {
   const registerSheetClose = useCallback((fn: (() => void) | null) => {
     activeSheetCloseRef.current = fn;
   }, []);
+  const [sheetExiting, setSheetExiting] = useState(false);
+  const notifySheetExit = useCallback(() => setSheetExiting(true), []);
 
   const reportError = useCallback((msg: string) => {
     setTransientError(msg);
@@ -169,6 +187,13 @@ export function App() {
     () => new Set(todayEntries.map((e) => e.product.id)),
     [todayEntries],
   );
+
+  // Reset the shared sheet-exit signal once the sheet is fully gone so the
+  // next sheet opens with exiting=false. Deferred until modal.kind flips to
+  // 'none' so SheetOverlay can observe exiting=true during its unmount render.
+  useEffect(() => {
+    if (modal.kind === 'none') setSheetExiting(false);
+  }, [modal.kind]);
 
   // Load entries for the selected day and today whenever either changes.
   useEffect(() => {
@@ -456,10 +481,11 @@ export function App() {
 
       <SheetOverlay
         visible={isSheetModal(modal.kind)}
+        exiting={sheetExiting}
         onClick={() => activeSheetCloseRef.current?.()}
       />
 
-      <SheetCloseRegisterProvider register={registerSheetClose}>
+      <SheetCloseRegisterProvider register={registerSheetClose} notifyExit={notifySheetExit}>
         {modal.kind === 'add-picker' && (
           <AddPicker
             onPick={onPick}

@@ -95,9 +95,6 @@
 .closeBtn {
   color: var(--fg-dim);
   letter-spacing: 0.14em;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .saveBtn {
@@ -202,7 +199,7 @@
 
 .accountCardLabel {
   color: var(--fg-dimmer);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   margin-bottom: 4px;
 }
 

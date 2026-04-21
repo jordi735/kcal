@@ -4,25 +4,30 @@
 // scrollTop === 0, pulling down engages drag; pulling up scrolls. Outside
 // any scroll container, any downward drag dismisses.
 //
-// Mobile uses non-passive native touch listeners so we can preventDefault
-// the browser's native scroll when we want to drag — Preact JSX touch
-// handlers are passive by default, and pointer events on mobile get
-// pointercancel'd once the browser claims the gesture for scroll.
-// Desktop uses pointer events with pointer capture; targets inside text
-// inputs are skipped so native focus/selection keeps working.
+// Two independent input paths, each handles one platform:
+// - Mobile: native `touchstart`/`touchmove`/`touchend` listeners attached
+//   via addEventListener({ passive: false }) so the handler can call
+//   `preventDefault()` to block the browser's own scroll once we've
+//   committed to drag. Preact JSX touch handlers are passive-by-default
+//   and can't do this.
+// - Desktop: JSX pointer handlers with setPointerCapture. `pointerType
+//   === 'touch'` is filtered out so mobile doesn't double-fire.
+// Targets inside text inputs are skipped so native focus/selection keeps
+// working.
 //
 // Threshold for commit-to-dismiss is 80px. Shorter drags snap back via
 // .sheet--snapping.
 //
-// Children inside the sheet can trigger a close-with-animation by calling
-// `useSheetClose()` from context. The component's `onClose` prop is the
-// "truly close / unmount me" signal — Sheet fires it 250ms after it
-// starts animating out.
+// Close animation: both paths (Cancel/backdrop tap and drag-commit) flow
+// through `beginExit()`, which drives the slide-off via inline styles so
+// the animation starts from wherever the sheet currently is. Children
+// trigger it by calling `useSheetClose()` from context.
 //
 // The dimmed backdrop is hoisted to App (see SheetCloseRegisterProvider)
 // so it persists across sheet-to-sheet transitions. The active Sheet
-// registers its `requestClose` upward so App's shared overlay can fire it
-// on tap.
+// registers its `requestClose` and a `notifyExit` signal upward so the
+// App-owned overlay can both tap-dismiss and fade in parallel with the
+// sheet's slide-off.
 
 import { createContext } from 'preact';
 import type { ComponentChildren, JSX } from 'preact';
@@ -41,18 +46,25 @@ const SLOP_PX = 6;
 const SheetCloseContext = createContext<(() => void) | null>(null);
 
 type SheetCloseRegister = (fn: (() => void) | null) => void;
+type SheetExitNotify = () => void;
+
 const SheetCloseRegisterContext = createContext<SheetCloseRegister | null>(null);
+const SheetExitNotifyContext = createContext<SheetExitNotify | null>(null);
 
 export function SheetCloseRegisterProvider({
   register,
+  notifyExit,
   children,
 }: {
   register: SheetCloseRegister;
+  notifyExit: SheetExitNotify;
   children: ComponentChildren;
 }) {
   return (
     <SheetCloseRegisterContext.Provider value={register}>
-      {children}
+      <SheetExitNotifyContext.Provider value={notifyExit}>
+        {children}
+      </SheetExitNotifyContext.Provider>
     </SheetCloseRegisterContext.Provider>
   );
 }
@@ -71,7 +83,6 @@ type DragState = {
   active: boolean;
   phase: Phase;
   startY: number;
-  pointerId: number;
 };
 
 export function Sheet({ onClose, children, style }: SheetProps) {
@@ -82,21 +93,36 @@ export function Sheet({ onClose, children, style }: SheetProps) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const registerClose = useContext(SheetCloseRegisterContext);
+  const notifyExit = useContext(SheetExitNotifyContext);
+  const notifyExitRef = useRef(notifyExit);
+  notifyExitRef.current = notifyExit;
   const dragRef = useRef<DragState>({
     active: false,
     phase: 'undecided',
     startY: 0,
-    pointerId: -1,
   });
+  const pointerIdRef = useRef<number>(-1);
 
-  // Stable identity so context consumers and the App register effect don't
-  // churn when `onClose` or `exiting` change.
-  const requestClose = useCallback(() => {
+  // Both manual close (Cancel/backdrop tap) and drag-committed dismiss
+  // funnel through here. Inline styles — not a CSS keyframe — so the
+  // slide-off starts from wherever the sheet currently is (the finger's
+  // release position during drag, or translateY(0) for manual close).
+  // Notifying App on exit lets the shared overlay fade in parallel.
+  const beginExit = useCallback(() => {
     if (exitingRef.current) return;
     exitingRef.current = true;
     setExiting(true);
+    notifyExitRef.current?.();
+    const sheet = sheetRef.current;
+    if (sheet !== null) {
+      sheet.style.transition = 'transform 0.3s ease-in';
+      sheet.style.transform = 'translateY(100%)';
+      sheet.style.pointerEvents = 'none';
+    }
     exitTimerRef.current = setTimeout(() => onCloseRef.current(), FADE_EXIT_MS);
   }, []);
+
+  const requestClose = beginExit;
 
   // Guard: if this component unmounts mid-exit (e.g. parent force-closes),
   // clear the pending timer so a stale onClose doesn't fire.
@@ -144,7 +170,6 @@ export function Sheet({ onClose, children, style }: SheetProps) {
       active: true,
       phase,
       startY: clientY,
-      pointerId: -1,
     };
     return true;
   };
@@ -177,20 +202,7 @@ export function Sheet({ onClose, children, style }: SheetProps) {
     const deltaY = clientY - drag.startY;
 
     if (deltaY >= DISMISS_THRESHOLD_PX) {
-      // Drive the slide-off via inline styles, NOT a class + requestClose().
-      // requestClose() flips `exiting` state; React then re-renders this
-      // div and rewrites its className from scratch, wiping any
-      // imperatively-added class (`.sheet--dismissing`) and letting the
-      // .sheet.exiting keyframe (slideDown from translateY(0)) override
-      // the transition — the exact "pop back to top" artifact we're
-      // avoiding. Inline styles survive reconciliation because the JSX
-      // `style` prop doesn't mention these keys.
-      if (exitingRef.current) return;
-      exitingRef.current = true;
-      sheet.style.transition = 'transform 0.3s ease-in';
-      sheet.style.transform = 'translateY(100%)';
-      sheet.style.pointerEvents = 'none';
-      exitTimerRef.current = setTimeout(() => onCloseRef.current(), FADE_EXIT_MS);
+      beginExit();
     } else {
       const onSnap = () => {
         sheet.removeEventListener('transitionend', onSnap);
@@ -248,17 +260,17 @@ export function Sheet({ onClose, children, style }: SheetProps) {
   const onPointerDown = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return;
     if (!beginGesture(e.target, e.clientY, false)) return;
-    dragRef.current.pointerId = e.pointerId;
+    pointerIdRef.current = e.pointerId;
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return;
-    if (dragRef.current.pointerId !== e.pointerId) return;
+    if (pointerIdRef.current !== e.pointerId) return;
     updateGesture(e.clientY);
   };
   const onPointerEnd = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return;
-    if (dragRef.current.pointerId !== e.pointerId) return;
+    if (pointerIdRef.current !== e.pointerId) return;
     endGesture(e.clientY);
   };
 

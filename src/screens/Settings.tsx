@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import type { Goals } from '../types';
 import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
 import { cssVars } from '../styles';
 import { Sheet, useSheetClose } from '../components/Sheet';
-import { ArrowLeftIcon, MinusIcon, PlusIcon } from '../components/Icon';
+import { MinusIcon, PlusIcon } from '../components/Icon';
+import { useFocusClearableNumber } from '../hooks/useFocusClearableNumber';
 import styles from './Settings.module.css';
 
 type SettingsProps = {
@@ -35,13 +36,15 @@ type GoalFieldProps = {
 };
 
 function GoalField({ label, value, onChange, macroKey, suffix = 'g', step = 5, isLast = false }: GoalFieldProps) {
-  const [text, setText] = useState(String(value));
-  const [focused, setFocused] = useState(false);
+  const { text, setText, onFocus, onBlur } = useFocusClearableNumber(value);
   const color = macroKey !== undefined ? MACRO_META[macroKey].color : undefined;
 
-  useEffect(() => {
-    if (!focused) setText(String(value));
-  }, [value, focused]);
+  // iOS Safari keeps focus on the input when a sibling button is tapped, so
+  // the hook's useEffect won't fire. Force-sync text alongside onChange.
+  const bump = (next: number) => {
+    onChange(next);
+    setText(String(next));
+  };
 
   return (
     <div
@@ -54,7 +57,7 @@ function GoalField({ label, value, onChange, macroKey, suffix = 'g', step = 5, i
       </div>
       <div className={styles.fieldRight}>
         <button
-          onClick={() => onChange(Math.max(0, value - step))}
+          onClick={() => bump(Math.max(0, value - step))}
           className={styles.bumpBtn}
         >
           <MinusIcon size={14} />
@@ -64,14 +67,8 @@ function GoalField({ label, value, onChange, macroKey, suffix = 'g', step = 5, i
             type="number"
             inputMode="numeric"
             value={text}
-            onFocus={() => {
-              setFocused(true);
-              setText('');
-            }}
-            onBlur={() => {
-              setFocused(false);
-              if (text === '') setText(String(value));
-            }}
+            onFocus={onFocus}
+            onBlur={onBlur}
             onInput={(e) => {
               const raw = e.currentTarget.value;
               setText(raw);
@@ -85,7 +82,7 @@ function GoalField({ label, value, onChange, macroKey, suffix = 'g', step = 5, i
           ) : null}
         </div>
         <button
-          onClick={() => onChange(value + step)}
+          onClick={() => bump(value + step)}
           className={styles.bumpBtn}
         >
           <PlusIcon size={14} />
@@ -159,15 +156,14 @@ function SettingsInner({ goals, onSave, onLogout, userEmail }: InnerProps) {
     <>
       <div className={styles.header}>
         <button onClick={close} className={`mono tiny caps ${styles.closeBtn}`}>
-          <ArrowLeftIcon size={12} />
-          Close
+          Cancel
         </button>
         <button
           onClick={save}
           disabled={saving}
           className={`mono tiny caps ${styles.saveBtn}${saving ? ` ${styles.saveBtnSaving}` : ''}`}
         >
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
 
