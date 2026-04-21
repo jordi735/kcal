@@ -56,9 +56,6 @@ export const statements = {
       SELECT id, email, goal_kcal, goal_protein, goal_carbs, goal_fat
       FROM users WHERE email = ?
     `),
-    selectGoals: db.prepare(
-      'SELECT goal_kcal, goal_protein, goal_carbs, goal_fat FROM users WHERE id = ?',
-    ),
     updateGoals: db.prepare(
       'UPDATE users SET goal_kcal = ?, goal_protein = ?, goal_carbs = ?, goal_fat = ? WHERE id = ?',
     ),

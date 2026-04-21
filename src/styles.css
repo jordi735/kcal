@@ -214,10 +214,11 @@ input[type="number"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .overlay.exiting,
-  .sheet.exiting,
-  .fullscreen-exit {
-    animation-duration: 0.01s;
+  *, *::before, *::after {
+    animation-duration: 0.01s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01s !important;
+    scroll-behavior: auto !important;
   }
 }
 

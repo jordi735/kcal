@@ -6,7 +6,7 @@ import { authMiddleware } from '../auth.js';
 import { isObject } from '../guards.js';
 import { log } from '../log.js';
 import { statements } from '../statements.js';
-import type { GoalsBody, GoalsRow } from '../types.js';
+import type { GoalsBody } from '../types.js';
 
 export const settingsRouter: Router = Router();
 
@@ -28,20 +28,6 @@ function isGoalsBody(v: unknown): v is GoalsBody {
     isGoalInt(v.fat, MAX_MACRO_GRAMS)
   );
 }
-
-settingsRouter.get('/', (req, res) => {
-  const row = statements.users.selectGoals.get(req.userId!) as GoalsRow | undefined;
-  if (row === undefined) {
-    res.status(404).json({ error: 'user_not_found' });
-    return;
-  }
-  res.json({
-    kcal: row.goal_kcal,
-    protein: row.goal_protein,
-    carbs: row.goal_carbs,
-    fat: row.goal_fat,
-  });
-});
 
 settingsRouter.put('/', (req, res) => {
   if (!isGoalsBody(req.body)) {

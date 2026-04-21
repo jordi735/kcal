@@ -13,7 +13,7 @@ import { entriesRouter } from './routes/entries.js';
 import { debugRouter } from './routes/debug.js';
 import { probeClaude } from './claude.js';
 import { log } from './log.js';
-import { API_PREFIXES } from '../shared/apiPrefixes.js';
+import { isApiPath } from '../shared/apiPrefixes.js';
 
 const app = express();
 
@@ -28,8 +28,7 @@ app.use((_req, res, next) => {
 });
 
 app.use((req, res, next) => {
-  const isApi = API_PREFIXES.some((p) => req.path === p || req.path.startsWith(p + '/'));
-  if (isApi) {
+  if (isApiPath(req.path)) {
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   }
   next();
@@ -63,8 +62,7 @@ app.use(
 // Unknown API paths must not fall through to the SPA — otherwise a buggy
 // fetch('/auth/typo') returns HTML and the client JSON-parses it.
 app.use((req, res, next) => {
-  const isApi = API_PREFIXES.some((p) => req.path === p || req.path.startsWith(p + '/'));
-  if (isApi) {
+  if (isApiPath(req.path)) {
     res.status(404).json({ error: 'not found' });
     return;
   }

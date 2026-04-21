@@ -12,6 +12,7 @@
     "server:dev": "tsx watch --env-file=.env server/index.ts",
     "server:start": "tsx --env-file=.env server/index.ts",
     "start": "npm run build && npm run server:start",
+    "icons": "./scripts/regenerate-icons.sh",
     "test": "echo \"no tests\" && exit 0"
   },
   "repository": {
@@ -41,6 +42,6 @@
     "@types/node": "^25.6.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
-    "vite": "^8.0.8"
+    "vite": "^8.0.9"
   }
 }

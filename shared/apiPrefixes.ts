@@ -4,3 +4,7 @@
 
 export const API_PREFIXES = ['/auth', '/settings', '/products', '/entries', '/debug'] as const;
 export type ApiPrefix = (typeof API_PREFIXES)[number];
+
+export function isApiPath(pathname: string): boolean {
+  return API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
+}

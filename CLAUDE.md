@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm start` — `build` then `server:start`. The single prod entry point.
 - `npm run typecheck` — typechecks the frontend project (`src/`, `shared/`, `vite.config.ts`).
 - `npm run typecheck:server` — typechecks the backend project (`server/`, `shared/`).
+- `npm run icons` — regenerates PWA icons and the OG image from `kcal-logo-blue.png` via `scripts/regenerate-icons.sh` (requires ImageMagick's `convert`).
 - `npm test` — currently a no-op (prints "no tests").
 
 There is no lint step and no test runner wired up.
@@ -49,15 +50,7 @@ The app is an installable PWA with no offline caching — the service worker exi
 
 - `public/manifest.webmanifest` — single source of truth for `name`/`short_name` (`"kcal."`), colors (`#1d2021` for both `theme_color` and `background_color`), `display: standalone`, `orientation: portrait`, and the icon set. If you change app branding, change it here AND the Apple-specific meta tags in `index.html` (iOS ignores the manifest for install behavior).
 - `public/sw.js` — pass-through SW with `install`/`activate`/noop-`fetch` handlers. Registered from `src/main.tsx` only when `import.meta.env.PROD` so dev HMR isn't touched. Do NOT add caching here without a version-bump + cleanup strategy — stale asset caches are the #1 PWA footgun.
-- Icons are generated from the 938×938 `kcal-logo.png` at the repo root via ImageMagick. The logo's dark area is exactly `#1d2021` (matches `--bg`), so the `-flatten` step below produces seamless full-bleed dark squares. Regenerate with:
-  ```
-  convert kcal-logo.png -resize 192x192 public/icon-192.png
-  convert kcal-logo.png -resize 512x512 public/icon-512.png
-  convert kcal-logo.png -resize 512x512 -background "#1d2021" -flatten public/icon-512-maskable.png
-  convert kcal-logo.png -resize 180x180 -background "#1d2021" -flatten public/apple-touch-icon.png
-  convert kcal-logo.png -resize 32x32 public/favicon.png
-  convert -size 1200x630 xc:"#1d2021" \( kcal-logo.png -resize 360x360 \) -gravity center -composite public/og-image.png
-  ```
+- Icons are generated from the `kcal-logo-blue.png` asset at the repo root via ImageMagick. The logo's dark area is exactly `#1d2021` (matches `--bg`), so the `-flatten` step in the script produces seamless full-bleed dark squares. Regenerate with `npm run icons` (wraps `scripts/regenerate-icons.sh`; requires ImageMagick's `convert` on `$PATH`). The script writes 3 alpha-preserving icons (`icon-192.png`, `icon-512.png`, `favicon.png`) for `purpose: "any"` contexts, 2 flattened icons (`icon-512-maskable.png`, `apple-touch-icon.png`) for Android-maskable + iOS home-screen, and a 1200×630 `og-image.png`. Output is `-strip`ped to drop PNG metadata chunks.
 - The iOS tag set in `index.html` (`apple-touch-icon`, `apple-mobile-web-app-capable`, `apple-mobile-web-app-title`, `apple-mobile-web-app-status-bar-style`) is required — iOS Safari ignores the manifest entirely for "Add to Home Screen", Android/Chrome read only the manifest.
 
 ### Shared (`shared/`)

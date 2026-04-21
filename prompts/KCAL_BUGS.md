@@ -63,14 +63,17 @@ Files in scope (spawn exactly one Opus subagent for each; skip nothing):
   CLIENT — screens
     src/screens/Home.tsx
     src/screens/Login.tsx
-    src/screens/Verify.tsx
     src/screens/Settings.tsx
 
   CLIENT — components
-    src/components/Sheet.tsx
+    src/components/BrandMark.tsx
+    src/components/ClearableField.tsx
     src/components/FoodRow.tsx
+    src/components/Icon.tsx
     src/components/MacroBar.tsx
     src/components/MacroSummary.tsx
+    src/components/SelectionBar.tsx
+    src/components/Sheet.tsx
     src/components/WeekStrip.tsx
 
   CLIENT — modals
@@ -82,6 +85,7 @@ Files in scope (spawn exactly one Opus subagent for each; skip nothing):
 
   CLIENT — hooks
     src/hooks/useEntries.ts
+    src/hooks/useFadeClose.ts
 
   SERVER — core
     server/index.ts
@@ -95,19 +99,19 @@ Files in scope (spawn exactly one Opus subagent for each; skip nothing):
     server/guards.ts
     server/types.ts
     server/statements.ts
-    server/asyncHandler.ts
+    server/templates.ts
 
   SERVER — routes
     server/routes/auth.ts
     server/routes/settings.ts
     server/routes/entries.ts
     server/routes/products.ts
-
-  SERVER — data
-    server/seed.ts
+    server/routes/debug.ts
 
   SHARED
-    shared/seedProducts.ts
+    shared/apiPrefixes.ts
+    shared/normalize.ts
+    shared/types.ts
 
 --------------------------------------------------------------------------------
 Subagent brief (identical for every file agent) — use subagent_type="general-purpose",
@@ -257,9 +261,9 @@ After all Phase-1 JSON reports are collected, spawn one Opus subagent per domain
 Domains:
 
   D1 — server-core:     server/{index,env,db,auth,email,claude,log,util,guards,
-                        types,statements,asyncHandler}.ts
+                        types,statements,templates}.ts
   D2 — server-routes:   server/routes/*.ts
-  D3 — server-data:     server/seed.ts + shared/seedProducts.ts
+  D3 — shared:          shared/{apiPrefixes,normalize,types}.ts
   D4 — client-core:     src/{main.tsx,App.tsx,api.ts,types.ts,dates.ts,mocks.ts,
                         vite-env.d.ts}
   D5 — client-screens:  src/screens/*.tsx

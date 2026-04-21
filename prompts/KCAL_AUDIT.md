@@ -58,14 +58,17 @@ Files in scope (spawn exactly one Opus subagent for each; skip nothing):
   CLIENT — screens
     src/screens/Home.tsx
     src/screens/Login.tsx
-    src/screens/Verify.tsx
     src/screens/Settings.tsx
 
   CLIENT — components
-    src/components/Sheet.tsx
+    src/components/BrandMark.tsx
+    src/components/ClearableField.tsx
     src/components/FoodRow.tsx
+    src/components/Icon.tsx
     src/components/MacroBar.tsx
     src/components/MacroSummary.tsx
+    src/components/SelectionBar.tsx
+    src/components/Sheet.tsx
     src/components/WeekStrip.tsx
 
   CLIENT — modals
@@ -77,6 +80,7 @@ Files in scope (spawn exactly one Opus subagent for each; skip nothing):
 
   CLIENT — hooks
     src/hooks/useEntries.ts
+    src/hooks/useFadeClose.ts
 
   SERVER — core
     server/index.ts
@@ -90,19 +94,19 @@ Files in scope (spawn exactly one Opus subagent for each; skip nothing):
     server/guards.ts
     server/types.ts
     server/statements.ts
-    server/asyncHandler.ts
+    server/templates.ts
 
   SERVER — routes
     server/routes/auth.ts
     server/routes/settings.ts
     server/routes/entries.ts
     server/routes/products.ts
-
-  SERVER — data
-    server/seed.ts
+    server/routes/debug.ts
 
   SHARED
-    shared/seedProducts.ts
+    shared/apiPrefixes.ts
+    shared/normalize.ts
+    shared/types.ts
 
 --------------------------------------------------------------------------------
 Subagent brief (identical for every file agent) — use subagent_type="general-purpose",
@@ -135,6 +139,11 @@ model="opus", run_in_background=false, and batch 6–8 per message for paralleli
        edge cases triggered.
     4. Mentally trace at least one end-to-end execution path through this file
        as if running it by hand. Write down the path you traced.
+    5. If the target is a client `.tsx` file with a companion `.module.css`,
+       also read that CSS module. If the target references `useFadeClose` or
+       a keyframe by name, also read `src/hooks/useFadeClose.ts` and the
+       module where the keyframe is defined (often `src/styles.css`).
+       Animation plumbing is in scope.
 
   WHAT TO FLAG (only when the pragmatism gate passes):
 
@@ -156,6 +165,28 @@ model="opus", run_in_background=false, and batch 6–8 per message for paralleli
     no caller uses, error branches for states the types forbid, fallbacks
     for paths that never fire, "for future use" scaffolding. The test is
     "can I delete this today without a user noticing?" If yes, flag it.
+
+    ANIMATIONS (client files only — file findings under DRY/KISS/YAGNI, but
+    look explicitly). Inspect the companion `.module.css`, `src/styles.css`,
+    and any use of `useFadeClose`. Flag:
+      - DRY: the same `@keyframes` (or effectively identical ones) defined
+        in two modules; the same transition duration/easing triplet
+        repeated for the same interaction class (modal enter, sheet slide,
+        row press, bar fade).
+      - KISS: JS-driven motion (manual `setTimeout` + class toggling,
+        imperative style writes, rAF counters) where a plain CSS
+        transition or `animation` declaration gives the same result;
+        `useFadeClose` attached to a component that never conditionally
+        unmounts.
+      - YAGNI: keyframes or transition rules with no matching class user;
+        `animationend`/`transitionend` handlers whose cleanup targets an
+        already-unmounted node.
+      - Stacking: z-index / stacking-context mistakes that hide the
+        animated element behind a sibling mid-transition (SelectionBar
+        has a history of this).
+      - Reduced motion: non-decorative motion that ignores
+        `@media (prefers-reduced-motion: reduce)` — this is a real bug
+        for users who disabled motion, not a style nit.
 
   OUTPUT — produce a single JSON object and nothing else:
 
@@ -193,9 +224,9 @@ After all Phase-1 JSON reports are collected, spawn one Opus subagent per domain
 Domains and their file sets:
 
   D1 — server-core:     server/{index,env,db,auth,email,claude,log,util,guards,
-                        types,statements,asyncHandler}.ts
+                        types,statements,templates}.ts
   D2 — server-routes:   server/routes/*.ts
-  D3 — server-data:     server/seed.ts + shared/seedProducts.ts
+  D3 — shared:          shared/{apiPrefixes,normalize,types}.ts
   D4 — client-core:     src/{main.tsx,App.tsx,api.ts,types.ts,dates.ts,mocks.ts,
                         vite-env.d.ts}
   D5 — client-screens:  src/screens/*.tsx
@@ -231,6 +262,14 @@ Domain subagent brief — subagent_type="general-purpose", model="opus":
        that don't earn their keep TODAY — e.g. a routes file that is one
        function wrapping another file's function and could be merged. Do not
        propose reorganizations for hypothetical scale.
+
+    4. ANIMATION CONSISTENCY (client domains D5/D6/D7/D8 only): compare the
+       companion CSS modules across files in your domain. Flag keyframes
+       duplicated across two modules, drift in transition duration/easing
+       for the same interaction class, sibling components using JS-driven
+       motion in one place and pure CSS in another for the same pattern,
+       and missing `prefers-reduced-motion` guards that appear in some
+       modules but not others doing the same kind of animation.
 
   OUTPUT — a single JSON object and nothing else:
 
