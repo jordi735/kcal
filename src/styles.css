@@ -186,11 +186,10 @@ input[type="number"] {
 .no-scroll { overscroll-behavior: contain; }
 
 /* Exit animations. Overlay + fullscreen modals fade via keyframes; the
-   sheet's slide-off is now driven by inline styles in Sheet.tsx
-   (beginExit) so the animation starts from wherever the sheet currently
-   is (the finger's release position during drag, or translateY(0) for a
-   manual close). The .sheet.exiting class is still set — it just blocks
-   further input during the 300 ms slide. */
+   sheet's slide-off is driven by inline styles in Sheet.tsx (beginExit)
+   so the animation starts from wherever the sheet currently is (the
+   finger's release position during drag, or translateY(0) for a manual
+   close). Pointer-events are also set inline there during the slide. */
 @keyframes fadeOut {
   from { opacity: 1; }
   to   { opacity: 0; }
@@ -205,9 +204,6 @@ input[type="number"] {
      cost during dismiss. Users don't notice the blur disappearing once
      the layer is already fading to transparent. */
   backdrop-filter: none;
-}
-.sheet.exiting {
-  pointer-events: none;
 }
 .fullscreen-exit {
   animation: fadeOut 0.3s ease forwards;

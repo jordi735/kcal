@@ -31,7 +31,7 @@
 
 import { createContext } from 'preact';
 import type { ComponentChildren, JSX } from 'preact';
-import { useCallback, useContext, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useContext, useEffect, useRef } from 'preact/hooks';
 import { FADE_EXIT_MS } from '../hooks/useFadeClose';
 
 type SheetProps = {
@@ -87,7 +87,6 @@ type DragState = {
 
 export function Sheet({ onClose, children, style }: SheetProps) {
   const sheetRef = useRef<HTMLDivElement | null>(null);
-  const [exiting, setExiting] = useState(false);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exitingRef = useRef(false);
   const onCloseRef = useRef(onClose);
@@ -111,7 +110,6 @@ export function Sheet({ onClose, children, style }: SheetProps) {
   const beginExit = useCallback(() => {
     if (exitingRef.current) return;
     exitingRef.current = true;
-    setExiting(true);
     notifyExitRef.current?.();
     const sheet = sheetRef.current;
     if (sheet !== null) {
@@ -277,7 +275,7 @@ export function Sheet({ onClose, children, style }: SheetProps) {
   return (
     <SheetCloseContext.Provider value={requestClose}>
       <div
-        className={`sheet${exiting ? ' exiting' : ''}`}
+        className="sheet"
         ref={sheetRef}
         style={style}
         onPointerDown={onPointerDown}
