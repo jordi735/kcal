@@ -17,6 +17,7 @@ import { createContext } from 'preact';
 import type { ComponentChildren, JSX } from 'preact';
 import { useCallback, useContext, useEffect, useRef, useState } from 'preact/hooks';
 import { FADE_EXIT_MS } from '../hooks/useFadeClose';
+import { useBackClose } from '../hooks/useBackClose';
 
 type SheetProps = {
   onClose: () => void;
@@ -75,6 +76,8 @@ export function Sheet({ onClose, children, style }: SheetProps) {
     setExiting(true);
     exitTimerRef.current = setTimeout(() => onCloseRef.current(), FADE_EXIT_MS);
   }, []);
+
+  useBackClose(requestClose);
 
   // Guard: if this component unmounts mid-exit (e.g. parent force-closes),
   // clear the pending timer so a stale onClose doesn't fire.

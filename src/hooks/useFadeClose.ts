@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { useBackClose } from './useBackClose';
 
 export const FADE_EXIT_MS = 300;
 
@@ -12,5 +13,6 @@ export function useFadeClose(onClose: () => void): {
     setClosing(true);
     setTimeout(onClose, FADE_EXIT_MS);
   };
+  useBackClose(requestClose);
   return { closing, requestClose };
 }
