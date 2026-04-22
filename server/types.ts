@@ -84,6 +84,7 @@ export type EntryJoinRow = {
   grams: number;
   local_date: string;
   local_time: string;
+  tagged: number;
   p_id: number;
   p_name: string;
   p_brand: string | null;

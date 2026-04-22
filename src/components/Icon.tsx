@@ -1,5 +1,6 @@
 // Heroicons (16/solid) — https://heroicons.com — paths verbatim from upstream.
-// BarcodeIcon is custom (Heroicons has no barcode), drawn in the same solid style.
+// BarcodeIcon and CircleIcon are custom (Heroicons has no equivalent),
+// drawn in the same solid style (filled shapes, evenodd fill).
 
 type IconProps = { size?: number; className?: string | undefined };
 
@@ -47,6 +48,22 @@ export function CheckIcon({ size = 16, className }: IconProps) {
   return (
     <svg width={size} height={size} className={className} {...BASE}>
       <path d="M12.416 3.37592C12.7607 3.60568 12.8538 4.07134 12.624 4.41598L7.62404 11.916C7.4994 12.1029 7.2975 12.2242 7.0739 12.2463C6.8503 12.2684 6.62855 12.1892 6.46967 12.0303L3.46967 9.03029C3.17678 8.73739 3.17678 8.26252 3.46967 7.96963C3.76256 7.67673 4.23744 7.67673 4.53033 7.96963L6.88343 10.3227L11.376 3.58393C11.6057 3.23929 12.0714 3.14616 12.416 3.37592Z" />
+    </svg>
+  );
+}
+
+export function CheckCircleIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg width={size} height={size} className={className} {...BASE}>
+      <path d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm3.844-8.791a.75.75 0 0 0-1.188-.918l-3.7 4.79-1.649-1.833a.75.75 0 1 0-1.114 1.004l2.25 2.5a.75.75 0 0 0 1.15-.043l4.25-5.5Z" />
+    </svg>
+  );
+}
+
+export function CircleIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg width={size} height={size} className={className} {...BASE}>
+      <path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2Zm0 1.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Z" />
     </svg>
   );
 }

@@ -41,6 +41,7 @@ export type EntryWithMacros = {
   local_date: string;
   local_time: string;
   macros: Macros;
+  tagged: boolean;
 };
 
 export type ExtractedLabel = {

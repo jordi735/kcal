@@ -16,7 +16,7 @@ export type UseEntriesReturn = {
     local_date: string;
     local_time: string;
   }) => Promise<EntryWithMacros>;
-  update: (id: number, grams: number) => Promise<EntryWithMacros>;
+  update: (id: number, patch: { grams?: number; tagged?: boolean }) => Promise<EntryWithMacros>;
   remove: (id: number, date: string) => Promise<void>;
 };
 
@@ -78,10 +78,10 @@ export function useEntries(): UseEntriesReturn {
     [],
   );
 
-  const update = useCallback(async (id: number, grams: number) => {
+  const update = useCallback(async (id: number, patch: { grams?: number; tagged?: boolean }) => {
     const updated = await api<EntryWithMacros>(`/entries/${id}`, {
       method: 'PATCH',
-      body: { grams },
+      body: patch,
     });
     let newList: EntryWithMacros[] = [];
     setEntriesByDate((prev) => {
@@ -93,7 +93,9 @@ export function useEntries(): UseEntriesReturn {
         [updated.local_date]: next,
       };
     });
-    setWeekTotals((prev) => ({ ...prev, [updated.local_date]: sumMacros(newList) }));
+    if (patch.grams !== undefined) {
+      setWeekTotals((prev) => ({ ...prev, [updated.local_date]: sumMacros(newList) }));
+    }
     return updated;
   }, []);
 

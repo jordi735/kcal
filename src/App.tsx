@@ -256,6 +256,15 @@ export function App() {
     }
   };
 
+  const onMarkTagged = (list: EntryWithMacros[], tagged: boolean) => {
+    for (const entry of list) {
+      if (entry.tagged === tagged) continue;
+      updateEntry(entry.id, { tagged }).catch((err) => {
+        reportError(err instanceof Error ? err.message : "Couldn't update entry");
+      });
+    }
+  };
+
   // AddPicker handlers
   const onPick = async (product: Product) => {
     try {
@@ -402,7 +411,7 @@ export function App() {
     const { product, entry } = modal;
 
     if (entry !== undefined) {
-      updateEntry(entry.id, grams).catch((err) => {
+      updateEntry(entry.id, { grams }).catch((err) => {
         reportError(err instanceof Error ? err.message : "Couldn't update entry");
       });
     } else {
@@ -475,6 +484,7 @@ export function App() {
         onAddEntry={onAddEntry}
         onEditEntry={onEditEntry}
         onDeleteEntries={onDeleteEntries}
+        onMarkTagged={onMarkTagged}
         onOpenSettings={() => setModal({ kind: 'settings' })}
       />
 

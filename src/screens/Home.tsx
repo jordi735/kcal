@@ -21,6 +21,7 @@ type HomeProps = {
   onAddEntry: () => void;
   onEditEntry: (entry: EntryWithMacros) => void;
   onDeleteEntries: (entries: EntryWithMacros[]) => void;
+  onMarkTagged: (entries: EntryWithMacros[], tagged: boolean) => void;
   onOpenSettings: () => void;
 };
 
@@ -36,6 +37,7 @@ export function Home({
   onAddEntry,
   onEditEntry,
   onDeleteEntries,
+  onMarkTagged,
   onOpenSettings,
 }: HomeProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
@@ -64,6 +66,11 @@ export function Home({
 
   const handleDelete = () => {
     onDeleteEntries(selectedEntries);
+    setSelectedIds(new Set());
+  };
+
+  const handleToggleTagged = (tagged: boolean) => {
+    onMarkTagged(selectedEntries, tagged);
     setSelectedIds(new Set());
   };
 
@@ -101,6 +108,7 @@ export function Home({
                 selectionMode={selectionMode}
                 onEdit={onEditEntry}
                 onToggleSelect={toggleSelect}
+                onToggleTagged={(en) => onMarkTagged([en], !en.tagged)}
                 onLongPress={toggleSelect}
               />
             ))}
@@ -113,6 +121,7 @@ export function Home({
         selected={selectedEntries}
         onClear={clearSelection}
         onDelete={handleDelete}
+        onToggleTagged={handleToggleTagged}
       />
 
       <MacroSummary

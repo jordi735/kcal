@@ -1,6 +1,14 @@
 .row {
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: stretch;
+  background: var(--bg);
+  transition: background 0.3s ease;
+}
+
+.row.selected {
+  background: var(--bg-elev);
 }
 
 .row::before {
@@ -20,20 +28,29 @@
   opacity: 1;
 }
 
+.dotBtn {
+  flex-shrink: 0;
+  width: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-dimmer);
+  transition: color 0.3s ease;
+}
+
+.dotActive {
+  color: var(--fg);
+}
+
 .main {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  background: var(--bg);
+  padding: 16px 20px 16px 0;
   text-align: left;
   gap: 12px;
-  transition: background 0.3s ease;
-}
-
-.row.selected .main {
-  background: var(--bg-elev);
 }
 
 .info {

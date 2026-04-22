@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { sumMacros, type EntryWithMacros } from '../types';
 import { FADE_EXIT_MS } from '../hooks/useFadeClose';
 import { MacroBreakdown } from './MacroBreakdown';
-import { TrashIcon, XMarkIcon } from './Icon';
+import { CheckCircleIcon, TrashIcon, XMarkIcon } from './Icon';
 import styles from './SelectionBar.module.css';
 
 type SelectionBarProps = {
@@ -18,9 +18,16 @@ type SelectionBarProps = {
   selected: EntryWithMacros[];
   onClear: () => void;
   onDelete: () => void;
+  onToggleTagged: (tagged: boolean) => void;
 };
 
-export function SelectionBar({ visible, selected, onClear, onDelete }: SelectionBarProps) {
+export function SelectionBar({
+  visible,
+  selected,
+  onClear,
+  onDelete,
+  onToggleTagged,
+}: SelectionBarProps) {
   const [render, setRender] = useState(visible);
   const [exiting, setExiting] = useState(false);
   const lastSelectedRef = useRef(selected);
@@ -51,6 +58,7 @@ export function SelectionBar({ visible, selected, onClear, onDelete }: Selection
   if (!render) return null;
 
   const n = shown.length;
+  const allTagged = n > 0 && shown.every((e) => e.tagged);
 
   return (
     <div className={`${styles.bar}${exiting ? ` ${styles.exiting}` : ''}`}>
@@ -63,6 +71,14 @@ export function SelectionBar({ visible, selected, onClear, onDelete }: Selection
         </div>
       </div>
       <div className={styles.actions}>
+        <button
+          onClick={() => onToggleTagged(!allTagged)}
+          className={`mono ${styles.tagBtn}`}
+          aria-label={allTagged ? `Untag ${n} selected` : `Tag ${n} selected`}
+        >
+          <CheckCircleIcon size={14} />
+          {allTagged ? 'Untag' : 'Tag'}
+        </button>
         <button
           onClick={onDelete}
           className={`mono ${styles.deleteBtn}`}

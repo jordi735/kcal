@@ -19,6 +19,7 @@ const PRODUCT_COLS_P =
 // result row can be deserialised into EntryJoinRow without collisions.
 const ENTRY_WITH_PRODUCT_COLS = `
   e.id AS id, e.grams AS grams, e.local_date AS local_date, e.local_time AS local_time,
+  e.tagged AS tagged,
   p.id AS p_id, p.name AS p_name, p.brand AS p_brand, p.unit AS p_unit, p.barcode AS p_barcode,
   p.kcal_per100    AS p_kcal_per100,
   p.protein_per100 AS p_protein_per100,
@@ -219,6 +220,10 @@ export const statements = {
     // (grams, user_id, id)
     updateGrams: db.prepare(
       'UPDATE entries SET grams = ? WHERE user_id = ? AND id = ?',
+    ),
+    // (tagged, user_id, id)
+    updateTagged: db.prepare(
+      'UPDATE entries SET tagged = ? WHERE user_id = ? AND id = ?',
     ),
     // (user_id, id)
     delete: db.prepare(

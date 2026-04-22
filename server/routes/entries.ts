@@ -46,6 +46,7 @@ function rowToEntry(r: EntryJoinRow): EntryWithMacros {
       carbs: r.p_carbs_per100 * f,
       fat: r.p_fat_per100 * f,
     },
+    tagged: r.tagged === 1,
   };
 }
 
@@ -59,8 +60,12 @@ function isNewEntryBody(v: unknown): v is NewEntryBody {
   );
 }
 
-function isGramsBody(v: unknown): v is { grams: number } {
-  return isObject(v) && isPositiveFinite(v.grams);
+function isUpdateEntryBody(v: unknown): v is { grams?: number; tagged?: boolean } {
+  if (!isObject(v)) return false;
+  if ('grams' in v && !isPositiveFinite(v.grams)) return false;
+  if ('tagged' in v && typeof v.tagged !== 'boolean') return false;
+  if (!('grams' in v) && !('tagged' in v)) return false;
+  return true;
 }
 
 function sevenDatesFromStart(start: string): string[] {
@@ -170,21 +175,36 @@ entriesRouter.patch('/:id', (req, res) => {
     res.status(400).json({ error: 'invalid_id' });
     return;
   }
-  if (!isGramsBody(req.body)) {
+  if (!isUpdateEntryBody(req.body)) {
     res.status(400).json({ error: 'invalid_entry' });
     return;
   }
-  const result = statements.entries.updateGrams.run(req.body.grams, req.userId!, id) as { changes: number };
-  if (result.changes === 0) {
-    res.status(404).json({ error: 'not_found' });
-    return;
+  const { grams, tagged } = req.body;
+  if (grams !== undefined) {
+    const r = statements.entries.updateGrams.run(grams, req.userId!, id) as { changes: number };
+    if (r.changes === 0) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+  }
+  if (tagged !== undefined) {
+    const r = statements.entries.updateTagged.run(tagged ? 1 : 0, req.userId!, id) as { changes: number };
+    if (r.changes === 0) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
   }
   const row = statements.entries.selectById.get(req.userId!, id) as EntryJoinRow | undefined;
   if (row === undefined) {
     res.status(404).json({ error: 'not_found' });
     return;
   }
-  log.info('entry updated', { userId: req.userId, entryId: row.id, grams: row.grams });
+  log.info('entry updated', {
+    userId: req.userId,
+    entryId: row.id,
+    grams: row.grams,
+    tagged: row.tagged,
+  });
   res.json(rowToEntry(row));
 });
 

@@ -1,7 +1,8 @@
-// Food entry row — tap to edit, long-press to enter multi-select.
+// Food entry row — dot toggles tagged or selection; body taps to edit, long-press multi-selects.
 
 import type { EntryWithMacros } from '../types';
 import { MacroBreakdown } from './MacroBreakdown';
+import { CheckCircleIcon, CircleIcon } from './Icon';
 import styles from './FoodRow.module.css';
 
 type FoodRowProps = {
@@ -10,6 +11,7 @@ type FoodRowProps = {
   selectionMode: boolean;
   onEdit: (entry: EntryWithMacros) => void;
   onToggleSelect: (entry: EntryWithMacros) => void;
+  onToggleTagged: (entry: EntryWithMacros) => void;
   onLongPress: (entry: EntryWithMacros) => void;
 };
 
@@ -19,12 +21,26 @@ export function FoodRow({
   selectionMode,
   onEdit,
   onToggleSelect,
+  onToggleTagged,
   onLongPress,
 }: FoodRowProps) {
   const { product, macros, grams, local_time } = entry;
+  const dotActive = selectionMode ? selected : entry.tagged;
 
   return (
     <div className={`food-row ${styles.row}${selected ? ` ${styles.selected}` : ''}`}>
+      <button
+        type="button"
+        className={`${styles.dotBtn}${dotActive ? ` ${styles.dotActive}` : ''}`}
+        onClick={() => {
+          if (selectionMode) onToggleSelect(entry);
+          else onToggleTagged(entry);
+        }}
+        aria-label={entry.tagged ? 'Mark as not eaten' : 'Mark as eaten'}
+        aria-pressed={entry.tagged}
+      >
+        {dotActive ? <CheckCircleIcon size={20} /> : <CircleIcon size={20} />}
+      </button>
       <button
         onClick={() => {
           if (selectionMode) onToggleSelect(entry);
