@@ -11,20 +11,21 @@ type MacroBarProps = {
 };
 
 export function MacroBar({ macroKey, consumed, goal }: MacroBarProps) {
-  const { label, color } = MACRO_META[macroKey];
+  const { short, color } = MACRO_META[macroKey];
   const ratio = goal > 0 ? consumed / goal : 0;
   const pct = Math.min(100, ratio * 100);
   const over = consumed > goal;
-  const left = Math.max(0, goal - consumed);
   const barColor = over ? 'var(--danger)' : color;
 
   return (
     <div className={styles.bar}>
       <div className={styles.header}>
-        <span className={`mono tiny caps ${styles.label}`}>{label}</span>
-        <span className={`mono ${styles.value}${over ? ` ${styles.valueOver}` : ''}`}>
-          {over ? `+${Math.round(consumed - goal)}` : Math.round(left)}
-          <span className={styles.unit}>g</span>
+        <span className={`mono tiny caps ${styles.label}`}>{short}</span>
+        <span className={styles.valueBox}>
+          <span className={`mono ${styles.current}${over ? ` ${styles.currentOver}` : ''}`}>
+            {Math.round(consumed)}
+          </span>
+          <span className={`mono ${styles.goal}`}>/ {Math.round(goal)}</span>
         </span>
       </div>
       <div className={styles.track}>

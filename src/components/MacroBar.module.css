@@ -14,17 +14,24 @@
   color: var(--fg-dim);
 }
 
-.value {
+.valueBox {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.current {
   font-size: 16px;
   color: var(--fg);
   transition: color 0.3s ease;
 }
 
-.value.valueOver {
+.current.currentOver {
   color: var(--danger);
 }
 
-.unit {
+.goal {
+  font-size: 12px;
   color: var(--fg-dimmer);
 }
 
