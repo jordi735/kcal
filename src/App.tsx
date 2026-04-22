@@ -310,26 +310,23 @@ export function App() {
     }
   };
 
-  // NewProductForm handlers
-  const onScanLabel = () => {
-    const draftSoFar: Partial<ProductDraft> =
-      modal.kind === 'new-product' && modal.initial !== undefined
-        ? modal.initial
-        : {};
+  // NewProductForm handlers. draftSoFar is a live snapshot of the form's local
+  // state, pushed up by the form on click — reading modal.initial here would be
+  // stale (that's only the seed values at mount time).
+  const onScanLabel = (draftSoFar: Partial<ProductDraft>) => {
     setModal({ kind: 'ai-label-scanner', draftSoFar });
   };
 
   // Scan-from-form: open the scanner, preserve enough context to return to
   // the same form with the scanned code merged into the barcode field.
-  const onScanBarcodeFromForm = () => {
+  const onScanBarcodeFromForm = (draftSoFar: Partial<ProductDraft>) => {
     if (modal.kind === 'new-product') {
       setModal({
         kind: 'barcode-scanner-fill',
         returnTo: 'new',
-        draftSoFar: modal.initial ?? {},
+        draftSoFar,
       });
     } else if (modal.kind === 'edit-product') {
-      const draftSoFar = modal.initialOverride ?? productToDraft(modal.product);
       setModal({
         kind: 'barcode-scanner-fill',
         returnTo: 'edit',

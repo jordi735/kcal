@@ -27,8 +27,8 @@ type NewProductFormProps = {
   // first time arms the button, second tap invokes.
   onDelete?: () => void | Promise<void>;
   onClose: () => void;
-  onScanLabel: () => void;
-  onScanBarcode: () => void;
+  onScanLabel: (draftSoFar: Partial<ProductDraft>) => void;
+  onScanBarcode: (draftSoFar: Partial<ProductDraft>) => void;
 };
 
 type NumField = number | '';
@@ -121,6 +121,26 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
     carbs !== '' &&
     fat !== '';
 
+  // Snapshot the live form state for scan round-trips. The parent reopens this
+  // form with the returned draft as `initial`, so anything omitted here resets.
+  // Per100 is all-or-nothing because Macros requires all four fields.
+  const currentDraft = (): Partial<ProductDraft> => {
+    const draft: Partial<ProductDraft> = { unit };
+    if (name.trim()) draft.name = name;
+    if (brand.trim()) draft.brand = brand;
+    if (barcode.trim()) draft.barcode = barcode;
+    if (kcal !== '' && protein !== '' && carbs !== '' && fat !== '') {
+      draft.per100 = {
+        kcal: Number(kcal),
+        protein: Number(protein),
+        carbs: Number(carbs),
+        fat: Number(fat),
+      };
+    }
+    if (isTemp) draft.is_temp = true;
+    return draft;
+  };
+
   // Soft Atwater check: kcal should roughly equal 4·protein + 4·carbs + 9·fat.
   // Tolerates 5% (alcohol and fiber-heavy products can legitimately diverge).
   const atwaterExpected =
@@ -192,7 +212,7 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
       <div data-sheet-scroll className={`no-scroll ${styles.scroll}`}>
         {!isEdit && (
           <button
-            onClick={onScanLabel}
+            onClick={() => onScanLabel(currentDraft())}
             className={`${styles.aiBanner}${prefilled ? ` ${styles.aiBannerPrefilled}` : ''}`}
           >
             <div className={styles.aiIcon}>
@@ -244,7 +264,7 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
             />
             <button
               type="button"
-              onClick={onScanBarcode}
+              onClick={() => onScanBarcode(currentDraft())}
               className={styles.barcodeScanBtn}
               aria-label="Scan barcode"
             >
