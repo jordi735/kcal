@@ -73,27 +73,24 @@ export function SelectionBar({
       <div className={styles.actions}>
         <button
           onClick={() => onToggleTagged(!allTagged)}
-          className={`mono ${styles.tagBtn}`}
+          className={styles.tagBtn}
           aria-label={allTagged ? `Untag ${n} selected` : `Tag ${n} selected`}
         >
           <CheckCircleIcon size={14} />
-          {allTagged ? 'Untag' : 'Tag'}
         </button>
         <button
           onClick={onDelete}
-          className={`mono ${styles.deleteBtn}`}
+          className={styles.deleteBtn}
           aria-label={`Delete ${n} selected`}
         >
           <TrashIcon size={14} />
-          {n}
         </button>
         <button
           onClick={onClear}
-          className={`mono ${styles.clearBtn}`}
+          className={styles.clearBtn}
           aria-label="Clear selection"
         >
           <XMarkIcon size={14} />
-          Cancel
         </button>
       </div>
     </div>
