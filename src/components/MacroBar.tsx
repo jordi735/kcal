@@ -25,7 +25,8 @@ export function MacroBar({ macroKey, consumed, goal }: MacroBarProps) {
           <span className={`mono ${styles.current}${over ? ` ${styles.currentOver}` : ''}`}>
             {Math.round(consumed)}
           </span>
-          <span className={`mono ${styles.goal}`}>/ {Math.round(goal)}</span>
+          <span className={`mono ${styles.goal}`}>/</span>
+          <span className={`mono ${styles.goal}`}>{Math.round(goal)}</span>
         </span>
       </div>
       <div className={styles.track}>
