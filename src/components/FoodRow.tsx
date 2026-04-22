@@ -1,4 +1,4 @@
-// Food entry row — dot toggles tagged or selection; body taps to edit, long-press multi-selects.
+// Food entry row — dot toggles tagged; body taps to edit, long-press multi-selects.
 
 import type { EntryWithMacros } from '../types';
 import { MacroBreakdown } from './MacroBreakdown';
@@ -25,21 +25,17 @@ export function FoodRow({
   onLongPress,
 }: FoodRowProps) {
   const { product, macros, grams, local_time } = entry;
-  const dotActive = selectionMode ? selected : entry.tagged;
 
   return (
     <div className={`food-row ${styles.row}${selected ? ` ${styles.selected}` : ''}`}>
       <button
         type="button"
-        className={`${styles.dotBtn}${dotActive ? ` ${styles.dotActive}` : ''}`}
-        onClick={() => {
-          if (selectionMode) onToggleSelect(entry);
-          else onToggleTagged(entry);
-        }}
+        className={`${styles.dotBtn}${entry.tagged ? ` ${styles.dotActive}` : ''}`}
+        onClick={() => onToggleTagged(entry)}
         aria-label={entry.tagged ? 'Mark as not eaten' : 'Mark as eaten'}
         aria-pressed={entry.tagged}
       >
-        {dotActive ? <CheckCircleIcon size={20} /> : <CircleIcon size={20} />}
+        {entry.tagged ? <CheckCircleIcon size={20} /> : <CircleIcon size={20} />}
       </button>
       <button
         onClick={() => {
