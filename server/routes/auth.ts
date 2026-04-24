@@ -8,8 +8,10 @@ import {
   createSession,
   deleteSession,
   issueLoginCode,
+  peekLoginCode,
 } from '../auth.js';
 import { sendLoginCode } from '../email.js';
+import { env } from '../env.js';
 import { EMAIL_RE, isObject, LOGIN_CODE_RE } from '../guards.js';
 import { statements } from '../statements.js';
 import type { UserRow } from '../types.js';
@@ -81,3 +83,26 @@ authRouter.post('/logout', authMiddleware, (req, res) => {
   deleteSession(req.sessionToken!);
   res.json({ ok: true });
 });
+
+// TEST_MODE only: exposes the in-memory login code so Playwright can sign in
+// without parsing an inbox. Gated at registration so it simply doesn't exist
+// in normal runs, AND the handler re-checks env.TEST_MODE for belt-and-braces.
+if (env.TEST_MODE) {
+  authRouter.get('/test/last-code/:email', (req, res) => {
+    if (!env.TEST_MODE) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    const email = req.params.email.trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) {
+      res.status(400).json({ error: 'invalid_email' });
+      return;
+    }
+    const code = peekLoginCode(email);
+    if (code === null) {
+      res.status(404).json({ error: 'no_code' });
+      return;
+    }
+    res.json({ code });
+  });
+}

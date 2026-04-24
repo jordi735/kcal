@@ -10,6 +10,10 @@ export async function sendLoginCode(email: string, code: string): Promise<void> 
   const hash = log.emailHash(email);
   // debug-level code dump for local development; silent at info+.
   log.debug('login code (dev)', { emailHash: hash, code });
+  if (env.TEST_MODE) {
+    log.info('TEST_MODE: email skipped', { emailHash: hash });
+    return;
+  }
   const vars = { code, expiryMinutes: env.LOGIN_CODE_EXPIRY_MINUTES };
   const client = new ServerClient(env.POSTMARK_SERVER_TOKEN);
   await client.sendEmail({

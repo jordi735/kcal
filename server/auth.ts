@@ -79,6 +79,18 @@ export function consumeLoginCode(email: string, code: string): ConsumeResult {
   return 'invalid';
 }
 
+// Non-consuming read of the in-memory code map. Intended for TEST_MODE only;
+// gated at the route layer (server/routes/auth.ts).
+export function peekLoginCode(email: string): string | null {
+  const entry = loginCodes.get(email);
+  if (entry === undefined) return null;
+  if (entry.expiresAt < Date.now()) {
+    loginCodes.delete(email);
+    return null;
+  }
+  return entry.code;
+}
+
 export function createSession(userId: number): SessionInfo {
   const token = randomBytes(32).toString('base64url');
   const now = Date.now();

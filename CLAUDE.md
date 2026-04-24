@@ -12,9 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run typecheck` — typechecks the frontend project (`src/`, `shared/`, `vite.config.ts`).
 - `npm run typecheck:server` — typechecks the backend project (`server/`, `shared/`).
 - `npm run icons` — regenerates PWA icons and the OG image from `kcal-logo-blue.png` via `scripts/regenerate-icons.sh` (requires ImageMagick's `convert`).
-- `npm test` — currently a no-op (prints "no tests").
+- `npm test` — Playwright e2e suite (see Testing). Also `test:ui` (interactive IDE), `test:headed` (watch the browser), `test:debug` (step-through).
 
-There is no lint step and no test runner wired up.
+There is no lint step.
 
 ## Dev vs prod topology
 
@@ -64,6 +64,21 @@ The app is an installable PWA with no offline caching — the service worker exi
 2. `App.tsx` → `useEntries.add()` → `POST /entries` via `api`.
 3. `entriesRouter` validates (`isNewEntryBody`), checks product ownership (`statements.products.ownedByUser`), inserts, re-reads the joined row, and returns `EntryWithMacros`.
 4. Hook updates `entriesByDate[date]` (preserving `local_time ASC` order) and recomputes `weekTotals[date]`.
+
+## Testing
+
+Playwright e2e runs against the **prod build**, not the dev server. `playwright.config.ts` starts `npm run build && npx tsx server/index.ts` on `:3001` with a test-only env (`TEST_MODE=true`, `DATABASE_PATH=/tmp/kcal-e2e.db`, etc.); `tests/e2e/global-setup.ts` wipes that DB before each run so migrations apply fresh. `tests/e2e/auth.setup.ts` signs in once and persists `storageState` to `tests/e2e/.auth/user.json`; the `mobile` project (Pixel 7) declares `dependencies: ['setup']` so every spec starts already signed in. Testing against prod topology means a broken `vite build`, bad migration, or regression in the SPA fallback surfaces as a test failure — no unit test would catch those.
+
+- **`TEST_MODE` — never set in production.** Flips two switches needed for headless e2e: (1) `sendLoginCode` in `server/email.ts` returns early instead of calling Postmark (the debug code-dump still fires, so local dev also benefits); (2) `GET /auth/test/last-code/:email` registers in `server/routes/auth.ts` to expose the current in-memory code via `peekLoginCode` (`server/auth.ts`). Double-gated: the route only registers if `env.TEST_MODE` is true at boot AND the handler re-checks. With the flag off, the route falls through to the SPA fallback, which returns `{"error":"not found"}` for `/auth/*` — a different shape than the enabled route's `{"error":"no_code"}`, useful for verifying the gate. `server/env.ts` also prints a five-line warning banner to stderr on boot whenever `TEST_MODE` is on.
+- **Use `.tap()`, not `.click()`, for buttons inside `Sheet` modals.** Playwright's mobile device profile sets `hasTouch: true`, but `click()` still fires mouse events — which silently drop against `Sheet`'s touch-wired interaction layer. Affects every button inside `AddPicker` / `NewProductForm` / `GramsPicker` / `Settings`. `Login` (not inside a Sheet) and `page.fill()` work fine with click. This was the single biggest spec-authoring gotcha; any new spec in these modals needs tap.
+- **Quick-value buttons in `GramsPicker` re-render once history loads.** The `[50,100,150,200,250]` DEFAULT list is replaced by recent-grams from `/entries/recent-grams` a moment after the sheet opens. Tapping "200" in edit mode can hit a detached element mid-transition. Fill the `<input type="number">` directly (`page.getByRole('spinbutton').fill('200')`) instead.
+- **Long-press is `onContextMenu`.** `FoodRow.tsx:45-48` wires multi-select via `onContextMenu` (the portable way to catch a touch long-press without a custom timer hook). The `longPress` helper in `tests/e2e/helpers.ts` drives it with `locator.dispatchEvent('contextmenu')` — no pointer-down/up dance, no timer, works the same on the Pixel 7 profile and a desktop viewport.
+- **Label-to-input navigation differs by component.** `NutField` in `NewProductForm` renders `<label>` as a sibling of the input's parent; `GoalField` in `Settings` uses `<span>`. The shared `fillNutField` (`tests/e2e/helpers.ts`) navigates up from `locator('label')`. Settings uses positional `getByRole('spinbutton').nth(N)` (`0=Protein, 1=Carbs, 2=Fat, 3=Kcal`) and a `bumpButtons(page, fieldIndex)` helper that climbs three levels from the input to the field row to grab the +/- buttons.
+- **Per-test product names must be unique.** `globalSetup` wipes `/tmp/kcal-e2e.db` once at run start, but tests within a run share state. A repeated name across tests yields multiple `.food-row` matches and triggers strict-mode locator errors. Selection / tagging specs use a per-test suffix (`E2E Sel A S1`, `E2E Tag Toggle`, etc.). `seedProductAndLog` in `helpers.ts` ends with a `.food-row` `waitFor({ state: 'visible' })` so callers chaining two seeds in a row don't race the modal exit animation.
+- **FoodRow product-name casing is normalized in the accessibility tree.** Whatever you fill via the form, the row's main `<button>` exposes a different cased accessible name in Playwright's tree. Don't anchor selectors with case-sensitive regexes — use positional `locator('button').nth(1)` (dot is `0`, main button is `1`) or `hasText` filter (case-insensitive substring) on the `.food-row`.
+- **Sheet animation collisions when re-opening after Save.** `MacroSummary` becomes visible the instant `Save` fires (it's behind the sheet), but the sheet is still mid-exit. Re-opening Settings before the previous sheet has fully unmounted causes a layout-jitter that strands buttons in a "not stable" state. Wait with `expect(page.getByText('Daily goals')).toHaveCount(0)` between the two opens.
+- **Sign-out tests must use isolated `storageState`.** `server/routes/auth.ts:83` deletes the session row server-side, so logging out of the shared `auth.setup.ts` token would 401 every subsequent spec. `tests/e2e/auth.spec.ts` overrides with `test.use({ storageState: { cookies: [], origins: [] } })` and signs in a fresh throw-away email manually.
+- **Coverage.** Pure-UI happy path, negative-path validation, multi-select / tagging / sign-out — all 25 specs run without external-service mocks. Deferred: barcode scan, AI label scan, adopt shared product (PR #2); 401 auto-logout, cross-user barcode privacy, direct retroactive-macro API paths (PR #3). Unit-level fuzzing of `isNewEntryBody` / `validateAndCoerce` is a separate concern (vitest + fast-check), not Playwright.
 
 ## Conventions
 

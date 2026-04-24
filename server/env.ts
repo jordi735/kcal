@@ -42,6 +42,15 @@ function toNumber(key: string): number {
   return n;
 }
 
+// Optional — tests only. Never set in production. See .env.example.
+const TEST_MODE = process.env.TEST_MODE === 'true';
+if (TEST_MODE) {
+  console.warn('[kcal] ============================================================');
+  console.warn('[kcal] TEST_MODE ON — emails disabled, /auth/test/last-code open');
+  console.warn('[kcal] never use TEST_MODE in production');
+  console.warn('[kcal] ============================================================');
+}
+
 export const env = {
   PORT: toNumber('PORT'),
   DATABASE_PATH: process.env.DATABASE_PATH!,
@@ -51,4 +60,5 @@ export const env = {
   LOGIN_CODE_EXPIRY_MINUTES: toNumber('LOGIN_CODE_EXPIRY_MINUTES'),
   AI_SCAN_DAILY_CAP: toNumber('AI_SCAN_DAILY_CAP'),
   LOG_LEVEL: rawLevel as LogLevel,
+  TEST_MODE,
 } as const;

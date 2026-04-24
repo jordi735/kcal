@@ -13,7 +13,10 @@
     "server:start": "tsx --env-file=.env server/index.ts",
     "start": "npm run build && npm run server:start",
     "icons": "./scripts/regenerate-icons.sh",
-    "test": "echo \"no tests\" && exit 0"
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug"
   },
   "repository": {
     "type": "git",
@@ -35,6 +38,7 @@
     "preact": "^10.29.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@preact/preset-vite": "^2.10.5",
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.6",
