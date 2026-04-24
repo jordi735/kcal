@@ -23,15 +23,27 @@ export async function longPress(locator: Locator) {
 
 // Full AddPicker → NewProductForm → GramsPicker UI flow, stopping after the
 // entry is logged. Used as per-test seeding in selection/tagging specs.
+// `barcode` is optional — pass it to exercise the shared-catalog / adopt flow.
 export async function seedProductAndLog(
   page: Page,
   name: string,
   macros: { kcal: string; protein: string; carbs: string; fat: string },
   grams: string,
+  barcode?: string,
 ) {
   await page.getByRole('button', { name: 'ADD FOOD' }).tap();
   await page.getByRole('button', { name: 'Add New' }).tap();
   await page.getByPlaceholder('e.g. Peanut Butter').fill(name);
+  if (barcode !== undefined) {
+    // ClearableField renders a plain text input (role=textbox) — scope via the
+    // <label> parent to avoid matching the sibling Brand field.
+    await page
+      .locator('label')
+      .filter({ hasText: /^Barcode$/ })
+      .locator('..')
+      .getByRole('textbox')
+      .fill(barcode);
+  }
   await fillNutField(page, 'Kcal', macros.kcal);
   await fillNutField(page, 'Protein', macros.protein);
   await fillNutField(page, 'Carbs', macros.carbs);

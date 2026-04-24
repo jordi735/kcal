@@ -94,6 +94,75 @@ test.describe('advanced', () => {
     await expect(page.getByText(/Heads up/)).toBeVisible();
   });
 
+  test('+ button increments carbs and auto-recomputes kcal', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Settings' }).tap();
+    await expect(page.getByText('Daily goals')).toBeVisible();
+
+    const proteinIn = page.getByRole('spinbutton').nth(0);
+    const carbsIn = page.getByRole('spinbutton').nth(1);
+    const fatIn = page.getByRole('spinbutton').nth(2);
+    const kcalIn = page.getByRole('spinbutton').nth(3);
+
+    const p = parseInt(await proteinIn.inputValue(), 10);
+    const oldC = parseInt(await carbsIn.inputValue(), 10);
+    const f = parseInt(await fatIn.inputValue(), 10);
+
+    await bumpButtons(page, 1).plus.tap();
+
+    const newC = oldC + 5;
+    // Settings.tsx:121 — onChangeC recomputes kcal from p/(C+5)/f.
+    const expectedKcal = Math.round(p * 4 + newC * 4 + f * 9);
+
+    await expect(carbsIn).toHaveValue(String(newC));
+    await expect(kcalIn).toHaveValue(String(expectedKcal));
+  });
+
+  test('+ button increments fat and auto-recomputes kcal', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Settings' }).tap();
+    await expect(page.getByText('Daily goals')).toBeVisible();
+
+    const proteinIn = page.getByRole('spinbutton').nth(0);
+    const carbsIn = page.getByRole('spinbutton').nth(1);
+    const fatIn = page.getByRole('spinbutton').nth(2);
+    const kcalIn = page.getByRole('spinbutton').nth(3);
+
+    const p = parseInt(await proteinIn.inputValue(), 10);
+    const c = parseInt(await carbsIn.inputValue(), 10);
+    const oldF = parseInt(await fatIn.inputValue(), 10);
+
+    await bumpButtons(page, 2).plus.tap();
+
+    const newF = oldF + 5;
+    // Settings.tsx:125 — onChangeF recomputes kcal from p/c/(F+5).
+    const expectedKcal = Math.round(p * 4 + c * 4 + newF * 9);
+
+    await expect(fatIn).toHaveValue(String(newF));
+    await expect(kcalIn).toHaveValue(String(expectedKcal));
+  });
+
+  test('mismatch warning disappears after adjusting a macro', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Settings' }).tap();
+    await expect(page.getByText('Daily goals')).toBeVisible();
+
+    // Arrange a big mismatch exactly like the 'mismatch warning shows' test.
+    await page.getByRole('spinbutton').nth(0).fill('50');
+    await page.getByRole('spinbutton').nth(1).fill('50');
+    await page.getByRole('spinbutton').nth(2).fill('10');
+    await page.getByRole('spinbutton').nth(3).fill('3000');
+    await expect(page.getByText(/Heads up/)).toBeVisible();
+
+    // Touching any macro triggers onChangeP/C/F (Settings.tsx:115-126), which
+    // re-derives kcal to exactly match p/c/f — mismatch becomes 0 by
+    // definition, banner unmounts. This pins the reactive-clear branch of
+    // Settings.tsx:130's mismatch condition.
+    await page.getByRole('spinbutton').nth(2).fill('20');
+
+    await expect(page.getByText(/Heads up/)).toHaveCount(0);
+  });
+
   test('Cancel does not persist changes', async ({ page }) => {
     await page.goto('/');
 

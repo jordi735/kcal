@@ -17,14 +17,17 @@ export default defineConfig({
   },
   projects: [
     { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    { name: 'setup-user2', testMatch: /auth\.setup2\.ts/ },
     {
       name: 'mobile',
-      testIgnore: /auth\.setup\.ts/,
+      // Match both setup files: `setup2?` makes the '2' optional, so the
+      // regex matches auth.setup.ts and auth.setup2.ts.
+      testIgnore: /auth\.setup2?\.ts/,
       use: {
         ...devices['Pixel 7'],
         storageState: 'tests/e2e/.auth/user.json',
       },
-      dependencies: ['setup'],
+      dependencies: ['setup', 'setup-user2'],
     },
   ],
   webServer: {

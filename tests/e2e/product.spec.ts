@@ -29,7 +29,7 @@ test('edit product updates already-logged entry macros retroactively', async ({ 
   // row → GramsPicker (edit) → pencil → NewProductForm (edit).
   await row.locator('button').filter({ hasText: 'E2E Tofu' }).tap();
   await expect(page.getByText('Edit amount')).toBeVisible();
-  await page.getByRole('button', { name: 'Edit product' }).tap();
+  await page.getByRole('button', { name: 'Edit product', exact: true }).tap();
   await expect(page.getByText('Edit Product', { exact: true })).toBeVisible();
 
   // Double the kcal. Save closes all modals and reloads entries.
@@ -43,7 +43,7 @@ test('edit product updates already-logged entry macros retroactively', async ({ 
   // Two-tap delete via NewProductForm edit mode:
   // first tap arms (aria-label: "Delete product" → "Confirm delete"), second tap deletes.
   await row.locator('button').filter({ hasText: 'E2E Tofu' }).tap();
-  await page.getByRole('button', { name: 'Edit product' }).tap();
+  await page.getByRole('button', { name: 'Edit product', exact: true }).tap();
   await page.getByRole('button', { name: 'Delete product' }).tap();
   await page.getByRole('button', { name: 'Confirm delete' }).tap();
 
