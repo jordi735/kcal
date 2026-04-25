@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 // Settings.tsx renders 4 GoalField number inputs in order:
 // Protein, Carbs, Fat, Kcal (Kcal is last — see src/screens/Settings.tsx:173-182).
 // Changing macros auto-recomputes kcal; changing kcal directly sticks.
-test('change daily kcal goal persists and updates MacroSummary', async ({ page }) => {
+test('[J-018] change daily kcal goal persists and updates MacroSummary', async ({ page }) => {
   await page.goto('/');
 
   await page.getByRole('button', { name: 'Settings' }).tap();
@@ -33,7 +33,7 @@ function bumpButtons(page: Page, fieldIndex: number) {
 }
 
 test.describe('advanced', () => {
-  test('+ button increments protein and auto-recomputes kcal', async ({ page }) => {
+  test('[J-019] + button increments protein and auto-recomputes kcal', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
@@ -58,7 +58,7 @@ test.describe('advanced', () => {
     await expect(kcalIn).toHaveValue(String(expectedKcal));
   });
 
-  test('- button clamps protein at 0', async ({ page }) => {
+  test('[J-020] - button clamps protein at 0', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
@@ -75,7 +75,7 @@ test.describe('advanced', () => {
     await expect(proteinIn).toHaveValue('0');
   });
 
-  test('mismatch warning shows when kcal disagrees with macros by >50', async ({ page }) => {
+  test('[J-021] mismatch warning shows when kcal disagrees with macros by >50', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
@@ -94,7 +94,7 @@ test.describe('advanced', () => {
     await expect(page.getByText(/Heads up/)).toBeVisible();
   });
 
-  test('+ button increments carbs and auto-recomputes kcal', async ({ page }) => {
+  test('[J-019] + button increments carbs and auto-recomputes kcal', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
@@ -118,7 +118,7 @@ test.describe('advanced', () => {
     await expect(kcalIn).toHaveValue(String(expectedKcal));
   });
 
-  test('+ button increments fat and auto-recomputes kcal', async ({ page }) => {
+  test('[J-019] + button increments fat and auto-recomputes kcal', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
@@ -142,7 +142,7 @@ test.describe('advanced', () => {
     await expect(kcalIn).toHaveValue(String(expectedKcal));
   });
 
-  test('mismatch warning disappears after adjusting a macro', async ({ page }) => {
+  test('[J-021] mismatch warning disappears after adjusting a macro', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
@@ -163,7 +163,7 @@ test.describe('advanced', () => {
     await expect(page.getByText(/Heads up/)).toHaveCount(0);
   });
 
-  test('Cancel does not persist changes', async ({ page }) => {
+  test('[J-022] Cancel does not persist changes', async ({ page }) => {
     await page.goto('/');
 
     // Establish a known baseline of 2000 first, so the assertion is decoupled

@@ -6,14 +6,14 @@ import { fillNutField } from './helpers';
 test.describe('signed-out', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('bad email disables the submit button', async ({ page }) => {
+  test('[J-007] bad email disables the submit button', async ({ page }) => {
     await page.goto('/');
     await page.getByPlaceholder('you@example.com').fill('not-an-email');
     // Login.tsx:147 — disabled={!emailValid || submitting}; regex \S+@\S+\.\S+
     await expect(page.getByRole('button', { name: 'Send sign-in code' })).toBeDisabled();
   });
 
-  test('wrong 6-digit code shows inline error and stays on code step', async ({ page }) => {
+  test('[J-003] wrong 6-digit code shows inline error and stays on code step', async ({ page }) => {
     await page.goto('/');
     await page.getByPlaceholder('you@example.com').fill('wrong-code@test.local');
     await page.getByRole('button', { name: 'Send sign-in code' }).tap();
@@ -32,7 +32,7 @@ test.describe('signed-out', () => {
 
 // Scenarios 3-4 run signed in using the default project storageState.
 test.describe('signed-in', () => {
-  test('server rejects product kcal > 2000 cap — form stays open', async ({ page }) => {
+  test('[J-011] server rejects product kcal > 2000 cap — form stays open', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'ADD FOOD' }).tap();
     await page.getByRole('button', { name: 'Add New' }).tap();
@@ -52,7 +52,7 @@ test.describe('signed-in', () => {
     await expect(page.getByText('How much?')).not.toBeVisible();
   });
 
-  test('product name containing HTML is rendered as text (XSS safe)', async ({ page }) => {
+  test('[J-012] product name containing HTML is rendered as text (XSS safe)', async ({ page }) => {
     // Tripwire: any unexpected alert/confirm/prompt fails the test.
     page.on('dialog', async (dialog) => {
       await dialog.dismiss();

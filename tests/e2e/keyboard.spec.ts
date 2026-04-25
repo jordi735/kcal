@@ -14,7 +14,7 @@ test.describe('keyboard Enter submits', () => {
     // the shared session is already signed in and skips Login entirely.
     test.use({ storageState: { cookies: [], origins: [] } });
 
-    test('Enter on email field advances to code step', async ({ page }) => {
+    test('[J-001] Enter on email field advances to code step', async ({ page }) => {
       await page.goto('/');
       await page.getByPlaceholder('you@example.com').fill('kbd-login@test.local');
       await page.getByPlaceholder('you@example.com').press('Enter');
@@ -26,7 +26,7 @@ test.describe('keyboard Enter submits', () => {
     });
   });
 
-  test('Enter on GramsPicker add-mode input logs the entry', async ({ page }) => {
+  test('[J-043] Enter on GramsPicker add-mode input logs the entry', async ({ page }) => {
     // Seed the product (100g), then re-add at 200g via Enter instead of the
     // 'Add to day' button. After, there should be one row on the day with 200g.
     const name = 'E2E Kbd Add';
@@ -54,7 +54,7 @@ test.describe('keyboard Enter submits', () => {
     ).toHaveCount(1);
   });
 
-  test('Enter on GramsPicker edit-mode input saves the change', async ({ page }) => {
+  test('[J-044] Enter on GramsPicker edit-mode input saves the change', async ({ page }) => {
     const name = 'E2E Kbd Edit';
     await page.goto('/');
     await seedProductAndLog(page, name, MACROS, '100');
@@ -72,7 +72,7 @@ test.describe('keyboard Enter submits', () => {
     ).toHaveCount(1);
   });
 
-  test('Enter on AddPicker search only blurs (no submit)', async ({ page }) => {
+  test('[J-045] Enter on AddPicker search only blurs (no submit)', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'ADD FOOD' }).tap();
 

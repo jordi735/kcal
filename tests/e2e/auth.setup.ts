@@ -8,7 +8,7 @@ import { mkdirSync } from 'node:fs';
 const email = 'e2e@test.local';
 const authFile = 'tests/e2e/.auth/user.json';
 
-setup('sign in once', async ({ page, request }) => {
+setup('[J-001] sign in once', async ({ page, request }) => {
   mkdirSync('tests/e2e/.auth', { recursive: true });
 
   await page.goto('/');

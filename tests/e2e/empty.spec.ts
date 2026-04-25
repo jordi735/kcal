@@ -18,7 +18,7 @@ async function signInFresh(page: Page, request: APIRequestContext) {
   await expect(page.getByRole('button', { name: 'ADD FOOD' })).toBeVisible();
 }
 
-test('home shows "No food logged" for a user with no entries', async ({ page, request }) => {
+test('[J-008] home shows "No food logged" for a user with no entries', async ({ page, request }) => {
   await signInFresh(page, request);
 
   // Home.tsx:96 renders this label when entriesForDay is empty. The emptyBtn
@@ -27,7 +27,7 @@ test('home shows "No food logged" for a user with no entries', async ({ page, re
   await expect(page.getByText('No food logged')).toBeVisible();
 });
 
-test('AddPicker search with no matches shows the empty-results block', async ({ page, request }) => {
+test('[J-009] AddPicker search with no matches shows the empty-results block', async ({ page, request }) => {
   await signInFresh(page, request);
 
   await page.getByRole('button', { name: 'ADD FOOD' }).tap();

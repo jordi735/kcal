@@ -9,7 +9,7 @@ import { fillNutField, seedProductAndLog } from './helpers';
 
 const MACROS = { kcal: '100', protein: '10', carbs: '10', fat: '2' };
 
-test('edit grams updates the row without adding a new entry', async ({ page }) => {
+test('[J-016] edit grams updates the row without adding a new entry', async ({ page }) => {
   const name = 'E2E Edit Grams';
   await page.goto('/');
   await seedProductAndLog(page, name, MACROS, '100');
@@ -29,7 +29,7 @@ test('edit grams updates the row without adding a new entry', async ({ page }) =
   await expect(row).toContainText('200g');
 });
 
-test('delete button in edit sheet removes the entry', async ({ page }) => {
+test('[J-017] delete button in edit sheet removes the entry', async ({ page }) => {
   const name = 'E2E Edit Delete';
   await page.goto('/');
   await seedProductAndLog(page, name, MACROS, '100');
@@ -45,7 +45,7 @@ test('delete button in edit sheet removes the entry', async ({ page }) => {
   await expect(row).toHaveCount(0);
 });
 
-test('editing a product retroactively updates the row on the same day', async ({ page }) => {
+test('[J-013] editing a product retroactively updates the row on the same day', async ({ page }) => {
   // The crown jewel: per CLAUDE.md, "Macros are computed, never stored."
   // entries only store grams + product_id; macro totals join products on every
   // read. After a product edit, App.tsx:381-382 refetches the day + week,
@@ -76,7 +76,7 @@ test('editing a product retroactively updates the row on the same day', async ({
   await expect(row).toContainText('500');
 });
 
-test('Add Temp Item flow renders a TMP badge on the row', async ({ page }) => {
+test('[J-014] Add Temp Item flow renders a TMP badge on the row', async ({ page }) => {
   // FoodRow.tsx:54-56 — is_temp products render a 'TMP' badge next to the
   // product name. The temp flow is AddPicker search → 'Add Temp' button →
   // NewProductForm (isTemp=true, save button reads 'Add to Day') → GramsPicker.

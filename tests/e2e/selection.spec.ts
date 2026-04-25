@@ -41,7 +41,7 @@ function clearBtn(page: Page): Locator {
   return page.getByRole('button', { name: 'Clear selection' });
 }
 
-test('long-press enters selection mode with count 1', async ({ page }) => {
+test('[J-023] long-press enters selection mode with count 1', async ({ page }) => {
   const s = 'S1';
   await seedPair(page, s);
 
@@ -49,7 +49,7 @@ test('long-press enters selection mode with count 1', async ({ page }) => {
   await expect(page.getByText('1 selected')).toBeVisible();
 });
 
-test('tap after long-press adds a second row; kcal summed', async ({ page }) => {
+test('[J-024] tap after long-press adds a second row; kcal summed', async ({ page }) => {
   const s = 'S2';
   await seedPair(page, s);
 
@@ -63,7 +63,7 @@ test('tap after long-press adds a second row; kcal summed', async ({ page }) => 
   await expect(bar).toContainText('300');
 });
 
-test('tapping an already-selected row deselects it', async ({ page }) => {
+test('[J-025] tapping an already-selected row deselects it', async ({ page }) => {
   const s = 'S3';
   await seedPair(page, s);
 
@@ -79,7 +79,7 @@ test('tapping an already-selected row deselects it', async ({ page }) => {
   await expect(bar).toContainText('200');
 });
 
-test('clear button exits selection mode', async ({ page }) => {
+test('[J-026] clear button exits selection mode', async ({ page }) => {
   const s = 'S4';
   await seedPair(page, s);
 
@@ -90,7 +90,7 @@ test('clear button exits selection mode', async ({ page }) => {
   await expect(clearBtn(page)).toHaveCount(0);
 });
 
-test('multi-delete removes both selected rows', async ({ page }) => {
+test('[J-027] multi-delete removes both selected rows', async ({ page }) => {
   const s = 'S5';
   await seedPair(page, s);
 
@@ -102,7 +102,7 @@ test('multi-delete removes both selected rows', async ({ page }) => {
   await expect(page.locator('.food-row').filter({ hasText: `E2E Sel B ${s}` })).toHaveCount(0);
 });
 
-test('multi-tag flips all untagged rows to tagged', async ({ page }) => {
+test('[J-028] multi-tag flips all untagged rows to tagged', async ({ page }) => {
   const s = 'S6';
   await seedPair(page, s);
 
@@ -114,7 +114,7 @@ test('multi-tag flips all untagged rows to tagged', async ({ page }) => {
   await expect(dot(page, `E2E Sel B ${s}`)).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('multi-tag with all rows tagged flips to untagged', async ({ page }) => {
+test('[J-029] multi-tag with all rows tagged flips to untagged', async ({ page }) => {
   const s = 'S7';
   await seedPair(page, s);
 
@@ -133,7 +133,7 @@ test('multi-tag with all rows tagged flips to untagged', async ({ page }) => {
   await expect(dot(page, `E2E Sel B ${s}`)).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('multi-tag with mixed state tags all (every, not some)', async ({ page }) => {
+test('[J-028] multi-tag with mixed state tags all (every, not some)', async ({ page }) => {
   const s = 'S8';
   await seedPair(page, s);
 
@@ -156,7 +156,7 @@ test('multi-tag with mixed state tags all (every, not some)', async ({ page }) =
   await expect(dot(page, `E2E Sel B ${s}`)).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('switching day clears the selection', async ({ page }) => {
+test('[J-030] switching day clears the selection', async ({ page }) => {
   const s = 'S9';
   await seedPair(page, s);
 

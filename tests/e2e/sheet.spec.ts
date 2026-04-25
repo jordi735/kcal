@@ -36,7 +36,7 @@ async function dragSheet(page: Page, deltaY: number) {
   await page.mouse.up();
 }
 
-test('drag down past 80px dismisses the sheet', async ({ page }) => {
+test('[J-037] drag down past 80px dismisses the sheet', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Settings' }).tap();
   await expect(page.getByText('Daily goals')).toBeVisible();
@@ -48,7 +48,7 @@ test('drag down past 80px dismisses the sheet', async ({ page }) => {
   await expect(page.getByText('Daily goals')).toHaveCount(0);
 });
 
-test('drag down under 80px snaps back; sheet stays open', async ({ page }) => {
+test('[J-038] drag down under 80px snaps back; sheet stays open', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Settings' }).tap();
   await expect(page.getByText('Daily goals')).toBeVisible();
@@ -60,7 +60,7 @@ test('drag down under 80px snaps back; sheet stays open', async ({ page }) => {
   await expect(page.getByText('Daily goals')).toBeVisible();
 });
 
-test('drag starting on an input is skipped; sheet stays open', async ({ page }) => {
+test('[J-039] drag starting on an input is skipped; sheet stays open', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Settings' }).tap();
   await expect(page.getByText('Daily goals')).toBeVisible();

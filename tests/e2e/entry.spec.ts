@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { fillNutField } from './helpers';
+import { fillNutField, seedProductAndLog } from './helpers';
 
-test('create product, log entry, edit grams, delete', async ({ page }) => {
+test('[J-010] create new product, save & continue, log to day', async ({ page }) => {
   await page.goto('/');
 
   // Add flow: home → AddPicker → NewProductForm.
@@ -10,7 +10,6 @@ test('create product, log entry, edit grams, delete', async ({ page }) => {
   await page.getByRole('button', { name: 'ADD FOOD' }).tap();
   await page.getByRole('button', { name: 'Add New' }).tap();
 
-  // Product form: name + macros per 100g.
   await page.getByPlaceholder('e.g. Peanut Butter').fill('E2E Oats');
   await fillNutField(page, 'Kcal', '400');
   await fillNutField(page, 'Protein', '15');
@@ -26,21 +25,32 @@ test('create product, log entry, edit grams, delete', async ({ page }) => {
   await page.getByRole('spinbutton').fill('150');
   await page.getByRole('button', { name: /Add to day/ }).tap();
 
-  // The entry is now on the day. 150g × 400 kcal/100g = 600 kcal.
+  // 150g × 400 kcal/100g = 600 kcal — proves macros computed from the new product.
   const row = page.locator('.food-row').filter({ hasText: 'E2E Oats' });
   await expect(row).toContainText('600');
+});
 
-  // Edit: tap the row's main button → GramsPicker in edit mode. Change to 200g.
-  await row.locator('button').filter({ hasText: 'E2E Oats' }).tap();
-  await expect(page.getByText('Edit amount')).toBeVisible();
+test('[J-015] pick existing product from AddPicker, log to day', async ({ page }) => {
+  // J-015 is the "log a product I've used before" flow — distinct from J-010,
+  // which always goes through Add New. Seed once via the helper, then re-log
+  // through the existing-product search path.
+  const name = 'E2E Existing Log';
+  const macros = { kcal: '100', protein: '10', carbs: '10', fat: '2' };
+  await page.goto('/');
+  await seedProductAndLog(page, name, macros, '100');
+
+  await page.getByRole('button', { name: 'ADD FOOD' }).tap();
+  // Scope the text match to the AddPicker sheet — getByText(name) would also
+  // hit the food-row beneath the open sheet and tap the wrong target.
+  const picker = page
+    .locator('.sheet')
+    .filter({ has: page.getByPlaceholder('Search products...') });
+  await picker.getByText(name).first().tap();
+
+  await expect(page.getByText('How much?')).toBeVisible();
   await page.getByRole('spinbutton').fill('200');
-  await page.getByRole('button', { name: 'Save', exact: true }).tap();
+  await page.getByRole('button', { name: /Add to day/ }).tap();
 
-  // 200g × 400/100 = 800 kcal.
-  await expect(row).toContainText('800');
-
-  // Delete the entry via GramsPicker's trash button.
-  await row.locator('button').filter({ hasText: 'E2E Oats' }).tap();
-  await page.getByRole('button', { name: 'Delete entry' }).tap();
-  await expect(row).toHaveCount(0);
+  // Two rows now: the seeded 100g and this fresh 200g log.
+  await expect(page.locator('.food-row').filter({ hasText: name })).toHaveCount(2);
 });

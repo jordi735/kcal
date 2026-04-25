@@ -49,7 +49,7 @@ async function seedAsUserA(
   return (await res.json()) as { id: number };
 }
 
-test('barcoded product adopts silently on tap from global search', async ({
+test('[J-034] barcoded product adopts silently on tap from global search', async ({
   page,
   request,
 }) => {
@@ -89,7 +89,7 @@ test('barcoded product adopts silently on tap from global search', async ({
   await expect(page.locator('.food-row').filter({ hasText: name })).toBeVisible();
 });
 
-test('adopt is idempotent on (created_by, barcode)', async ({ page, request }) => {
+test('[J-035] adopt is idempotent on (created_by, barcode)', async ({ page, request }) => {
   // Server-side test: call POST /products/adopt/:id as user B TWICE. The
   // first inserts a row; the second hits products.ts:195-200's fast path and
   // returns the existing row. Both responses should carry the same id —
@@ -124,7 +124,7 @@ test('adopt is idempotent on (created_by, barcode)', async ({ page, request }) =
   expect(first.id).not.toBe(sourceA.id);
 });
 
-test('non-barcoded products never cross users (privacy invariant)', async ({
+test('[J-036] non-barcoded products never cross users (privacy invariant)', async ({
   page,
   request,
 }) => {

@@ -7,7 +7,7 @@ import { expect, test } from '@playwright/test';
 // own and can safely log out of.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test('sign out returns to Login and clears server session', async ({ page, request }) => {
+test('[J-002] sign out returns to Login and clears server session', async ({ page, request }) => {
   const email = 'signout@test.local';
 
   // Manual sign-in mirrors auth.setup.ts but with a distinct email so this
@@ -45,7 +45,7 @@ function wrongFor(code: string): string {
   return code.slice(0, -1) + flipped;
 }
 
-test('wrong code shows "Invalid or expired code."', async ({ page, request }) => {
+test('[J-003] wrong code shows "Invalid or expired code."', async ({ page, request }) => {
   const email = 'wrongcode@test.local';
   await page.goto('/');
   await page.getByPlaceholder('you@example.com').fill(email);
@@ -59,7 +59,7 @@ test('wrong code shows "Invalid or expired code."', async ({ page, request }) =>
   await expect(page.getByText('Invalid or expired code.')).toBeVisible();
 });
 
-test('5 wrong attempts locks the code and resets to email step', async ({ page, request }) => {
+test('[J-004] 5 wrong attempts locks the code and resets to email step', async ({ page, request }) => {
   const email = 'lock5@test.local';
   await page.goto('/');
   await page.getByPlaceholder('you@example.com').fill(email);
@@ -87,7 +87,7 @@ test('5 wrong attempts locks the code and resets to email step', async ({ page, 
   await expect(page.getByPlaceholder('you@example.com')).toBeVisible();
 });
 
-test('requesting a new code invalidates the previous one', async ({ page, request }) => {
+test('[J-005] requesting a new code invalidates the previous one', async ({ page, request }) => {
   const email = 'recode@test.local';
   await page.goto('/');
   await page.getByPlaceholder('you@example.com').fill(email);
@@ -108,7 +108,7 @@ test('requesting a new code invalidates the previous one', async ({ page, reques
   await expect(page.getByText('Invalid or expired code.')).toBeVisible();
 });
 
-test('never-seen email reaches the code screen (no enumeration leak)', async ({ page }) => {
+test('[J-006] never-seen email reaches the code screen (no enumeration leak)', async ({ page }) => {
   // server/routes/auth.ts:41 upserts the users row on request-code, so there
   // is no "email not found" surface — every request succeeds identically.
   // This pins that property: a fresh email lands on the same 6-digit screen.

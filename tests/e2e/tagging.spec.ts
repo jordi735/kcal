@@ -12,7 +12,7 @@ import { seedProductAndLog } from './helpers';
 
 const MACROS = { kcal: '100', protein: '10', carbs: '10', fat: '2' };
 
-test('dot toggle flips aria-pressed both ways', async ({ page }) => {
+test('[J-031] dot toggle flips aria-pressed both ways', async ({ page }) => {
   const name = 'E2E Tag Toggle';
   await page.goto('/');
   await seedProductAndLog(page, name, MACROS, '100');
@@ -27,7 +27,7 @@ test('dot toggle flips aria-pressed both ways', async ({ page }) => {
   await expect(dot).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('tagged state persists across reload', async ({ page }) => {
+test('[J-032] tagged state persists across reload', async ({ page }) => {
   const name = 'E2E Tag Persist';
   await page.goto('/');
   await seedProductAndLog(page, name, MACROS, '100');
@@ -47,7 +47,7 @@ test('tagged state persists across reload', async ({ page }) => {
   await expect(dot()).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('aria-label flips with tagged state', async ({ page }) => {
+test('[J-033] aria-label flips with tagged state', async ({ page }) => {
   const name = 'E2E Tag Aria';
   await page.goto('/');
   await seedProductAndLog(page, name, MACROS, '100');

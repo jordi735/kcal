@@ -4,7 +4,7 @@ import { fillNutField } from './helpers';
 // The kcal CLAUDE.md architecture note states: macros are computed, never
 // stored. Editing a product retroactively updates every past day's totals.
 // This spec is the UI guarantee of that invariant.
-test('edit product updates already-logged entry macros retroactively', async ({ page }) => {
+test('[J-013] edit product updates already-logged entry macros retroactively', async ({ page }) => {
   await page.goto('/');
 
   // Create "E2E Tofu" at 100 kcal / 100g.

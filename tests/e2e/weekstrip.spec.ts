@@ -28,7 +28,7 @@ async function swipeTrack(page: Page, deltaX: number) {
 // current date.
 const captionLocator = (page: Page) => page.getByText(/W\d{2}/).first();
 
-test('swipe left past threshold commits to next week', async ({ page }) => {
+test('[J-040] swipe left past threshold commits to next week', async ({ page }) => {
   await page.goto('/');
   const caption = captionLocator(page);
   const before = await caption.textContent();
@@ -40,7 +40,7 @@ test('swipe left past threshold commits to next week', async ({ page }) => {
   await expect(caption).not.toHaveText(before ?? '');
 });
 
-test('swipe shorter than threshold snaps back; same week', async ({ page }) => {
+test('[J-041] swipe shorter than threshold snaps back; same week', async ({ page }) => {
   await page.goto('/');
   const caption = captionLocator(page);
   const before = await caption.textContent();
@@ -54,7 +54,7 @@ test('swipe shorter than threshold snaps back; same week', async ({ page }) => {
   await expect(caption).toHaveText(before ?? '');
 });
 
-test('next arrow button advances to next week', async ({ page }) => {
+test('[J-042] next arrow button advances to next week', async ({ page }) => {
   await page.goto('/');
   const caption = captionLocator(page);
   const before = await caption.textContent();
