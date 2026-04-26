@@ -27,6 +27,7 @@ type NewProductFormProps = {
   // first time arms the button, second tap invokes.
   onDelete?: () => void | Promise<void>;
   onClose: () => void;
+  onDismiss?: () => void;
   onScanLabel: (draftSoFar: Partial<ProductDraft>) => void;
   onScanBarcode: (draftSoFar: Partial<ProductDraft>) => void;
 };
@@ -78,8 +79,17 @@ function toField(n: number | undefined): NumField {
 }
 
 export function NewProductForm(props: NewProductFormProps) {
+  // Forward `onDismiss` only when the parent provided it — Sheet's prop is
+  // optional and exactOptionalPropertyTypes forbids passing `undefined`
+  // explicitly. Spread keeps the spread shape narrow.
+  const dismissProp =
+    props.onDismiss !== undefined ? { onDismiss: props.onDismiss } : {};
   return (
-    <Sheet onClose={props.onClose} style={cssVars({ '--sheet-max-height': '100%' })}>
+    <Sheet
+      onClose={props.onClose}
+      {...dismissProp}
+      style={cssVars({ '--sheet-max-height': '100%' })}
+    >
       <NewProductFormInner {...props} />
     </Sheet>
   );

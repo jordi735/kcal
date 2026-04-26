@@ -511,6 +511,7 @@ export function App() {
             {...(modal.initial !== undefined ? { initial: modal.initial } : {})}
             onSave={onProductSave}
             onClose={() => setModal({ kind: 'add-picker' })}
+            onDismiss={closeModal}
             onScanLabel={onScanLabel}
             onScanBarcode={onScanBarcodeFromForm}
           />
@@ -551,6 +552,7 @@ export function App() {
                 entry: modal.entry,
               })
             }
+            onDismiss={closeModal}
             onScanLabel={onScanLabel}
             onScanBarcode={onScanBarcodeFromForm}
           />

@@ -67,6 +67,7 @@ Source-of-truth list of user flows covered (or queued as TODO) by the Playwright
 - J-037 · Drag sheet down past 80 px dismisses it
 - J-038 · Drag sheet down under 80 px snaps back; sheet stays open
 - J-039 · Drag starting on an input is ignored; sheet stays open
+- J-046 · Swipe-down on a stacked sheet (NewProductForm over AddPicker) clears the whole stack to none
 
 # 10. WeekStrip gestures
 
@@ -93,7 +94,7 @@ Source-of-truth list of user flows covered (or queued as TODO) by the Playwright
 Run from the repo root:
 
 ```bash
-# 1. Total bullet entries (should be 50: 45 implemented + 5 TODO)
+# 1. Total bullet entries (should be 51: 46 implemented + 5 TODO)
 grep -c '^- J' tests/JOURNEYS.md
 
 # 2. No duplicate IDs

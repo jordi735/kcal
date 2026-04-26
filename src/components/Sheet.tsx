@@ -21,14 +21,19 @@
 // Threshold for commit-to-dismiss is 80px. Shorter drags snap back via
 // .sheet--snapping.
 //
-// Close animation: both paths (Cancel/backdrop tap and drag-commit) flow
-// through `beginExit()`, which drives the slide-off via inline styles so
-// the animation starts from wherever the sheet currently is. Children
-// trigger it by calling `useSheetClose()` from context.
+// Close animation: every exit path flows through `beginExit()`, which drives
+// the slide-off via inline styles so the animation starts from wherever the
+// sheet currently is. Two intent-flavored callbacks decide what happens
+// AFTER the slide-off:
+//   - Cancel button (`useSheetClose()` from context) → `onClose`. Parents may
+//     wire this to back-nav (e.g. NewProductForm → AddPicker).
+//   - Backdrop tap and drag-commit → `onDismiss ?? onClose`. iOS-style
+//     interactive dismiss should always tear the sheet down, never unwind
+//     to a previous sheet, even when `onClose` would back-nav.
 //
 // The dimmed backdrop is hoisted to App (see SheetCloseRegisterProvider)
 // so it persists across sheet-to-sheet transitions. The active Sheet
-// registers its `requestClose` and a `notifyExit` signal upward so the
+// registers its `requestDismiss` and a `notifyExit` signal upward so the
 // App-owned overlay can both tap-dismiss and fade in parallel with the
 // sheet's slide-off.
 
@@ -39,6 +44,10 @@ import { FADE_EXIT_MS } from '../hooks/useFadeClose';
 
 type SheetProps = {
   onClose: () => void;
+  // Optional override for backdrop-tap and drag-commit dismiss paths. Wire
+  // this when `onClose` performs back-nav so interactive dismiss still
+  // fully closes the sheet stack. Falls back to `onClose` when omitted.
+  onDismiss?: () => void;
   children: ComponentChildren;
   style?: JSX.CSSProperties;
 };
@@ -88,12 +97,14 @@ type DragState = {
   startY: number;
 };
 
-export function Sheet({ onClose, children, style }: SheetProps) {
+export function Sheet({ onClose, onDismiss, children, style }: SheetProps) {
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exitingRef = useRef(false);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
   const registerClose = useContext(SheetCloseRegisterContext);
   const notifyExit = useContext(SheetExitNotifyContext);
   const notifyExitRef = useRef(notifyExit);
@@ -105,12 +116,15 @@ export function Sheet({ onClose, children, style }: SheetProps) {
   });
   const pointerIdRef = useRef<number>(-1);
 
-  // Both manual close (Cancel/backdrop tap) and drag-committed dismiss
-  // funnel through here. Inline styles — not a CSS keyframe — so the
-  // slide-off starts from wherever the sheet currently is (the finger's
-  // release position during drag, or translateY(0) for manual close).
-  // Notifying App on exit lets the shared overlay fade in parallel.
-  const beginExit = useCallback(() => {
+  // Every exit funnels through here. Inline styles — not a CSS keyframe —
+  // so the slide-off starts from wherever the sheet currently is (the
+  // finger's release position during drag, or translateY(0) for a button
+  // tap). Notifying App on exit lets the shared overlay fade in parallel.
+  // `kind` decides which callback fires after the slide-off: 'close' is
+  // the explicit Cancel-button path (parent decides — may back-nav);
+  // 'dismiss' is the gesture/backdrop path (always fully tear down, with
+  // `onClose` as a fallback for sheets that don't need the distinction).
+  const beginExit = useCallback((kind: 'close' | 'dismiss') => {
     if (exitingRef.current) return;
     exitingRef.current = true;
     notifyExitRef.current?.();
@@ -120,10 +134,15 @@ export function Sheet({ onClose, children, style }: SheetProps) {
       sheet.style.transform = 'translateY(100%)';
       sheet.style.pointerEvents = 'none';
     }
-    exitTimerRef.current = setTimeout(() => onCloseRef.current(), FADE_EXIT_MS);
+    const finalize =
+      kind === 'dismiss'
+        ? (onDismissRef.current ?? onCloseRef.current)
+        : onCloseRef.current;
+    exitTimerRef.current = setTimeout(() => finalize(), FADE_EXIT_MS);
   }, []);
 
-  const requestClose = beginExit;
+  const requestClose = useCallback(() => beginExit('close'), [beginExit]);
+  const requestDismiss = useCallback(() => beginExit('dismiss'), [beginExit]);
 
   // Guard: if this component unmounts mid-exit (e.g. parent force-closes),
   // clear the pending timer so a stale onClose doesn't fire.
@@ -135,9 +154,12 @@ export function Sheet({ onClose, children, style }: SheetProps) {
 
   useEffect(() => {
     if (registerClose === null) return;
-    registerClose(requestClose);
+    // Backdrop tap routes through the registered callback; register the
+    // dismiss path so a tap on the dim layer always fully closes, even
+    // when `onClose` would back-nav to a previous sheet.
+    registerClose(requestDismiss);
     return () => registerClose(null);
-  }, [registerClose, requestClose]);
+  }, [registerClose, requestDismiss]);
 
   // respectScroll=true for touch (mobile): if the finger lands inside a
   // scroll container that's already scrolled down, the gesture is scroll-
@@ -203,7 +225,7 @@ export function Sheet({ onClose, children, style }: SheetProps) {
     const deltaY = clientY - drag.startY;
 
     if (deltaY >= DISMISS_THRESHOLD_PX) {
-      beginExit();
+      requestDismiss();
     } else {
       const onSnap = () => {
         sheet.removeEventListener('transitionend', onSnap);

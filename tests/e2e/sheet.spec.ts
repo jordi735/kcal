@@ -82,3 +82,23 @@ test('[J-039] drag starting on an input is skipped; sheet stays open', async ({ 
 
   await expect(page.getByText('Daily goals')).toBeVisible();
 });
+
+test('[J-046] swipe-down on stacked sheet clears the whole modal stack', async ({ page }) => {
+  // App.tsx wires NewProductForm's onClose to back-nav (kind: 'add-picker'),
+  // so without onDismiss the swipe would tear NewProductForm down only to
+  // re-mount AddPicker. With onDismiss=closeModal (App.tsx:514, :558),
+  // gesture/backdrop dismiss bypasses the back-nav and the stack lands at
+  // ModalState 'none' → 0 sheets in the DOM.
+  await page.goto('/');
+  await page.getByRole('button', { name: 'ADD FOOD' }).tap();
+  await expect(page.locator('.sheet')).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Add New' }).tap();
+  // Replaced AddPicker with NewProductForm — still one sheet on screen.
+  await expect(page.getByPlaceholder('e.g. Peanut Butter')).toBeVisible();
+
+  await dragSheet(page, 90);
+
+  await expect(page.locator('.sheet')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'ADD FOOD' })).toBeVisible();
+});
