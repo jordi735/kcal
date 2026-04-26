@@ -10,8 +10,11 @@
 //   `preventDefault()` to block the browser's own scroll once we've
 //   committed to drag. Preact JSX touch handlers are passive-by-default
 //   and can't do this.
-// - Desktop: JSX pointer handlers with setPointerCapture. `pointerType
-//   === 'touch'` is filtered out so mobile doesn't double-fire.
+// - Desktop: JSX pointer handlers. `pointerType === 'touch'` is filtered
+//   out so mobile doesn't double-fire. `setPointerCapture` is deferred
+//   until the drag phase actually commits to 'dragging' — capturing on
+//   `pointerdown` would redirect `pointerup` to the sheet and swallow
+//   click events on child buttons.
 // Targets inside text inputs are skipped so native focus/selection keeps
 // working.
 //
@@ -254,17 +257,22 @@ export function Sheet({ onClose, children, style }: SheetProps) {
   }, []);
 
   // Desktop mouse / pen. Ignore pointerType='touch' so we don't double-
-  // fire with the touch listeners above on mobile.
+  // fire with the touch listeners above on mobile. Capture is deferred
+  // until the drag commits — capturing on pointerdown would swallow
+  // clicks on child buttons inside the sheet.
   const onPointerDown = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return;
     if (!beginGesture(e.target, e.clientY, false)) return;
     pointerIdRef.current = e.pointerId;
-    e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return;
     if (pointerIdRef.current !== e.pointerId) return;
+    const wasDragging = dragRef.current.phase === 'dragging';
     updateGesture(e.clientY);
+    if (!wasDragging && dragRef.current.phase === 'dragging') {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
   };
   const onPointerEnd = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return;
