@@ -33,13 +33,24 @@ if (!LEVELS.includes(rawLevel as LogLevel)) {
   process.exit(1);
 }
 
-function toNumber(key: string): number {
-  const n = Number(process.env[key]);
-  if (!Number.isFinite(n)) {
-    console.error(`[kcal] ${key} must be a number (got "${process.env[key]}")`);
+function toPositiveInt(key: string): number {
+  const raw = process.env[key];
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) {
+    console.error(`[kcal] ${key} must be a positive integer (got "${raw}")`);
     process.exit(1);
   }
   return n;
+}
+
+// Optional comma-separated IP allowlist for /debug. Unset/empty → empty set
+// → every caller is denied. Code stays IP-agnostic; rotate via .env.
+function parseDebugAllowIps(): ReadonlySet<string> {
+  const raw = process.env.DEBUG_ALLOW_IPS;
+  if (raw === undefined) return new Set();
+  return new Set(
+    raw.split(',').map((s) => s.trim()).filter((s) => s.length > 0),
+  );
 }
 
 // Optional — tests only. Never set in production. See .env.example.
@@ -52,13 +63,19 @@ if (TEST_MODE) {
 }
 
 export const env = {
-  PORT: toNumber('PORT'),
+  PORT: toPositiveInt('PORT'),
   DATABASE_PATH: process.env.DATABASE_PATH!,
   POSTMARK_SERVER_TOKEN: process.env.POSTMARK_SERVER_TOKEN!,
   POSTMARK_FROM: process.env.POSTMARK_FROM!,
-  SESSION_EXPIRY_DAYS: toNumber('SESSION_EXPIRY_DAYS'),
-  LOGIN_CODE_EXPIRY_MINUTES: toNumber('LOGIN_CODE_EXPIRY_MINUTES'),
-  AI_SCAN_DAILY_CAP: toNumber('AI_SCAN_DAILY_CAP'),
+  SESSION_EXPIRY_DAYS: toPositiveInt('SESSION_EXPIRY_DAYS'),
+  LOGIN_CODE_EXPIRY_MINUTES: toPositiveInt('LOGIN_CODE_EXPIRY_MINUTES'),
+  AI_SCAN_DAILY_CAP: toPositiveInt('AI_SCAN_DAILY_CAP'),
   LOG_LEVEL: rawLevel as LogLevel,
   TEST_MODE,
+  // Empty set when DEBUG_ALLOW_IPS unset → /debug is fully denied (fail-closed).
+  DEBUG_ALLOW_IPS: parseDebugAllowIps(),
+  // Express `trust proxy` setting. Default 'loopback' is safe for local dev;
+  // set to '1' (or your specific config) when behind a reverse proxy so that
+  // req.ip resolves to the real client and not the proxy hop.
+  TRUST_PROXY: process.env.TRUST_PROXY?.trim() || 'loopback',
 } as const;

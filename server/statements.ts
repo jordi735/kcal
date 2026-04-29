@@ -132,7 +132,6 @@ export const statements = {
       FROM products
       WHERE created_by = ? AND is_temp = 0
       ORDER BY name COLLATE NOCASE ASC
-      LIMIT 20
     `),
     // (user_id, barcode)
     byBarcode: db.prepare(`
@@ -234,12 +233,15 @@ export const statements = {
     deleteForProduct: db.prepare(
       'DELETE FROM entries WHERE user_id = ? AND product_id = ?',
     ),
-    // (user_id, product_id)
+    // (user_id, product_id) — one row per distinct grams, ordered by most
+    // recent use of each. DISTINCT + ORDER BY over a non-projected column is
+    // implementation-defined in SQLite and yielded first-use ordering.
     recentGrams: db.prepare(`
-      SELECT DISTINCT grams
+      SELECT grams
       FROM entries
       WHERE user_id = ? AND product_id = ?
-      ORDER BY created_at DESC
+      GROUP BY grams
+      ORDER BY MAX(created_at) DESC
       LIMIT 5
     `),
   },

@@ -112,19 +112,9 @@ function SettingsInner({ goals, onSave, onLogout, userEmail }: InnerProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onChangeP = (v: number) => {
-    setP(v);
-    setKcal(Math.round(v * 4 + c * 4 + f * 9));
-  };
-  const onChangeC = (v: number) => {
-    setC(v);
-    setKcal(Math.round(p * 4 + v * 4 + f * 9));
-  };
-  const onChangeF = (v: number) => {
-    setF(v);
-    setKcal(Math.round(p * 4 + c * 4 + v * 9));
-  };
-
+  // No cross-field auto-derive: bumping a macro never overwrites kcal. The
+  // mismatch banner below surfaces drift between the typed kcal and the
+  // macro-derived total, leaving the user as the single source of truth.
   const total = p * 4 + c * 4 + f * 9;
   const derivedKcal = Math.round(total);
   const mismatch = Math.abs(derivedKcal - kcal) > 50;
@@ -134,9 +124,9 @@ function SettingsInner({ goals, onSave, onLogout, userEmail }: InnerProps) {
   const pctByKey: Record<MacroKey, number> = { protein: pPct, carbs: cPct, fat: fPct };
   const valueByKey: Record<MacroKey, number> = { protein: p, carbs: c, fat: f };
   const setterByKey: Record<MacroKey, (v: number) => void> = {
-    protein: onChangeP,
-    carbs: onChangeC,
-    fat: onChangeF,
+    protein: setP,
+    carbs: setC,
+    fat: setF,
   };
 
   const save = async () => {

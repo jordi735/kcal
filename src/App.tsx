@@ -156,7 +156,15 @@ export function App() {
   );
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
-  const [modal, setModal] = useState<ModalState>({ kind: 'none' });
+  const [modal, setModalState] = useState<ModalState>({ kind: 'none' });
+  // Bumped on every modal transition. Async handlers capture this before
+  // awaiting and bail if it changed during the await — prevents a slow
+  // network response from yanking the user back into a modal they cancelled.
+  const flowGenRef = useRef(0);
+  const setModal = useCallback((next: ModalState) => {
+    flowGenRef.current++;
+    setModalState(next);
+  }, []);
   const [transientError, setTransientError] = useState<string | null>(null);
   const [errorExiting, setErrorExiting] = useState(false);
   const activeSheetCloseRef = useRef<(() => void) | null>(null);
@@ -166,16 +174,37 @@ export function App() {
   const [sheetExiting, setSheetExiting] = useState(false);
   const notifySheetExit = useCallback(() => setSheetExiting(true), []);
 
+  // Track timer IDs so a second `reportError` within ~4s can cancel the prior
+  // call's pending fade — otherwise the older timers fire against the newer
+  // toast and it fades out prematurely. Mirrors `Sheet`'s `exitTimerRef`.
+  const errorTimersRef = useRef<{ outer: number | null; inner: number | null }>({
+    outer: null,
+    inner: null,
+  });
+
   const reportError = useCallback((msg: string) => {
+    if (errorTimersRef.current.outer !== null) {
+      window.clearTimeout(errorTimersRef.current.outer);
+      errorTimersRef.current.outer = null;
+    }
+    if (errorTimersRef.current.inner !== null) {
+      window.clearTimeout(errorTimersRef.current.inner);
+      errorTimersRef.current.inner = null;
+    }
     setTransientError(msg);
     setErrorExiting(false);
-    window.setTimeout(() => {
+    errorTimersRef.current.outer = window.setTimeout(() => {
       setErrorExiting(true);
-      window.setTimeout(() => {
+      errorTimersRef.current.inner = window.setTimeout(() => {
         setTransientError((cur) => (cur === msg ? null : cur));
         setErrorExiting(false);
       }, FADE_EXIT_MS);
     }, 3750);
+  }, []);
+
+  useEffect(() => () => {
+    if (errorTimersRef.current.outer !== null) window.clearTimeout(errorTimersRef.current.outer);
+    if (errorTimersRef.current.inner !== null) window.clearTimeout(errorTimersRef.current.inner);
   }, []);
 
   const todayKey = toLocalDateString(new Date());
@@ -267,6 +296,7 @@ export function App() {
 
   // AddPicker handlers
   const onPick = async (product: Product) => {
+    const myGen = flowGenRef.current;
     try {
       // Cross-user search results carry is_mine === false. Adopt creates a
       // user-owned copy (idempotent on barcode) so subsequent flows treat it
@@ -275,8 +305,10 @@ export function App() {
         product.is_mine === false
           ? await api<Product>(`/products/adopt/${product.id}`, { method: 'POST' })
           : product;
+      if (myGen !== flowGenRef.current) return;
       setModal({ kind: 'grams-picker', product: owned, entry: undefined });
     } catch (err) {
+      if (myGen !== flowGenRef.current) return;
       reportError(err instanceof Error ? err.message : "Couldn't add product");
     }
   };
@@ -300,10 +332,12 @@ export function App() {
 
   // BarcodeScanner handler
   const onBarcodeDetect = async (code: string) => {
+    const myGen = flowGenRef.current;
     try {
       const result = await api<BarcodeLookupResponse>(
         `/products/barcode/${encodeURIComponent(code)}`,
       );
+      if (myGen !== flowGenRef.current) return;
       if (result.kind === 'own') {
         setModal({ kind: 'grams-picker', product: result.product, entry: undefined });
       } else {
@@ -312,6 +346,7 @@ export function App() {
         setModal({ kind: 'new-product', initial: result.template });
       }
     } catch (err) {
+      if (myGen !== flowGenRef.current) return;
       if (err instanceof ApiError && err.status === 404) {
         setModal({ kind: 'new-product', initial: { barcode: code } });
       }
@@ -358,10 +393,13 @@ export function App() {
   };
 
   const onProductSave = async (draft: ProductDraft): Promise<void> => {
+    const myGen = flowGenRef.current;
     try {
       const saved = await api<Product>('/products', { method: 'POST', body: draft });
+      if (myGen !== flowGenRef.current) return;
       setModal({ kind: 'grams-picker', product: saved, entry: undefined });
     } catch (err) {
+      if (myGen !== flowGenRef.current) return;
       reportError(err instanceof Error ? err.message : "Couldn't save product");
       // Leave the modal open so the user can retry; 401 is handled by api.ts.
     }

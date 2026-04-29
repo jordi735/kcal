@@ -81,19 +81,6 @@ function sevenDatesFromStart(start: string): string[] {
   return out;
 }
 
-type DaySummary = {
-  consumed: { kcal: number; protein: number; carbs: number; fat: number };
-};
-
-function summariseDay(r: WeekSumRow | undefined): DaySummary {
-  if (r === undefined) {
-    return { consumed: { kcal: 0, protein: 0, carbs: 0, fat: 0 } };
-  }
-  return {
-    consumed: { kcal: r.kcal, protein: r.protein, carbs: r.carbs, fat: r.fat },
-  };
-}
-
 entriesRouter.get('/', (req, res) => {
   const rawDate = req.query.date;
   const date = typeof rawDate === 'string' ? rawDate : '';
@@ -129,7 +116,17 @@ entriesRouter.get('/week', (req, res) => {
   const dates = sevenDatesFromStart(start);
   const rows = statements.entries.weekSum.all(req.userId!, start, dates[6]!) as WeekSumRow[];
   const byDate = new Map(rows.map((r) => [r.date, r]));
-  const result = Object.fromEntries(dates.map((d) => [d, summariseDay(byDate.get(d))]));
+  const result = Object.fromEntries(
+    dates.map((d) => {
+      const r = byDate.get(d);
+      return [
+        d,
+        r === undefined
+          ? { kcal: 0, protein: 0, carbs: 0, fat: 0 }
+          : { kcal: r.kcal, protein: r.protein, carbs: r.carbs, fat: r.fat },
+      ];
+    }),
+  );
   res.json(result);
 });
 

@@ -17,6 +17,8 @@ import { isApiPath } from '../shared/apiPrefixes.js';
 
 const app = express();
 
+app.set('trust proxy', env.TRUST_PROXY);
+
 app.use(express.json({ limit: '2mb' }));
 app.use(log.requestLogger);
 
@@ -38,7 +40,19 @@ app.use('/auth', authRouter);
 app.use('/settings', settingsRouter);
 app.use('/products', productsRouter);
 app.use('/entries', entriesRouter);
-app.use('/debug', debugRouter);
+
+// /debug exposes raw user + product tables. Gated behind an IP allowlist
+// driven by env.DEBUG_ALLOW_IPS. Unauthorised callers get 404 (not 403) so the
+// route's existence is not disclosed. The IPv6-mapped form `::ffff:1.2.3.4`
+// strips back to its v4 representation before matching.
+app.use('/debug', (req, res, next) => {
+  const ip = (req.ip ?? '').replace(/^::ffff:/, '');
+  if (!env.DEBUG_ALLOW_IPS.has(ip)) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
+  next();
+}, debugRouter);
 
 const distDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 

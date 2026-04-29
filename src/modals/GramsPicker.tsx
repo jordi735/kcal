@@ -224,6 +224,9 @@ function GramsPickerInner({
               onInput={(e) => {
                 const raw = e.currentTarget.value;
                 setText(raw);
+                // Empty input is a transient state — keep the prior `grams`
+                // so a subsequent Enter doesn't silently submit Math.max(1, 0).
+                if (raw.trim() === '') return;
                 const n = Number(raw);
                 setUserChangedGrams(true);
                 setGrams(Math.max(1, Number.isFinite(n) ? n : 0));
@@ -231,6 +234,7 @@ function GramsPickerInner({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
+                  if (text.trim() === '') return;
                   e.currentTarget.blur();
                   onConfirm(grams);
                 }

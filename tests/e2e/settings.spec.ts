@@ -2,7 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 
 // Settings.tsx renders 4 GoalField number inputs in order:
 // Protein, Carbs, Fat, Kcal (Kcal is last — see src/screens/Settings.tsx:173-182).
-// Changing macros auto-recomputes kcal; changing kcal directly sticks.
+// Macro and kcal fields are now decoupled — bumping a macro never overwrites
+// the kcal field. The mismatch banner is the single source of drift signal.
 test('[J-018] change daily kcal goal persists and updates MacroSummary', async ({ page }) => {
   await page.goto('/');
 
@@ -33,29 +34,24 @@ function bumpButtons(page: Page, fieldIndex: number) {
 }
 
 test.describe('advanced', () => {
-  test('[J-019] + button increments protein and auto-recomputes kcal', async ({ page }) => {
+  test('[J-019] + button increments protein without touching kcal', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
 
     const proteinIn = page.getByRole('spinbutton').nth(0);
-    const carbsIn = page.getByRole('spinbutton').nth(1);
-    const fatIn = page.getByRole('spinbutton').nth(2);
     const kcalIn = page.getByRole('spinbutton').nth(3);
 
     const oldP = parseInt(await proteinIn.inputValue(), 10);
-    const c = parseInt(await carbsIn.inputValue(), 10);
-    const f = parseInt(await fatIn.inputValue(), 10);
+    const oldKcal = parseInt(await kcalIn.inputValue(), 10);
 
     await bumpButtons(page, 0).plus.tap();
 
-    // Settings.tsx:117 — onChangeP fully re-derives kcal from p/c/f, it
-    // doesn't increment. So expected new kcal = 4*(P+5) + 4*C + 9*F.
-    const newP = oldP + 5;
-    const expectedKcal = Math.round(newP * 4 + c * 4 + f * 9);
-
-    await expect(proteinIn).toHaveValue(String(newP));
-    await expect(kcalIn).toHaveValue(String(expectedKcal));
+    // The macro→kcal cross-derive in Settings.tsx was deliberately removed:
+    // editing a macro never overwrites kcal. Drift surfaces via the mismatch
+    // banner instead.
+    await expect(proteinIn).toHaveValue(String(oldP + 5));
+    await expect(kcalIn).toHaveValue(String(oldKcal));
   });
 
   test('[J-020] - button clamps protein at 0', async ({ page }) => {
@@ -80,86 +76,75 @@ test.describe('advanced', () => {
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
 
-    // Set macros first — each fill auto-recomputes kcal via onChangeP/C/F.
-    // After the third fill, derived kcal = 4*50 + 4*50 + 9*10 = 490.
+    // Macro fills no longer touch kcal — kcal stays at whatever it was
+    // (default 2400, or whatever a prior test persisted). Derived kcal
+    // after the three fills is 4*50 + 4*50 + 9*10 = 490, so the gap to the
+    // user-typed kcal will be well over 50.
     await page.getByRole('spinbutton').nth(0).fill('50');
     await page.getByRole('spinbutton').nth(1).fill('50');
     await page.getByRole('spinbutton').nth(2).fill('10');
 
-    // Override kcal directly to 3000 — Settings.tsx:182 wires Kcal's onChange
-    // straight to setKcal, so this does NOT trigger macro recomputation.
+    // Pin kcal at a known value to make the assertion deterministic.
     await page.getByRole('spinbutton').nth(3).fill('3000');
 
     // |3000 - 490| = 2510 > 50 → mismatch warning visible (Settings.tsx:213).
     await expect(page.getByText(/Heads up/)).toBeVisible();
   });
 
-  test('[J-019] + button increments carbs and auto-recomputes kcal', async ({ page }) => {
+  test('[J-019] + button increments carbs without touching kcal', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
 
-    const proteinIn = page.getByRole('spinbutton').nth(0);
     const carbsIn = page.getByRole('spinbutton').nth(1);
-    const fatIn = page.getByRole('spinbutton').nth(2);
     const kcalIn = page.getByRole('spinbutton').nth(3);
 
-    const p = parseInt(await proteinIn.inputValue(), 10);
     const oldC = parseInt(await carbsIn.inputValue(), 10);
-    const f = parseInt(await fatIn.inputValue(), 10);
+    const oldKcal = parseInt(await kcalIn.inputValue(), 10);
 
     await bumpButtons(page, 1).plus.tap();
 
-    const newC = oldC + 5;
-    // Settings.tsx:121 — onChangeC recomputes kcal from p/(C+5)/f.
-    const expectedKcal = Math.round(p * 4 + newC * 4 + f * 9);
-
-    await expect(carbsIn).toHaveValue(String(newC));
-    await expect(kcalIn).toHaveValue(String(expectedKcal));
+    await expect(carbsIn).toHaveValue(String(oldC + 5));
+    await expect(kcalIn).toHaveValue(String(oldKcal));
   });
 
-  test('[J-019] + button increments fat and auto-recomputes kcal', async ({ page }) => {
+  test('[J-019] + button increments fat without touching kcal', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
 
-    const proteinIn = page.getByRole('spinbutton').nth(0);
-    const carbsIn = page.getByRole('spinbutton').nth(1);
     const fatIn = page.getByRole('spinbutton').nth(2);
     const kcalIn = page.getByRole('spinbutton').nth(3);
 
-    const p = parseInt(await proteinIn.inputValue(), 10);
-    const c = parseInt(await carbsIn.inputValue(), 10);
     const oldF = parseInt(await fatIn.inputValue(), 10);
+    const oldKcal = parseInt(await kcalIn.inputValue(), 10);
 
     await bumpButtons(page, 2).plus.tap();
 
-    const newF = oldF + 5;
-    // Settings.tsx:125 — onChangeF recomputes kcal from p/c/(F+5).
-    const expectedKcal = Math.round(p * 4 + c * 4 + newF * 9);
-
-    await expect(fatIn).toHaveValue(String(newF));
-    await expect(kcalIn).toHaveValue(String(expectedKcal));
+    await expect(fatIn).toHaveValue(String(oldF + 5));
+    await expect(kcalIn).toHaveValue(String(oldKcal));
   });
 
-  test('[J-021] mismatch warning disappears after adjusting a macro', async ({ page }) => {
+  test('[J-021] mismatch warning persists after a macro change; clears only when kcal is realigned', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
 
-    // Arrange a big mismatch exactly like the 'mismatch warning shows' test.
+    // Arrange a big mismatch — kcal=3000, derivedKcal=490.
     await page.getByRole('spinbutton').nth(0).fill('50');
     await page.getByRole('spinbutton').nth(1).fill('50');
     await page.getByRole('spinbutton').nth(2).fill('10');
     await page.getByRole('spinbutton').nth(3).fill('3000');
     await expect(page.getByText(/Heads up/)).toBeVisible();
 
-    // Touching any macro triggers onChangeP/C/F (Settings.tsx:115-126), which
-    // re-derives kcal to exactly match p/c/f — mismatch becomes 0 by
-    // definition, banner unmounts. This pins the reactive-clear branch of
-    // Settings.tsx:130's mismatch condition.
+    // Macro changes no longer auto-derive kcal. Bumping fat to 20 changes
+    // derivedKcal to 580, but the user-typed kcal stays at 3000 — mismatch
+    // remains > 50, banner stays.
     await page.getByRole('spinbutton').nth(2).fill('20');
+    await expect(page.getByText(/Heads up/)).toBeVisible();
 
+    // Manually realign kcal to the new derived total to clear the banner.
+    await page.getByRole('spinbutton').nth(3).fill('580');
     await expect(page.getByText(/Heads up/)).toHaveCount(0);
   });
 

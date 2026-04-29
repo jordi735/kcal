@@ -227,6 +227,11 @@ export function Sheet({ onClose, onDismiss, children, style }: SheetProps) {
     if (deltaY >= DISMISS_THRESHOLD_PX) {
       requestDismiss();
     } else {
+      // Skip the snap-back animation when the sheet is already at translateY(0)
+      // — `updateGesture` writes that value for any deltaY <= 0. Re-writing the
+      // same value doesn't fire `transitionend`, leaking the listener and
+      // stranding the `sheet--snapping` class until next drag.
+      if (deltaY <= 0) return;
       const onSnap = () => {
         sheet.removeEventListener('transitionend', onSnap);
         sheet.classList.remove('sheet--snapping');

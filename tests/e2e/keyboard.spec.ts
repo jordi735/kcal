@@ -72,6 +72,30 @@ test.describe('keyboard Enter submits', () => {
     ).toHaveCount(1);
   });
 
+  test('[J-046] Enter on empty GramsPicker input is a no-op', async ({ page }) => {
+    // Pre-fix: clearing the input then pressing Enter would silently log a
+    // 1g entry — Number('') === 0, Math.max(1, 0) === 1, onConfirm(1) fires.
+    // Post-fix: onInput skips setGrams when the raw text is empty, AND the
+    // Enter handler returns early when text is empty. So Enter on an empty
+    // input is a no-op: the sheet stays open and no entry is mutated.
+    const name = 'E2E Kbd Empty';
+    await page.goto('/');
+    await seedProductAndLog(page, name, MACROS, '200');
+
+    await page.locator('.food-row').filter({ hasText: name }).locator('button').nth(1).tap();
+    await page.getByText('Edit amount').waitFor({ state: 'visible' });
+
+    await page.getByRole('spinbutton').fill('');
+    await page.getByRole('spinbutton').press('Enter');
+
+    // Wait past Sheet.tsx FADE_EXIT_MS (300ms) so a buggy onConfirm-driven
+    // close would have fully unmounted the sheet by now.
+    await page.waitForTimeout(400);
+
+    // Sheet still open — Enter was a no-op (would have closed via onConfirm).
+    await expect(page.getByText('Edit amount')).toBeVisible();
+  });
+
   test('[J-045] Enter on AddPicker search only blurs (no submit)', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'ADD FOOD' }).tap();

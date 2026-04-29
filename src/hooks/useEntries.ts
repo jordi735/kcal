@@ -20,8 +20,6 @@ export type UseEntriesReturn = {
   remove: (id: number, date: string) => Promise<void>;
 };
 
-type WeekResponse = Record<string, { consumed: Macros }>;
-
 export function useEntries(): UseEntriesReturn {
   const [entriesByDate, setEntriesByDate] = useState<Record<string, EntryWithMacros[]>>({});
   const [weekTotals, setWeekTotals] = useState<Record<string, Macros>>({});
@@ -39,12 +37,10 @@ export function useEntries(): UseEntriesReturn {
   }, []);
 
   const loadWeek = useCallback(async (start: string) => {
-    const data = await api<WeekResponse>(`/entries/week?start=${encodeURIComponent(start)}`);
-    const next: Record<string, Macros> = {};
-    for (const [date, dt] of Object.entries(data)) {
-      next[date] = dt.consumed;
-    }
-    setWeekTotals((prev) => ({ ...prev, ...next }));
+    const data = await api<Record<string, Macros>>(
+      `/entries/week?start=${encodeURIComponent(start)}`,
+    );
+    setWeekTotals((prev) => ({ ...prev, ...data }));
   }, []);
 
   const add = useCallback(
@@ -72,10 +68,15 @@ export function useEntries(): UseEntriesReturn {
         newList = next;
         return { ...prev, [created.local_date]: next };
       });
-      setWeekTotals((prev) => ({ ...prev, [created.local_date]: sumMacros(newList) }));
+      // Skip the optimistic week-total derive when the day's entries cache
+      // hasn't loaded — `prev[date] ?? []` would clobber whatever full-day
+      // total `loadWeek` already wrote with just the new entry's macros.
+      if (loadedDates.has(created.local_date)) {
+        setWeekTotals((prev) => ({ ...prev, [created.local_date]: sumMacros(newList) }));
+      }
       return created;
     },
-    [],
+    [loadedDates],
   );
 
   const update = useCallback(async (id: number, patch: { grams?: number; tagged?: boolean }) => {
@@ -93,11 +94,11 @@ export function useEntries(): UseEntriesReturn {
         [updated.local_date]: next,
       };
     });
-    if (patch.grams !== undefined) {
+    if (patch.grams !== undefined && loadedDates.has(updated.local_date)) {
       setWeekTotals((prev) => ({ ...prev, [updated.local_date]: sumMacros(newList) }));
     }
     return updated;
-  }, []);
+  }, [loadedDates]);
 
   const remove = useCallback(async (id: number, date: string) => {
     await api<{ ok: true }>(`/entries/${id}`, { method: 'DELETE' });
@@ -108,8 +109,10 @@ export function useEntries(): UseEntriesReturn {
       newList = next;
       return { ...prev, [date]: next };
     });
-    setWeekTotals((prev) => ({ ...prev, [date]: sumMacros(newList) }));
-  }, []);
+    if (loadedDates.has(date)) {
+      setWeekTotals((prev) => ({ ...prev, [date]: sumMacros(newList) }));
+    }
+  }, [loadedDates]);
 
   return { entriesByDate, weekTotals, loadedDates, load, loadWeek, add, update, remove };
 }
