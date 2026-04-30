@@ -1,4 +1,32 @@
-import type { Locator, Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+
+// Per-test fresh user: bypasses the shared `e2e@test.local` storageState so
+// existingTotals starts at 0 on today's date. Required by any spec that asserts
+// absolute kcal/macro projections in GramsPicker — those rows render
+// `existing + entry`, so a polluted day breaks hardcoded numbers (see
+// GramsPicker.tsx:51,88). The unique timestamp+random suffix avoids collisions
+// when the same prefix is used across many tests in one run. `emailPrefix`
+// is purely a debug breadcrumb in the users table — pick something distinctive
+// so triage of /tmp/kcal-e2e.db can attribute rows back to the source spec.
+//
+// Caller MUST also declare `test.use({ storageState: { cookies: [], origins: [] } })`
+// at the spec-file level — without it the shared user's auth header survives
+// and `page.goto('/')` lands directly on Home, skipping the login form.
+export async function signInFresh(
+  page: Page,
+  request: APIRequestContext,
+  emailPrefix: string,
+): Promise<void> {
+  const email = `${emailPrefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
+  await page.goto('/');
+  await page.getByPlaceholder('you@example.com').fill(email);
+  await page.getByRole('button', { name: 'Send sign-in code' }).tap();
+  const res = await request.get(`/auth/test/last-code/${email}`);
+  const { code } = await res.json();
+  await page.getByLabel('6-digit sign-in code').fill(code);
+  // Login.tsx:114 auto-submits at 6 digits; wait for the home shell to land.
+  await expect(page.getByRole('button', { name: 'ADD FOOD' })).toBeVisible();
+}
 
 // NutField's <label> isn't htmlFor-bound to its input, so getByLabel doesn't
 // resolve. Navigate from the label up to the shared parent, then down to the
