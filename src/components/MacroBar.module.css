@@ -37,7 +37,7 @@
 
 .track {
   height: var(--track-height);
-  background: var(--bg-elev-2);
+  background: var(--border-strong);
   border-radius: var(--track-radius);
   overflow: hidden;
   position: relative;

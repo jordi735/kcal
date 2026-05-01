@@ -68,7 +68,7 @@
 
 .kcalBar {
   height: 6px;
-  background: var(--bg-elev-2);
+  background: var(--border-strong);
   border-radius: 3px;
   overflow: hidden;
   margin-bottom: 16px;
