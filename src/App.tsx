@@ -244,6 +244,42 @@ export function App() {
     void loadWeek(toLocalDateString(next));
   }, [user, weekStart, loadWeek]);
 
+  // Revalidate goals from the server on each app boot (or user switch). The
+  // cached user blob in localStorage is a hot-start optimisation, not the
+  // source of truth — without this, goals saved on another device stay
+  // stale until next sign-in. Stale-while-revalidate: cached values render
+  // instantly; fresh values swap in once the GET resolves. Keyed on
+  // user?.id so a setUser inside the success path doesn't re-trigger the
+  // effect (the id is stable across goal edits).
+  useEffect(() => {
+    if (user === null) return;
+    let cancelled = false;
+    void api<Goals>('/settings')
+      .then((fresh) => {
+        if (cancelled) return;
+        setGoals(fresh);
+        setUser((prev) => {
+          if (prev === null) return prev;
+          const updated: User = {
+            ...prev,
+            goal_kcal: fresh.kcal,
+            goal_protein: fresh.protein,
+            goal_carbs: fresh.carbs,
+            goal_fat: fresh.fat,
+          };
+          localStorage.setItem(USER_KEY, JSON.stringify(updated));
+          return updated;
+        });
+      })
+      .catch(() => {
+        // 401 is handled inside `api` (hard-redirect to /). Other errors:
+        // keep cached values — the next boot or save will reconcile.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   // Handle login — request a 6-digit sign-in code by email.
   const onRequestCode = async (email: string): Promise<void> => {
     await api<{ ok: true }>('/auth/request-code', {

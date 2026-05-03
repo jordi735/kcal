@@ -29,6 +29,27 @@ function isGoalsBody(v: unknown): v is GoalsBody {
   );
 }
 
+type GoalsRow = {
+  goal_kcal: number;
+  goal_protein: number;
+  goal_carbs: number;
+  goal_fat: number;
+};
+
+settingsRouter.get('/', (req, res) => {
+  const row = statements.users.selectGoalsById.get(req.userId!) as GoalsRow | undefined;
+  if (row === undefined) {
+    res.status(404).json({ error: 'not_found' });
+    return;
+  }
+  res.json({
+    kcal: row.goal_kcal,
+    protein: row.goal_protein,
+    carbs: row.goal_carbs,
+    fat: row.goal_fat,
+  });
+});
+
 settingsRouter.put('/', (req, res) => {
   if (!isGoalsBody(req.body)) {
     res.status(400).json({ error: 'invalid_goals' });
