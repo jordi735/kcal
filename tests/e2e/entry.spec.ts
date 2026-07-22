@@ -219,7 +219,7 @@ test('[J-081] user B cannot log an entry against user A’s product (per-user is
   // so user B's POST /entries referencing user A's product_id gets undefined
   // back and the route 404s. A regression that dropped the user_id scope
   // would silently cross-link users' logs against each other's products —
-  // CLAUDE.md flags this as the privacy invariant for the non-barcode path.
+  // AGENTS.md flags this as the privacy invariant for the non-barcode path.
   //
   // Pattern lifted from adopt.spec.ts: seed via direct API as user A, attack
   // via direct API as user B. No browser context needed — the journey is

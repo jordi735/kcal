@@ -6,8 +6,9 @@ realistic inputs — not theoretical weaknesses.
 
 Stack: Preact 10 + Vite 8 + TypeScript 6 (strict, noUncheckedIndexedAccess,
 exactOptionalPropertyTypes, verbatimModuleSyntax) on the client; Express 5 +
-better-sqlite3 + tsx on the server; Postmark for email; @anthropic-ai/claude-agent-sdk
-for AI features. No test suite exists — do not propose adding one.
+better-sqlite3 + tsx on the server; Postmark for email; @openai/codex for AI
+features. A Playwright E2E suite exists; no unit-test or lint command exists, so
+do not invent one.
 
 ================================================================================
 PRAGMATISM GATE — APPLIES TO EVERY FINDING IN EVERY PHASE
@@ -46,10 +47,10 @@ drop it silently — do not include it with a caveat.
 A short report of real bugs beats a long report of possibilities.
 
 ================================================================================
-PHASE 1 — PER-FILE BUG HUNT (one Opus subagent per file, run in parallel batches)
+PHASE 1 — PER-FILE BUG HUNT (one Codex subagent per file, run in parallel batches)
 ================================================================================
 
-Files in scope (spawn exactly one Opus subagent for each; skip nothing):
+Files in scope (spawn exactly one Codex subagent for each; skip nothing):
 
   CLIENT — core
     src/main.tsx
@@ -93,7 +94,8 @@ Files in scope (spawn exactly one Opus subagent for each; skip nothing):
     server/db.ts
     server/auth.ts
     server/email.ts
-    server/claude.ts
+    server/codex.ts
+    server/codex-runner.ts
     server/log.ts
     server/util.ts
     server/guards.ts
@@ -114,8 +116,9 @@ Files in scope (spawn exactly one Opus subagent for each; skip nothing):
     shared/types.ts
 
 --------------------------------------------------------------------------------
-Subagent brief (identical for every file agent) — use subagent_type="general-purpose",
-model="opus", run_in_background=false, and batch 6–8 per message for parallelism:
+Subagent brief (identical for every file agent) — use the available collaboration
+tooling, give each agent one bounded file task, and run batches of 6–8 within the
+active concurrency limit. Do not request a provider-specific model:
 --------------------------------------------------------------------------------
 
   You are hunting for REAL bugs in ONE file. Every finding must pass the
@@ -198,8 +201,8 @@ model="opus", run_in_background=false, and batch 6–8 per message for paralleli
     EXTERNAL APIs
       - Postmark call arguments wrong (from/to swapped, template id wrong)
       - multer config that doesn't match what the route consumes
-      - claude-agent-sdk call shaped wrong (wrong message role, missing
-        required field, model id mistyped)
+      - Codex CLI arguments, JSONL event handling, output schema, model id,
+        timeout, authentication, or temp-file cleanup shaped incorrectly
       - environment variable read but never defined in .env.example, OR
         defined but never read
 
@@ -257,11 +260,11 @@ model="opus", run_in_background=false, and batch 6–8 per message for paralleli
 PHASE 2 — PER-DOMAIN VALIDATION & CROSS-FILE HUNT
 ================================================================================
 
-After all Phase-1 JSON reports are collected, spawn one Opus subagent per domain.
+After all Phase-1 JSON reports are collected, spawn one Codex subagent per domain.
 Domains:
 
-  D1 — server-core:     server/{index,env,db,auth,email,claude,log,util,guards,
-                        types,statements,templates}.ts
+  D1 — server-core:     server/{index,env,db,auth,email,codex,codex-runner,log,
+                        util,guards,types,statements,templates}.ts
   D2 — server-routes:   server/routes/*.ts
   D3 — shared:          shared/{apiPrefixes,normalize,types}.ts
   D4 — client-core:     src/{main.tsx,App.tsx,api.ts,types.ts,dates.ts,mocks.ts,
@@ -272,7 +275,7 @@ Domains:
   D8 — client-hooks:    src/hooks/*.ts
 
 --------------------------------------------------------------------------------
-Domain subagent brief — subagent_type="general-purpose", model="opus":
+Domain subagent brief — use one bounded Codex subagent per domain:
 --------------------------------------------------------------------------------
 
   You are the DOMAIN-LEVEL reviewer for: <domain id + file set>. Every finding

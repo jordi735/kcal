@@ -11,7 +11,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { normalizeBrandName, normalizeProductName } from '../../shared/normalize.js';
 import { authMiddleware } from '../auth.js';
-import { extractNutrition, InvalidExtractionError } from '../claude.js';
+import { extractNutrition, InvalidExtractionError } from '../codex.js';
 import { db } from '../db.js';
 import { env } from '../env.js';
 import { isObject } from '../guards.js';
@@ -361,8 +361,7 @@ productsRouter.post('/from-image', upload.single('image'), async (req, res, next
       res.status(429).json({ error: 'daily_cap_exceeded' });
       return;
     }
-    const base64 = req.file.buffer.toString('base64');
-    const result = await extractNutrition(base64, req.file.mimetype);
+    const result = await extractNutrition(req.file.buffer, req.file.mimetype);
     res.json(result);
   } catch (err) {
     if (err instanceof InvalidExtractionError) {

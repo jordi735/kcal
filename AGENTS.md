@@ -40,6 +40,9 @@ Run commands from the repository root.
 - `npx playwright test tests/e2e/<name>.spec.ts` runs one focused E2E spec.
 - `npm run icons` regenerates tracked PWA/social PNGs from `kcal-logo-blue.png`
   and requires ImageMagick's `convert`.
+- `./scripts/review-e2e.sh` runs the resumable Codex E2E-maintenance loop. It
+  requires the repository-local Codex CLI to be authenticated; `--reset` clears
+  only its `/tmp/kcal-e2e-review` state.
 
 There is no configured lint, formatter, or unit-test command. Do not invent one
 in validation reports. The backend loads root `.env`; use `.env.example` as the
@@ -101,8 +104,9 @@ required-key inventory and never commit real credentials.
 - Authentication uses emailed six-digit codes and Bearer sessions. Login codes and
   AI scan quotas are process-local maps, so multi-process deployment requires
   shared state or affinity. Preserve timing-safe code comparison and attempt caps.
-- `TEST_MODE` disables email delivery and exposes login-code lookup; `LOG_LEVEL=debug`
-  logs live codes. Never enable either behavior in production.
+- `TEST_MODE` disables email delivery and the startup Codex probe, and exposes
+  login-code lookup; `LOG_LEVEL=debug` logs live codes. Never enable either
+  behavior in production.
 - Preserve the `{ error: string }` failure shape. Keep request-body guards beside
   their routes and build them from `server/guards.ts` primitives.
 - `/debug` is an unauthenticated raw-data endpoint and the only administrative
@@ -112,9 +116,13 @@ required-key inventory and never commit real credentials.
 - Use `server/log.ts` for runtime logs and `log.emailHash(email)` for explicit email
   correlation fields. Direct console calls are limited to `server/env.ts` bootstrap
   diagnostics and logger internals.
-- Keep AI label extraction one-turn and tool-free. Treat model output as untrusted:
-  JSON-parse it, validate/coerce it, retain macro caps, and map
-  `InvalidExtractionError` to the controlled route error.
+- Keep AI label extraction one-turn and tool-free. `server/codex-runner.ts`
+  must use the repository-local CLI with ephemeral sessions, an isolated temp
+  workdir, read-only sandboxing, ignored ambient config/rules, disabled tools,
+  and a JSON output schema. Authentication comes from the service account's
+  persisted `CODEX_HOME`; do not add an application API key by default. Treat
+  model output as untrusted: JSON-parse it, validate/coerce it, retain macro
+  caps, and map `InvalidExtractionError` to the controlled route error.
 
 ## PWA and Generated Assets
 

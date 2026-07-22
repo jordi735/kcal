@@ -110,6 +110,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-139 · `PUT /settings` rejects invalid_goals across every `isGoalsBody` branch (missing field, non-int, negative, over MAX_KCAL=20000, over MAX_MACRO_GRAMS=2000)
 - J-140 · Save persists all four goals (kcal/protein/carbs/fat); a hard reload + reopen reads each input back at its saved value
 - J-141 · Settings Account section displays the signed-in user's email (rules out the `'you@example.com'` fallback in Settings.tsx:219)
+- J-167 · Goals saved on another device appear after reload through authoritative boot revalidation from `GET /settings`
 
 # 7. Multi-select & bulk operations
 

@@ -6,8 +6,9 @@ today, not theoretical concerns.
 
 Stack: Preact 10 + Vite 8 + TypeScript 6 (strict, noUncheckedIndexedAccess,
 exactOptionalPropertyTypes, verbatimModuleSyntax) on the client; Express 5 +
-better-sqlite3 + tsx on the server; Postmark for email; @anthropic-ai/claude-agent-sdk
-for AI features. No test suite exists — do not propose adding one.
+better-sqlite3 + tsx on the server; Postmark for email; @openai/codex for AI
+features. A Playwright E2E suite exists; no unit-test or lint command exists, so
+do not invent one.
 
 ================================================================================
 PRAGMATISM GATE — APPLIES TO EVERY FINDING IN BOTH PHASES
@@ -41,10 +42,10 @@ Call this the pragmatism gate. Apply it ruthlessly. A short report of real
 issues is the goal; a long report of speculation is a failure.
 
 ================================================================================
-PHASE 1 — PER-FILE REVIEW (one Opus subagent per file, run in parallel batches)
+PHASE 1 — PER-FILE REVIEW (one Codex subagent per file, run in parallel batches)
 ================================================================================
 
-Files in scope (spawn exactly one Opus subagent for each; skip nothing):
+Files in scope (spawn exactly one Codex subagent for each; skip nothing):
 
   CLIENT — core
     src/main.tsx
@@ -88,7 +89,8 @@ Files in scope (spawn exactly one Opus subagent for each; skip nothing):
     server/db.ts
     server/auth.ts
     server/email.ts
-    server/claude.ts
+    server/codex.ts
+    server/codex-runner.ts
     server/log.ts
     server/util.ts
     server/guards.ts
@@ -109,8 +111,9 @@ Files in scope (spawn exactly one Opus subagent for each; skip nothing):
     shared/types.ts
 
 --------------------------------------------------------------------------------
-Subagent brief (identical for every file agent) — use subagent_type="general-purpose",
-model="opus", run_in_background=false, and batch 6–8 per message for parallelism:
+Subagent brief (identical for every file agent) — use the available collaboration
+tooling, give each agent one bounded file task, and run batches of 6–8 within the
+active concurrency limit. Do not request a provider-specific model:
 --------------------------------------------------------------------------------
 
   You are reviewing ONE file for DRY, KISS, and YAGNI violations. Every finding
@@ -217,14 +220,14 @@ model="opus", run_in_background=false, and batch 6–8 per message for paralleli
   passes the pragmatism gate, return `"findings": []`. Do not invent issues.
 
 ================================================================================
-PHASE 2 — PER-DOMAIN REVIEW (one Opus subagent per domain, after Phase 1)
+PHASE 2 — PER-DOMAIN REVIEW (one Codex subagent per domain, after Phase 1)
 ================================================================================
 
-After all Phase-1 JSON reports are collected, spawn one Opus subagent per domain.
+After all Phase-1 JSON reports are collected, spawn one Codex subagent per domain.
 Domains and their file sets:
 
-  D1 — server-core:     server/{index,env,db,auth,email,claude,log,util,guards,
-                        types,statements,templates}.ts
+  D1 — server-core:     server/{index,env,db,auth,email,codex,codex-runner,log,
+                        util,guards,types,statements,templates}.ts
   D2 — server-routes:   server/routes/*.ts
   D3 — shared:          shared/{apiPrefixes,normalize,types}.ts
   D4 — client-core:     src/{main.tsx,App.tsx,api.ts,types.ts,dates.ts,mocks.ts,
@@ -235,7 +238,7 @@ Domains and their file sets:
   D8 — client-hooks:    src/hooks/*.ts
 
 --------------------------------------------------------------------------------
-Domain subagent brief — subagent_type="general-purpose", model="opus":
+Domain subagent brief — use one bounded Codex subagent per domain:
 --------------------------------------------------------------------------------
 
   You are the DOMAIN-LEVEL reviewer for: <domain id + file set>. Every finding

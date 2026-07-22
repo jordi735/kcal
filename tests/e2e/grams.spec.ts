@@ -209,7 +209,7 @@ test('[J-092] recent-grams replaces the DEFAULT [50,100,150,200,250] quick row',
   await seedProductAndLog(page, name, MACROS, '175');
 
   await page.getByRole('button', { name: 'ADD FOOD' }).tap();
-  // Scope to the AddPicker sheet, not the food-row beneath it (CLAUDE.md
+  // Scope to the AddPicker sheet, not the food-row beneath it (AGENTS.md
   // documents this: substring matches collide between picker and row).
   const picker = page
     .locator('.sheet')
@@ -258,7 +258,7 @@ test('[J-093] add-mode GramsPicker shows the pencil but hides the trash (delete-
   // by the 'Save' vs 'Add to day' assertion.
   await openAddGramsForNewProduct(page, 'E2E Add No Trash', MACROS);
 
-  // exact:true is mandatory per CLAUDE.md — the FoodRow under the sheet
+  // exact:true is mandatory per AGENTS.md — the FoodRow under the sheet
   // could contribute a substring "edit product" via the product name and
   // trip a strict-mode collision otherwise. Pencil IS visible (add mode
   // still allows escalation to product-edit).

@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
-// Cross-user barcode catalog. Per CLAUDE.md: "barcode = shared, no barcode =
+// Cross-user barcode catalog. Per AGENTS.md: "barcode = shared, no barcode =
 // private" — barcoded products surface across users via the ?global=1 search
 // branch (statements.ts:94-95) and can be adopted into the caller's library
 // via POST /products/adopt/:id (products.ts:172-228). Non-barcoded products

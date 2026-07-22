@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Regenerate PWA icons and OG image from kcal-logo-blue.png.
-# See CLAUDE.md "PWA / installability" for design rationale.
+# See AGENTS.md "PWA and Generated Assets" for design rationale.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

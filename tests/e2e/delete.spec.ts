@@ -132,7 +132,7 @@ test('[J-059] product delete arm state does not persist across close-and-reopen'
 test('[J-060] product delete cascades every entry the user logged for it', async ({
   page,
 }) => {
-  // Per CLAUDE.md, "Macros are computed, never stored" — the FK is ON DELETE
+  // Per AGENTS.md, "Macros are computed, never stored" — the FK is ON DELETE
   // RESTRICT (migrations/001_init.sql:38-46), so the route MUST run
   // entries.deleteForProduct first inside a transaction. UI proof: log the
   // SAME product twice on the same day (creating two entry rows), then delete

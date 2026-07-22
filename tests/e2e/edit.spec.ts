@@ -66,7 +66,7 @@ test('[J-017] delete button in edit sheet removes the entry', async ({ page }) =
 });
 
 test('[J-013] editing a product retroactively updates the row on the same day', async ({ page }) => {
-  // The crown jewel: per CLAUDE.md, "Macros are computed, never stored."
+  // The crown jewel: per AGENTS.md, "Macros are computed, never stored."
   // entries only store grams + product_id; macro totals join products on every
   // read. After a product edit, App.tsx:419-420 refetches the day + week,
   // re-deriving macros via the sumMacros useMemo without a page reload.

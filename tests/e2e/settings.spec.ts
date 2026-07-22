@@ -257,7 +257,7 @@ test.describe('advanced', () => {
     await page.getByRole('button', { name: 'Save', exact: true }).tap();
     await expect(page.getByText(/^\/ 2000$/)).toBeVisible();
     // MacroSummary becomes visible the instant Save fires; wait for the sheet
-    // to fully unmount before re-opening (per CLAUDE.md Sheet animation note).
+    // to fully unmount before re-opening (per AGENTS.md Sheet animation note).
     await expect(page.getByText('Daily goals')).toHaveCount(0);
 
     // Open Settings again, change kcal AND protein, tap Cancel.

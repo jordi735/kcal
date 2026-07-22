@@ -1,7 +1,7 @@
 // GET /debug — unauthed HTML dump of every user + every product.
 // Read-only, no secrets exposed (session tokens + login codes are never selected).
 // This is a deliberate carve-out from the per-user isolation invariant documented
-// in CLAUDE.md: the queries here intentionally bypass user_id/created_by scoping.
+// in AGENTS.md: the queries here intentionally bypass user_id/created_by scoping.
 // Keep this file self-contained so the cross-user reads stay isolated from
 // statements.ts (which is otherwise the allowlist of sanctioned cross-user reads).
 

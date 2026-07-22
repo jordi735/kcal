@@ -11,7 +11,7 @@ import { settingsRouter } from './routes/settings.js';
 import { productsRouter } from './routes/products.js';
 import { entriesRouter } from './routes/entries.js';
 import { debugRouter } from './routes/debug.js';
-import { probeClaude } from './claude.js';
+import { probeCodex } from './codex.js';
 import { log } from './log.js';
 import { isApiPath } from '../shared/apiPrefixes.js';
 
@@ -107,7 +107,7 @@ app.use(errorHandler);
 
 const server = app.listen(env.PORT, () => {
   log.info('server started', { port: env.PORT, url: `http://localhost:${env.PORT}` });
-  void probeClaude();
+  if (!env.TEST_MODE) void probeCodex();
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

@@ -192,7 +192,7 @@ test('[J-107] brand-new user has migration default goals visible in Settings', a
   // codebase, so the comparison is value-by-value to exercise the four
   // independent props rather than rely on a structural diff).
   //
-  // Settings spinbutton order is positional per CLAUDE.md: 0=Protein, 1=Carbs,
+  // Settings spinbutton order is positional per AGENTS.md: 0=Protein, 1=Carbs,
   // 2=Fat, 3=Kcal (MACRO_KEYS first, kcal last). A label-based query would be
   // ambiguous — "Kcal" appears in the daily-goals row AND in the "kcal from
   // macros" subheading.

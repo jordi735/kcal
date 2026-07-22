@@ -57,7 +57,7 @@ function parseDebugAllowIps(): ReadonlySet<string> {
 const TEST_MODE = process.env.TEST_MODE === 'true';
 if (TEST_MODE) {
   console.warn('[kcal] ============================================================');
-  console.warn('[kcal] TEST_MODE ON — emails disabled, /auth/test/last-code open');
+  console.warn('[kcal] TEST_MODE ON — emails/probe disabled, test auth endpoint open');
   console.warn('[kcal] never use TEST_MODE in production');
   console.warn('[kcal] ============================================================');
 }

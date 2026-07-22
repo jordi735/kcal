@@ -9,7 +9,7 @@ import { signInFresh } from './helpers';
 // browser context: PUT /settings via the REST API simulates "the other device
 // just saved", then `page.reload()` represents this device opening the app.
 //
-// Per CLAUDE.md, fresh users sign in via the helper to avoid contaminating
+// Per AGENTS.md, fresh users sign in via the helper to avoid contaminating
 // the shared `e2e@test.local` storageState that settings.spec.ts depends on.
 test.use({ storageState: { cookies: [], origins: [] } });
 

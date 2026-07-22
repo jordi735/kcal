@@ -116,9 +116,54 @@ export type NewEntryBody = {
 
 export type MigrationRow = { filename: string };
 
-// --- claude vision extraction ---
+// --- Codex runner / vision extraction ---
 
-export type Base64ImageMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+export type CodexInput = string | ReadonlyArray<
+  | { type: 'text'; text: string }
+  | { type: 'local_image'; path: string }
+>;
+
+export type CodexReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+
+export type CodexUsage = {
+  input_tokens: number;
+  cached_input_tokens: number;
+  output_tokens: number;
+  reasoning_output_tokens: number;
+};
+
+export type CodexRunOptions = {
+  model: string;
+  modelReasoningEffort: CodexReasoningEffort;
+  workingDirectory: string;
+  outputSchema: object;
+  timeoutMs: number;
+};
+
+export type CodexJsonTurn = {
+  finalResponse: string;
+  threadId: string;
+  usage: CodexUsage | null;
+};
+
+export type NormalizedCodexInput = {
+  prompt: string;
+  images: string[];
+};
+
+export type CodexSchemaFile = {
+  path: string;
+  cleanup: () => Promise<void>;
+};
+
+export type CodexThreadEvent =
+  | { type: 'thread.started'; thread_id: string }
+  | { type: 'turn.completed'; usage: CodexUsage }
+  | { type: 'turn.failed'; error: { message: string } }
+  | { type: 'item.completed'; item: { type?: string; text?: string; message?: string } }
+  | { type: 'error'; message: string };
+
+export type SupportedImageMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
 
 export type RawPer100 = {
   kcal?: unknown;
