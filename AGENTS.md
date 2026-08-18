@@ -73,7 +73,7 @@ required-key inventory and never commit real credentials.
 - Normalize stored product names and brands with the helpers in
   `shared/normalize.ts` on both create and update paths.
 - `useEntries` applies local cache changes only after successful requests. Preserve
-  `(local_time, id)` ordering and recompute week totals only for loaded dates;
+  entry insertion order by `id` and recompute week totals only for loaded dates;
   tagged-only updates do not change totals.
 - Use `MACRO_KEYS`/`MACRO_META` for P/C/F presentation, CSS modules for component
   styles, and `cssVars` for dynamic custom properties. Kcal stays separate.

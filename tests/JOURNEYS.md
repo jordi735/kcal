@@ -94,6 +94,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-092 · Recent-grams response replaces the DEFAULT `[50,100,150,200,250]` quick row after history loads
 - J-093 · Add-mode GramsPicker shows the pencil (`Edit product`, escalation to product-edit) but hides the trash (`Delete entry` is edit-only)
 - J-094 · Protein/carbs/fat GoalRow projections render with one-decimal formatting (not integer)
+- J-168 · Future-day entries stay in insertion order: a pre-log remains above next-morning and later additions before and after reload
 
 # 6. Daily goals & macro auto-compute
 

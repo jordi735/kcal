@@ -57,14 +57,9 @@ export function useEntries(): UseEntriesReturn {
       let newList: EntryWithMacros[] = [];
       setEntriesByDate((prev) => {
         const list = prev[created.local_date] ?? [];
-        // Preserve local_time ASC ordering on insertion.
-        const next = [...list, created].sort((a, b) =>
-          a.local_time < b.local_time
-            ? -1
-            : a.local_time > b.local_time
-              ? 1
-              : a.id - b.id,
-        );
+        // Entry ids are the server-assigned insertion sequence. Sorting also
+        // keeps overlapping POST responses in the same order as a cold load.
+        const next = [...list, created].sort((a, b) => a.id - b.id);
         newList = next;
         return { ...prev, [created.local_date]: next };
       });

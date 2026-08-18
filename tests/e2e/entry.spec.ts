@@ -88,6 +88,67 @@ test('[J-015] pick existing product from AddPicker, log to day', async ({ page }
   await expect(rows.filter({ hasText: '200g' })).toHaveCount(1);
 });
 
+test('[J-168] future-day entries stay in insertion order across reload', async ({ page }) => {
+  const name = `E2E Future Order ${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const rows = page.locator('.food-row').filter({ hasText: name });
+
+  // Start on a Monday afternoon, select Tuesday, and pre-log an item. The
+  // browser clock drives App's timezone-free local_date/local_time fields;
+  // setFixedTime leaves animation timers running normally.
+  await page.clock.setFixedTime(new Date(2030, 0, 7, 16, 0));
+  await page.goto('/');
+  const selectedDayLoad = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === '/entries' && url.searchParams.get('date') === '2030-01-08';
+  });
+  await page.getByRole('button', { name: 'T 8', exact: true }).first().tap();
+  await selectedDayLoad;
+  await seedProductAndLog(
+    page,
+    name,
+    { kcal: '100', protein: '10', carbs: '10', fat: '2' },
+    '160',
+  );
+
+  const logExisting = async (grams: string) => {
+    await page.getByRole('button', { name: 'ADD FOOD' }).tap();
+    const picker = page
+      .locator('.sheet')
+      .filter({ has: page.getByPlaceholder('Search products...') });
+    // Stored product-name normalization changes "E2E" to "E2e"; the normal
+    // string matcher is case-insensitive while exact matching is not.
+    await picker.getByText(name).first().tap();
+    await page.getByText('How much?', { exact: true }).waitFor({ state: 'visible' });
+    await page.getByRole('spinbutton').fill(grams);
+    await page.getByRole('button', { name: /Add to day/ }).tap();
+  };
+
+  // The next morning's entry has an earlier HH:MM, but it must append after
+  // the pre-log. A later same-day entry appends after both.
+  await page.clock.setFixedTime(new Date(2030, 0, 8, 8, 0));
+  await logExisting('80');
+  await expect(rows).toHaveCount(2);
+
+  await page.clock.setFixedTime(new Date(2030, 0, 8, 17, 0));
+  await logExisting('170');
+
+  const expectInsertionOrder = async () => {
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0)).toContainText('160g');
+    await expect(rows.nth(0)).toContainText('16:00');
+    await expect(rows.nth(1)).toContainText('80g');
+    await expect(rows.nth(1)).toContainText('08:00');
+    await expect(rows.nth(2)).toContainText('170g');
+    await expect(rows.nth(2)).toContainText('17:00');
+  };
+
+  // First assertion covers useEntries' live cache; reload covers the server's
+  // SELECT ordering. The HH:MM labels intentionally remain unchanged.
+  await expectInsertionOrder();
+  await page.reload();
+  await expectInsertionOrder();
+});
+
 test('[J-085] re-logging an existing product pre-fills grams from recent history', async ({
   page,
 }) => {

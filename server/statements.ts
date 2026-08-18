@@ -193,7 +193,7 @@ export const statements = {
       SELECT ${ENTRY_WITH_PRODUCT_COLS}
       ${ENTRY_JOIN_FROM}
       WHERE e.user_id = ? AND e.local_date = ?
-      ORDER BY e.local_time ASC, e.id ASC
+      ORDER BY e.id ASC
     `),
     // (user_id, start_date, end_date)
     weekSum: db.prepare(`
