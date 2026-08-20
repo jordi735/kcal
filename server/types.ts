@@ -13,6 +13,8 @@ export type {
   Product,
   ProductTemplate,
   BarcodeLookupResponse,
+  EntryGroupRef,
+  EntryGroup,
   EntryWithMacros,
   ExtractedLabel,
 } from '../shared/types.js';
@@ -85,6 +87,8 @@ export type EntryJoinRow = {
   local_date: string;
   local_time: string;
   tagged: number;
+  group_id: number | null;
+  group_name: string | null;
   p_id: number;
   p_name: string;
   p_brand: string | null;
@@ -110,6 +114,20 @@ export type NewEntryBody = {
   grams: number;
   local_date: string;
   local_time: string;
+};
+
+export type EntryMembershipRow = {
+  id: number;
+  local_date: string;
+  group_id: number | null;
+};
+
+export type EntryGroupRow = {
+  id: number;
+  user_id: number;
+  local_date: string;
+  name: string;
+  created_at: number;
 };
 
 // --- db plumbing ---

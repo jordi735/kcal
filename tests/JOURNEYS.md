@@ -130,7 +130,22 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-130 · Dot tap in selection mode toggles `tagged`, not `select` (the dot button bypasses `selectionMode` logic; tagging stays operational while a row is selected)
 - J-131 · Long-press on the dot does NOT enter selection mode (`onContextMenu` is wired only on the main body button — sibling dispatches don't bubble to the body's handler)
 - J-132 · Tap in selection mode adds to selection only — `onEdit` does not fire and GramsPicker does not mount (negative-path of the `if (selectionMode)` branch in `FoodRow.tsx:42`)
-- J-133 · Multi-tag mixed state issues exactly one PATCH (already-tagged entry skipped per `App.tsx:290 if (entry.tagged === tagged) continue`); pinned via a `page.on('request')` counter
+- J-133 · Multi-tag mixed state issues exactly one PATCH (already-tagged entry skipped per `App.tsx:340 if (entry.tagged === tagged) continue`); pinned via a `page.on('request')` counter
+
+# 7a. Named entry groups
+
+- J-169 · Two selected entries become one collapsed, persistent parent; parent macros aggregate children while daily totals remain unchanged
+- J-170 · Group action requires two eligible entries; blank names stay disabled and cancelling the naming Sheet preserves selection
+- J-171 · Failed group creation retains the Sheet, typed name, and selection so the request can be retried
+- J-172 · Parent eaten control exposes mixed state and tags/untags every child through one atomic group PATCH
+- J-173 · Rename normalizes group whitespace; Ungroup preserves and restores every child entry
+- J-174 · Long-pressing a collapsed parent selects its real children and a selection-mode tap deselects them without expanding
+- J-175 · Deleting one child from a two-entry group automatically unfolds the remaining child, including after reload
+- J-176 · Group creation rejects malformed, duplicate, mixed-date, missing, foreign, and already-grouped memberships without partial writes; group mutations are owner-scoped
+- J-177 · Product deletion cleans up a group that would otherwise be left with one child
+- J-178 · Enter submits the group-name field and creates the folded parent
+- J-179 · Backdrop dismissal creates no group and preserves the underlying entry selection
+- J-180 · Editing a grouped child’s grams updates the parent aggregate while retaining persisted membership
 
 # 8. Tagging single entries
 
@@ -142,7 +157,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-151 · Dot tap does not change MacroSummary kcal totals (`tagged` is purely a UI marker; macros come from grams × per100)
 - J-152 · Tagged flag survives a grams edit (grams-only PATCH must not clear `tagged`)
 - J-153 · Two rows tag/untag independently (per-row state isolation; no shared mutation)
-- J-154 · Dot tap issues exactly one PATCH per toggle (network counter; `App.tsx:290` skip-when-equal pin)
+- J-154 · Dot tap issues exactly one PATCH per toggle (network counter; `App.tsx:340` skip-when-equal pin)
 
 # 9. Cross-user catalog (barcode adopt)
 

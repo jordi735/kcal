@@ -10,7 +10,7 @@ These instructions apply to the entire repository.
   SQL migrations in `server/migrations/`, and normal application statements in
   `server/statements.ts`.
 - `shared/` contains code compiled by both TypeScript projects, especially wire
-  types, product-name normalization, and API-prefix detection.
+  types, stored-text normalization, and API-prefix detection.
 - `public/` contains PWA and site assets copied into the Vite build. `tests/e2e/`
   contains the Playwright suite; `tests/JOURNEYS.md` indexes covered user flows.
 - The root TypeScript project uses bundler resolution and Preact JSX for `src/`,
@@ -70,16 +70,19 @@ required-key inventory and never commit real credentials.
   preserve the distinction between explicit `onClose` and gesture `onDismiss`.
 - Keep `local_date` and `local_time` as timezone-free `YYYY-MM-DD` and `HH:MM`
   strings. Generate them with `src/dates.ts`; weeks are Monday-first.
-- Normalize stored product names and brands with the helpers in
-  `shared/normalize.ts` on both create and update paths.
+- Normalize stored product names, brands, and entry-group names with the helpers
+  in `shared/normalize.ts` on every create and update path.
 - `useEntries` applies local cache changes only after successful requests. Preserve
   entry insertion order by `id` and recompute week totals only for loaded dates;
   tagged-only updates do not change totals.
+- Keep the day-entry wire response flat. `EntryWithMacros.group` annotates real
+  child entries; derive collapsed parents, aggregate macros, and mixed/all-tagged
+  state in the client without adding a synthetic calorie-bearing entry.
 - Use `MACRO_KEYS`/`MACRO_META` for P/C/F presentation, CSS modules for component
   styles, and `cssVars` for dynamic custom properties. Kcal stays separate.
 - Prefer Heroicons 16/solid for reusable icons and add SVGs as named exports in
-  `src/components/Icon.tsx`, preserving its shared `BASE` props. `BarcodeIcon`
-  and `CircleIcon` are the current custom icons.
+  `src/components/Icon.tsx`, preserving its shared `BASE` props. `BarcodeIcon`,
+  `CircleIcon`, `MinusCircleIcon`, and `GroupIcon` are the current custom icons.
 
 ## Backend Safety Invariants
 
@@ -101,6 +104,11 @@ required-key inventory and never commit real credentials.
 - Entries store grams and product references, not macro snapshots. Compute macros
   from current per-100 product values so product edits intentionally update past
   totals.
+- Entry groups are day-scoped metadata referenced by nullable `entries.group_id`.
+  Create groups atomically from at least two unique, ungrouped entries owned by
+  the caller on one date; do not support nesting or silent regrouping. Group
+  macros and tagged state derive from children, parent tagging is atomic, Ungroup
+  preserves entries, and entry/product deletion dissolves groups below two members.
 - Authentication uses emailed six-digit codes and Bearer sessions. Login codes and
   AI scan quotas are process-local maps, so multi-process deployment requires
   shared state or affinity. Preserve timing-safe code comparison and attempt caps.
@@ -154,6 +162,9 @@ required-key inventory and never commit real credentials.
 - Scope transient locators to the active `.sheet` or `.food-row`, use `exact: true`
   for collision-prone aria labels, and wait for modal visibility/unmount rather
   than racing animations.
+- Grouping tests should use unique product/group names, scope parents through
+  `.entry-group`, and verify that folding and parent tagging never change raw day
+  or week macro totals.
 - Prefix every `test()` and `setup()` name with a stable `[J-###]`. Update
   `tests/JOURNEYS.md` whenever journeys change and run the duplicate-ID and
   bidirectional-link checks in its `Verification` section. Never record fixed

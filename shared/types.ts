@@ -34,6 +34,15 @@ export type BarcodeLookupResponse =
   | { kind: 'own'; product: Product }
   | { kind: 'template'; template: ProductTemplate };
 
+export type EntryGroupRef = {
+  id: number;
+  name: string;
+};
+
+export type EntryGroup = EntryGroupRef & {
+  local_date: string;
+};
+
 export type EntryWithMacros = {
   id: number;
   product: Product;
@@ -42,6 +51,7 @@ export type EntryWithMacros = {
   local_time: string;
   macros: Macros;
   tagged: boolean;
+  group: EntryGroupRef | null;
 };
 
 export type ExtractedLabel = {

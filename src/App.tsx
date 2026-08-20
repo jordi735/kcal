@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import {
   sumMacros,
   type BarcodeLookupResponse,
+  type EntryGroup,
   type EntryWithMacros,
   type ExtractedLabel,
   type Goals,
@@ -20,6 +21,7 @@ import { BarcodeScanner } from './modals/BarcodeScanner';
 import { AILabelScanner } from './modals/AILabelScanner';
 import { NewProductForm, type ProductDraft } from './modals/NewProductForm';
 import { GramsPicker } from './modals/GramsPicker';
+import { EntryGroupForm } from './modals/EntryGroupForm';
 import { SheetCloseRegisterProvider } from './components/Sheet';
 import { useEntries } from './hooks/useEntries';
 import { FADE_EXIT_MS } from './hooks/useFadeClose';
@@ -101,7 +103,9 @@ type ModalState =
       entry: EntryWithMacros | undefined;
       initialOverride?: Partial<ProductDraft>;
     }
-  | { kind: 'settings' };
+  | { kind: 'settings' }
+  | { kind: 'entry-group-create'; entryIds: number[] }
+  | { kind: 'entry-group-edit'; group: EntryGroup };
 
 // Modals that render inside <Sheet> and share the hoisted SheetOverlay.
 const SHEET_KINDS: ReadonlySet<ModalState['kind']> = new Set([
@@ -110,6 +114,8 @@ const SHEET_KINDS: ReadonlySet<ModalState['kind']> = new Set([
   'grams-picker',
   'edit-product',
   'settings',
+  'entry-group-create',
+  'entry-group-edit',
 ]);
 
 function isSheetModal(kind: ModalState['kind']): boolean {
@@ -150,6 +156,10 @@ export function App() {
     add: addEntry,
     update: updateEntry,
     remove: removeEntry,
+    createGroup,
+    renameGroup,
+    toggleGroupTagged,
+    ungroup,
   } = useEntries();
   const [goals, setGoals] = useState<Goals>(() =>
     initialUser !== null ? userToGoals(initialUser) : mockGoals,
@@ -157,6 +167,7 @@ export function App() {
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
   const [modal, setModalState] = useState<ModalState>({ kind: 'none' });
+  const [selectionResetVersion, setSelectionResetVersion] = useState(0);
   // Bumped on every modal transition. Async handlers capture this before
   // awaiting and bail if it changed during the await — prevents a slow
   // network response from yanking the user back into a modal they cancelled.
@@ -224,15 +235,18 @@ export function App() {
     if (modal.kind === 'none') setSheetExiting(false);
   }, [modal.kind]);
 
-  // Load entries for the selected day and today whenever either changes.
+  // Load entries for the selected day and today whenever either changes. Key
+  // user dependency on identity, not the cached object: goal revalidation
+  // replaces that object and must not emit a duplicate round of entry reads.
   useEffect(() => {
     if (user === null) return;
     void loadEntries(selectedKey);
     if (selectedKey !== todayKey) void loadEntries(todayKey);
-  }, [user, selectedKey, todayKey, loadEntries]);
+  }, [user?.id, selectedKey, todayKey, loadEntries]);
 
   // Load week totals for the visible week and both neighbors, so the
-  // week-strip carousel can show real progress dots on swipe-in weeks.
+  // week-strip carousel can show real progress dots on swipe-in weeks. As with
+  // day entries, goal-only user-object refreshes do not require another load.
   useEffect(() => {
     if (user === null) return;
     const prev = new Date(weekStart);
@@ -242,7 +256,7 @@ export function App() {
     void loadWeek(toLocalDateString(weekStart));
     void loadWeek(toLocalDateString(prev));
     void loadWeek(toLocalDateString(next));
-  }, [user, weekStart, loadWeek]);
+  }, [user?.id, weekStart, loadWeek]);
 
   // Revalidate goals from the server on each app boot (or user switch). The
   // cached user blob in localStorage is a hot-start optimisation, not the
@@ -327,6 +341,60 @@ export function App() {
       updateEntry(entry.id, { tagged }).catch((err) => {
         reportError(err instanceof Error ? err.message : "Couldn't update entry");
       });
+    }
+  };
+
+  const onStartCreateGroup = (list: EntryWithMacros[]) => {
+    setModal({ kind: 'entry-group-create', entryIds: list.map((entry) => entry.id) });
+  };
+
+  const onCreateEntryGroup = async (name: string): Promise<void> => {
+    if (modal.kind !== 'entry-group-create') return;
+    const entryIds = modal.entryIds;
+    const myGen = flowGenRef.current;
+    try {
+      await createGroup({ name, entry_ids: entryIds });
+      setSelectionResetVersion((version) => version + 1);
+      if (myGen === flowGenRef.current) setModal({ kind: 'none' });
+    } catch (err) {
+      if (myGen !== flowGenRef.current) return;
+      reportError(err instanceof Error ? err.message : "Couldn't create group");
+    }
+  };
+
+  const onMarkGroupTagged = (groupId: number, tagged: boolean) => {
+    toggleGroupTagged(groupId, tagged).catch((err) => {
+      reportError(err instanceof Error ? err.message : "Couldn't update group");
+    });
+  };
+
+  const onEditEntryGroup = (group: EntryGroup) => {
+    setModal({ kind: 'entry-group-edit', group });
+  };
+
+  const onRenameEntryGroup = async (name: string): Promise<void> => {
+    if (modal.kind !== 'entry-group-edit') return;
+    const groupId = modal.group.id;
+    const myGen = flowGenRef.current;
+    try {
+      await renameGroup(groupId, name);
+      if (myGen === flowGenRef.current) setModal({ kind: 'none' });
+    } catch (err) {
+      if (myGen !== flowGenRef.current) return;
+      reportError(err instanceof Error ? err.message : "Couldn't rename group");
+    }
+  };
+
+  const onUngroupEntries = async (): Promise<void> => {
+    if (modal.kind !== 'entry-group-edit') return;
+    const groupId = modal.group.id;
+    const myGen = flowGenRef.current;
+    try {
+      await ungroup(groupId);
+      if (myGen === flowGenRef.current) setModal({ kind: 'none' });
+    } catch (err) {
+      if (myGen !== flowGenRef.current) return;
+      reportError(err instanceof Error ? err.message : "Couldn't ungroup entries");
     }
   };
 
@@ -559,6 +627,10 @@ export function App() {
         onEditEntry={onEditEntry}
         onDeleteEntries={onDeleteEntries}
         onMarkTagged={onMarkTagged}
+        onCreateGroup={onStartCreateGroup}
+        onMarkGroupTagged={onMarkGroupTagged}
+        onEditGroup={onEditEntryGroup}
+        selectionResetVersion={selectionResetVersion}
         onOpenSettings={() => setModal({ kind: 'settings' })}
       />
 
@@ -639,6 +711,24 @@ export function App() {
             onClose={closeModal}
             onLogout={onLogout}
             userEmail={user.email}
+          />
+        )}
+
+        {modal.kind === 'entry-group-create' && (
+          <EntryGroupForm
+            mode="create"
+            onSave={onCreateEntryGroup}
+            onClose={closeModal}
+          />
+        )}
+
+        {modal.kind === 'entry-group-edit' && (
+          <EntryGroupForm
+            mode="edit"
+            initialName={modal.group.name}
+            onSave={onRenameEntryGroup}
+            onUngroup={onUngroupEntries}
+            onClose={closeModal}
           />
         )}
       </SheetCloseRegisterProvider>

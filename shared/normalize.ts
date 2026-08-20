@@ -23,3 +23,9 @@ export function normalizeBrandName(raw: string | null): string | null {
   if (s.length === 0) return null;
   return s.replace(/(^|\s)(\S)/g, (_m, ws: string, ch: string) => ws + ch.toUpperCase());
 }
+
+// Entry-group labels are user-authored display text. Preserve their casing,
+// while applying the same predictable whitespace cleanup as product metadata.
+export function normalizeEntryGroupName(raw: string): string {
+  return cleanWhitespace(raw);
+}

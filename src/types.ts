@@ -3,6 +3,8 @@ export type {
   Product,
   ProductTemplate,
   BarcodeLookupResponse,
+  EntryGroupRef,
+  EntryGroup,
   EntryWithMacros,
   ExtractedLabel,
 } from '../shared/types.js';

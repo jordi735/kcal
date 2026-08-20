@@ -1,0 +1,47 @@
+.header {
+  padding: 0 20px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  color: var(--fg-dim);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+}
+
+.cancelBtn {
+  color: var(--fg-dim);
+}
+
+.body {
+  padding: 12px 20px 20px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  padding: 0 20px 20px;
+}
+
+.ungroupBtn {
+  flex: 0 0 auto;
+  min-width: 104px;
+  padding: 0 16px;
+  border: 1px solid color-mix(in oklab, var(--danger) 35%, transparent);
+  border-radius: 14px;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ungroupBtn:disabled {
+  opacity: 0.5;
+}
+
+.actions :global(.btn-primary) {
+  flex: 1;
+}

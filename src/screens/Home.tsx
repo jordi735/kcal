@@ -1,10 +1,11 @@
 // Home screen — week strip, flat entry list, selection strip, bottom macro summary.
 
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import type { EntryWithMacros, Goals, Macros } from '../types';
+import type { EntryGroup, EntryWithMacros, Goals, Macros } from '../types';
 import { WeekStrip } from '../components/WeekStrip';
 import { MacroSummary } from '../components/MacroSummary';
 import { FoodRow } from '../components/FoodRow';
+import { EntryGroupRow } from '../components/EntryGroupRow';
 import { SelectionBar } from '../components/SelectionBar';
 import { PlusIcon } from '../components/Icon';
 import styles from './Home.module.css';
@@ -22,8 +23,47 @@ type HomeProps = {
   onEditEntry: (entry: EntryWithMacros) => void;
   onDeleteEntries: (entries: EntryWithMacros[]) => void;
   onMarkTagged: (entries: EntryWithMacros[], tagged: boolean) => void;
+  onCreateGroup: (entries: EntryWithMacros[]) => void;
+  onMarkGroupTagged: (groupId: number, tagged: boolean) => void;
+  onEditGroup: (group: EntryGroup) => void;
+  selectionResetVersion: number;
   onOpenSettings: () => void;
 };
+
+type DayListItem =
+  | { kind: 'entry'; entry: EntryWithMacros }
+  | { kind: 'group'; group: EntryGroup; entries: EntryWithMacros[] };
+
+function buildDayList(entries: EntryWithMacros[]): DayListItem[] {
+  const byGroup = new Map<number, EntryWithMacros[]>();
+  for (const entry of entries) {
+    if (entry.group === null) continue;
+    const members = byGroup.get(entry.group.id) ?? [];
+    members.push(entry);
+    byGroup.set(entry.group.id, members);
+  }
+
+  const seenGroups = new Set<number>();
+  const result: DayListItem[] = [];
+  for (const entry of entries) {
+    if (entry.group === null) {
+      result.push({ kind: 'entry', entry });
+      continue;
+    }
+    if (seenGroups.has(entry.group.id)) continue;
+    seenGroups.add(entry.group.id);
+    result.push({
+      kind: 'group',
+      group: {
+        id: entry.group.id,
+        name: entry.group.name,
+        local_date: entry.local_date,
+      },
+      entries: byGroup.get(entry.group.id) ?? [entry],
+    });
+  }
+  return result;
+}
 
 export function Home({
   selectedDate,
@@ -38,20 +78,33 @@ export function Home({
   onEditEntry,
   onDeleteEntries,
   onMarkTagged,
+  onCreateGroup,
+  onMarkGroupTagged,
+  onEditGroup,
+  selectionResetVersion,
   onOpenSettings,
 }: HomeProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+  const [expandedGroupIds, setExpandedGroupIds] = useState<Set<number>>(() => new Set());
 
   // Reset selection when the user navigates to a different day.
   useEffect(() => {
     setSelectedIds(new Set());
+    setExpandedGroupIds(new Set());
   }, [selectedDate]);
+
+  // Group creation owns its naming Sheet in App, while selection remains local
+  // to Home. App bumps this only after a successful create.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [selectionResetVersion]);
 
   const selectionMode = selectedIds.size > 0;
   const selectedEntries = useMemo(
     () => entries.filter((e) => selectedIds.has(e.id)),
     [entries, selectedIds],
   );
+  const dayList = useMemo(() => buildDayList(entries), [entries]);
 
   const toggleSelect = (entry: EntryWithMacros) => {
     setSelectedIds((prev) => {
@@ -64,6 +117,27 @@ export function Home({
 
   const clearSelection = () => setSelectedIds(new Set());
 
+  const toggleSelectMany = (members: EntryWithMacros[]) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = members.every((entry) => next.has(entry.id));
+      for (const entry of members) {
+        if (allSelected) next.delete(entry.id);
+        else next.add(entry.id);
+      }
+      return next;
+    });
+  };
+
+  const toggleExpanded = (groupId: number) => {
+    setExpandedGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
   const handleDelete = () => {
     onDeleteEntries(selectedEntries);
     setSelectedIds(new Set());
@@ -73,6 +147,9 @@ export function Home({
     onMarkTagged(selectedEntries, tagged);
     setSelectedIds(new Set());
   };
+
+  const canGroup =
+    selectedEntries.length >= 2 && selectedEntries.every((entry) => entry.group === null);
 
   return (
     <div className={styles.shell}>
@@ -100,18 +177,57 @@ export function Home({
           </button>
         ) : (
           <div>
-            {entries.map((e) => (
-              <FoodRow
-                key={e.id}
-                entry={e}
-                selected={selectedIds.has(e.id)}
-                selectionMode={selectionMode}
-                onEdit={onEditEntry}
-                onToggleSelect={toggleSelect}
-                onToggleTagged={(en) => onMarkTagged([en], !en.tagged)}
-                onLongPress={toggleSelect}
-              />
-            ))}
+            {dayList.map((item) => {
+              if (item.kind === 'entry') {
+                const entry = item.entry;
+                return (
+                  <FoodRow
+                    key={entry.id}
+                    entry={entry}
+                    selected={selectedIds.has(entry.id)}
+                    selectionMode={selectionMode}
+                    onEdit={onEditEntry}
+                    onToggleSelect={toggleSelect}
+                    onToggleTagged={(en) => onMarkTagged([en], !en.tagged)}
+                    onLongPress={toggleSelect}
+                  />
+                );
+              }
+
+              const expanded = expandedGroupIds.has(item.group.id);
+              const allSelected = item.entries.every((entry) => selectedIds.has(entry.id));
+              return (
+                <div key={`group-${item.group.id}`} className={styles.groupBlock}>
+                  <EntryGroupRow
+                    group={item.group}
+                    entries={item.entries}
+                    expanded={expanded}
+                    selected={allSelected}
+                    selectionMode={selectionMode}
+                    onToggleExpanded={() => toggleExpanded(item.group.id)}
+                    onToggleSelect={() => toggleSelectMany(item.entries)}
+                    onToggleTagged={(tagged) => onMarkGroupTagged(item.group.id, tagged)}
+                    onEdit={() => onEditGroup(item.group)}
+                  />
+                  {expanded && (
+                    <div className={styles.groupChildren}>
+                      {item.entries.map((entry) => (
+                        <FoodRow
+                          key={entry.id}
+                          entry={entry}
+                          selected={selectedIds.has(entry.id)}
+                          selectionMode={selectionMode}
+                          onEdit={onEditEntry}
+                          onToggleSelect={toggleSelect}
+                          onToggleTagged={(en) => onMarkTagged([en], !en.tagged)}
+                          onLongPress={toggleSelect}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -122,6 +238,8 @@ export function Home({
         onClear={clearSelection}
         onDelete={handleDelete}
         onToggleTagged={handleToggleTagged}
+        canGroup={canGroup}
+        onGroup={() => onCreateGroup(selectedEntries)}
       />
 
       <MacroSummary

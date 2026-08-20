@@ -20,6 +20,7 @@ const PRODUCT_COLS_P =
 const ENTRY_WITH_PRODUCT_COLS = `
   e.id AS id, e.grams AS grams, e.local_date AS local_date, e.local_time AS local_time,
   e.tagged AS tagged,
+  g.id AS group_id, g.name AS group_name,
   p.id AS p_id, p.name AS p_name, p.brand AS p_brand, p.unit AS p_unit, p.barcode AS p_barcode,
   p.kcal_per100    AS p_kcal_per100,
   p.protein_per100 AS p_protein_per100,
@@ -31,6 +32,10 @@ const ENTRY_WITH_PRODUCT_COLS = `
 const ENTRY_JOIN_FROM = `
   FROM entries e
   JOIN products p ON p.id = e.product_id
+  LEFT JOIN entry_groups g
+    ON g.id = e.group_id
+   AND g.user_id = e.user_id
+   AND g.local_date = e.local_date
 `;
 
 export const statements = {
@@ -187,6 +192,38 @@ export const statements = {
     ),
   },
 
+  entryGroups: {
+    // (user_id, local_date, name, created_at)
+    insert: db.prepare(`
+      INSERT INTO entry_groups (user_id, local_date, name, created_at)
+      VALUES (?, ?, ?, ?)
+    `),
+    // (user_id, id)
+    selectById: db.prepare(`
+      SELECT id, user_id, local_date, name, created_at
+      FROM entry_groups
+      WHERE user_id = ? AND id = ?
+    `),
+    // (name, user_id, id)
+    updateName: db.prepare(
+      'UPDATE entry_groups SET name = ? WHERE user_id = ? AND id = ?',
+    ),
+    // (user_id, id)
+    delete: db.prepare(
+      'DELETE FROM entry_groups WHERE user_id = ? AND id = ?',
+    ),
+    // (user_id, user_id) — remove empty/singleton groups after product deletion.
+    deleteTooSmallForUser: db.prepare(`
+      DELETE FROM entry_groups
+      WHERE user_id = ?
+        AND (
+          SELECT COUNT(*)
+          FROM entries e
+          WHERE e.user_id = ? AND e.group_id = entry_groups.id
+        ) < 2
+    `),
+  },
+
   entries: {
     // (user_id, local_date)
     selectForDay: db.prepare(`
@@ -215,6 +252,13 @@ export const statements = {
       ${ENTRY_JOIN_FROM}
       WHERE e.user_id = ? AND e.id = ?
     `),
+    // (user_id, id) — lightweight row used by transactional group membership
+    // validation and delete cleanup.
+    selectMembershipById: db.prepare(`
+      SELECT id, local_date, group_id
+      FROM entries
+      WHERE user_id = ? AND id = ?
+    `),
     // (user_id, product_id, grams, local_date, local_time, created_at)
     insert: db.prepare(`
       INSERT INTO entries (user_id, product_id, grams, local_date, local_time, created_at)
@@ -228,6 +272,21 @@ export const statements = {
     updateTagged: db.prepare(
       'UPDATE entries SET tagged = ? WHERE user_id = ? AND id = ?',
     ),
+    // (group_id, user_id, id) — creation-only assignment; the NULL guard
+    // prevents concurrent regrouping from silently stealing an entry.
+    assignGroup: db.prepare(
+      'UPDATE entries SET group_id = ? WHERE user_id = ? AND id = ? AND group_id IS NULL',
+    ),
+    // (tagged, user_id, group_id)
+    updateTaggedForGroup: db.prepare(
+      'UPDATE entries SET tagged = ? WHERE user_id = ? AND group_id = ?',
+    ),
+    // (user_id, group_id)
+    countForGroup: db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM entries
+      WHERE user_id = ? AND group_id = ?
+    `),
     // (user_id, id)
     delete: db.prepare(
       'DELETE FROM entries WHERE user_id = ? AND id = ?',

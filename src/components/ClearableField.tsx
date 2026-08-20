@@ -10,6 +10,8 @@ type ClearableFieldProps = {
   type?: string | undefined;
   inputMode?: JSX.HTMLAttributes<HTMLInputElement>['inputMode'];
   autoComplete?: string | undefined;
+  autoFocus?: boolean | undefined;
+  'aria-label'?: string | undefined;
   maxLength?: number | undefined;
   className?: string | undefined;
   wrapClassName?: string | undefined;

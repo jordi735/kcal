@@ -339,6 +339,7 @@ productsRouter.delete('/:id', (req, res) => {
   }
   const run = db.transaction((userId: number, productId: number) => {
     statements.entries.deleteForProduct.run(userId, productId);
+    statements.entryGroups.deleteTooSmallForUser.run(userId, userId);
     return statements.products.delete.run(userId, productId) as { changes: number };
   });
   const result = run(req.userId!, id);

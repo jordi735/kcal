@@ -60,6 +60,24 @@
   flex-shrink: 0;
 }
 
+.groupBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.groupBtn:active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
 .tagBtn {
   display: flex;
   align-items: center;

@@ -50,3 +50,13 @@
   color: var(--fg-dimmer);
   max-width: 220px;
 }
+
+.groupBlock {
+  border-bottom: 1px solid var(--border);
+}
+
+.groupChildren {
+  margin-left: 18px;
+  border-left: 1px solid var(--border-strong);
+  background: var(--bg);
+}

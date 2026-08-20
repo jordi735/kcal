@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { sumMacros, type EntryWithMacros } from '../types';
 import { FADE_EXIT_MS } from '../hooks/useFadeClose';
 import { MacroBreakdown } from './MacroBreakdown';
-import { CheckCircleIcon, TrashIcon, XMarkIcon } from './Icon';
+import { CheckCircleIcon, GroupIcon, TrashIcon, XMarkIcon } from './Icon';
 import styles from './SelectionBar.module.css';
 
 type SelectionBarProps = {
@@ -19,6 +19,8 @@ type SelectionBarProps = {
   onClear: () => void;
   onDelete: () => void;
   onToggleTagged: (tagged: boolean) => void;
+  canGroup: boolean;
+  onGroup: () => void;
 };
 
 export function SelectionBar({
@@ -27,11 +29,17 @@ export function SelectionBar({
   onClear,
   onDelete,
   onToggleTagged,
+  canGroup,
+  onGroup,
 }: SelectionBarProps) {
   const [render, setRender] = useState(visible);
   const [exiting, setExiting] = useState(false);
   const lastSelectedRef = useRef(selected);
-  if (visible) lastSelectedRef.current = selected;
+  const lastCanGroupRef = useRef(canGroup);
+  if (visible) {
+    lastSelectedRef.current = selected;
+    lastCanGroupRef.current = canGroup;
+  }
 
   // Entry: a CSS @keyframes animation on .bar fires on mount — the element
   // remounts whenever `render` flips back to true, so the animation runs
@@ -53,6 +61,7 @@ export function SelectionBar({
   }, [visible, render]);
 
   const shown = visible ? selected : lastSelectedRef.current;
+  const shownCanGroup = visible ? canGroup : lastCanGroupRef.current;
   const totals = useMemo(() => sumMacros(shown), [shown]);
 
   if (!render) return null;
@@ -71,6 +80,15 @@ export function SelectionBar({
         </div>
       </div>
       <div className={styles.actions}>
+        {shownCanGroup && (
+          <button
+            onClick={onGroup}
+            className={styles.groupBtn}
+            aria-label={`Group ${n} selected`}
+          >
+            <GroupIcon size={14} />
+          </button>
+        )}
         <button
           onClick={onDelete}
           className={styles.deleteBtn}

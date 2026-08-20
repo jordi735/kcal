@@ -1,7 +1,7 @@
 // Owns the entries cache keyed by local_date; exposes CRUD helpers backed by /entries.
 
 import { useCallback, useState } from 'preact/hooks';
-import { sumMacros, type EntryWithMacros, type Macros } from '../types';
+import { sumMacros, type EntryGroup, type EntryWithMacros, type Macros } from '../types';
 import { api } from '../api';
 
 export type UseEntriesReturn = {
@@ -18,6 +18,10 @@ export type UseEntriesReturn = {
   }) => Promise<EntryWithMacros>;
   update: (id: number, patch: { grams?: number; tagged?: boolean }) => Promise<EntryWithMacros>;
   remove: (id: number, date: string) => Promise<void>;
+  createGroup: (params: { name: string; entry_ids: number[] }) => Promise<EntryGroup>;
+  renameGroup: (id: number, name: string) => Promise<EntryGroup>;
+  toggleGroupTagged: (id: number, tagged: boolean) => Promise<EntryWithMacros[]>;
+  ungroup: (id: number) => Promise<void>;
 };
 
 export function useEntries(): UseEntriesReturn {
@@ -96,11 +100,19 @@ export function useEntries(): UseEntriesReturn {
   }, [loadedDates]);
 
   const remove = useCallback(async (id: number, date: string) => {
-    await api<{ ok: true }>(`/entries/${id}`, { method: 'DELETE' });
+    const result = await api<{ ok: true; dissolved_group_id: number | null }>(`/entries/${id}`, {
+      method: 'DELETE',
+    });
     let newList: EntryWithMacros[] = [];
     setEntriesByDate((prev) => {
       const list = prev[date] ?? [];
-      const next = list.filter((e) => e.id !== id);
+      const next = list
+        .filter((e) => e.id !== id)
+        .map((e) =>
+          result.dissolved_group_id !== null && e.group?.id === result.dissolved_group_id
+            ? { ...e, group: null }
+            : e,
+        );
       newList = next;
       return { ...prev, [date]: next };
     });
@@ -109,5 +121,86 @@ export function useEntries(): UseEntriesReturn {
     }
   }, [loadedDates]);
 
-  return { entriesByDate, weekTotals, loadedDates, load, loadWeek, add, update, remove };
+  const createGroup = useCallback(async (params: { name: string; entry_ids: number[] }) => {
+    const group = await api<EntryGroup>('/entries/groups', {
+      method: 'POST',
+      body: params,
+    });
+    const memberIds = new Set(params.entry_ids);
+    setEntriesByDate((prev) => {
+      const list = prev[group.local_date] ?? [];
+      return {
+        ...prev,
+        [group.local_date]: list.map((entry) =>
+          memberIds.has(entry.id)
+            ? { ...entry, group: { id: group.id, name: group.name } }
+            : entry,
+        ),
+      };
+    });
+    return group;
+  }, []);
+
+  const renameGroup = useCallback(async (id: number, name: string) => {
+    const group = await api<EntryGroup>(`/entries/groups/${id}`, {
+      method: 'PATCH',
+      body: { name },
+    });
+    setEntriesByDate((prev) => ({
+      ...prev,
+      [group.local_date]: (prev[group.local_date] ?? []).map((entry) =>
+        entry.group?.id === group.id
+          ? { ...entry, group: { id: group.id, name: group.name } }
+          : entry,
+      ),
+    }));
+    return group;
+  }, []);
+
+  const toggleGroupTagged = useCallback(async (id: number, tagged: boolean) => {
+    const updated = await api<EntryWithMacros[]>(`/entries/groups/${id}/tagged`, {
+      method: 'PATCH',
+      body: { tagged },
+    });
+    const first = updated[0];
+    if (first !== undefined) {
+      const byId = new Map(updated.map((entry) => [entry.id, entry]));
+      setEntriesByDate((prev) => ({
+        ...prev,
+        [first.local_date]: (prev[first.local_date] ?? []).map(
+          (entry) => byId.get(entry.id) ?? entry,
+        ),
+      }));
+    }
+    return updated;
+  }, []);
+
+  const ungroup = useCallback(async (id: number) => {
+    await api<{ ok: true }>(`/entries/groups/${id}`, { method: 'DELETE' });
+    setEntriesByDate((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).map(([date, list]) => [
+          date,
+          list.map((entry) =>
+            entry.group?.id === id ? { ...entry, group: null } : entry,
+          ),
+        ]),
+      ),
+    );
+  }, []);
+
+  return {
+    entriesByDate,
+    weekTotals,
+    loadedDates,
+    load,
+    loadWeek,
+    add,
+    update,
+    remove,
+    createGroup,
+    renameGroup,
+    toggleGroupTagged,
+    ungroup,
+  };
 }

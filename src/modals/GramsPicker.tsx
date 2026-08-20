@@ -1,6 +1,6 @@
 // GramsPicker — pick an amount (grams or ml) before adding/editing an entry.
 
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Goals, Macros, Product } from '../types';
 import { MACRO_KEYS, MACRO_META } from '../macros';
 import { cssVars } from '../styles';
@@ -109,6 +109,7 @@ function GramsPickerInner({
   const [grams, setGrams] = useState<number>(initialGrams ?? 100);
   const [userChangedGrams, setUserChangedGrams] = useState(false);
   const { text, setText, onFocus, onBlur } = useFocusClearableNumber(grams);
+  const inputRef = useRef<HTMLInputElement>(null);
   const unit = product.unit;
 
   useEffect(() => {
@@ -155,6 +156,15 @@ function GramsPickerInner({
   };
 
   const bump = (delta: number) => selectGrams(Math.max(1, grams + delta));
+
+  // Read from the input at the submit boundary. A blur/click can arrive before
+  // Preact has rendered the latest onInput state, while the DOM already holds
+  // the user's value (notably on touch devices and Playwright's fill + tap).
+  const confirmCurrentValue = (raw = inputRef.current?.value ?? text) => {
+    if (raw.trim() === '') return;
+    const n = Number(raw);
+    onConfirm(Math.max(1, Number.isFinite(n) ? n : 0));
+  };
 
   const title = mode === 'edit' ? 'Edit amount' : 'How much?';
   const confirmLabel = mode === 'edit' ? 'Save' : 'Add to day';
@@ -216,6 +226,7 @@ function GramsPickerInner({
           </button>
           <div className={styles.gramsRow}>
             <input
+              ref={inputRef}
               type="number"
               inputMode="numeric"
               value={text}
@@ -234,9 +245,10 @@ function GramsPickerInner({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  if (text.trim() === '') return;
+                  const raw = e.currentTarget.value;
+                  if (raw.trim() === '') return;
                   e.currentTarget.blur();
-                  onConfirm(grams);
+                  confirmCurrentValue(raw);
                 }
               }}
               className={`mono ${styles.gramsInput}`}
@@ -272,7 +284,7 @@ function GramsPickerInner({
             <TrashIcon size={16} />
           </button>
         )}
-        <button className={`btn-primary ${styles.confirmBtn}`} onClick={() => onConfirm(grams)}>
+        <button className={`btn-primary ${styles.confirmBtn}`} onClick={() => confirmCurrentValue()}>
           {confirmLabel}
           <ArrowRightIcon size={16} />
         </button>

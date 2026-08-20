@@ -53,7 +53,9 @@ Files in scope (spawn exactly one Codex subagent for each; skip nothing):
     src/api.ts
     src/types.ts
     src/dates.ts
+    src/macros.ts
     src/mocks.ts
+    src/styles.ts
     src/vite-env.d.ts
 
   CLIENT — screens
@@ -64,15 +66,18 @@ Files in scope (spawn exactly one Codex subagent for each; skip nothing):
   CLIENT — components
     src/components/BrandMark.tsx
     src/components/ClearableField.tsx
+    src/components/EntryGroupRow.tsx
     src/components/FoodRow.tsx
     src/components/Icon.tsx
     src/components/MacroBar.tsx
+    src/components/MacroBreakdown.tsx
     src/components/MacroSummary.tsx
     src/components/SelectionBar.tsx
     src/components/Sheet.tsx
     src/components/WeekStrip.tsx
 
   CLIENT — modals
+    src/modals/EntryGroupForm.tsx
     src/modals/GramsPicker.tsx
     src/modals/NewProductForm.tsx
     src/modals/AddPicker.tsx
@@ -82,6 +87,7 @@ Files in scope (spawn exactly one Codex subagent for each; skip nothing):
   CLIENT — hooks
     src/hooks/useEntries.ts
     src/hooks/useFadeClose.ts
+    src/hooks/useFocusClearableNumber.ts
 
   SERVER — core
     server/index.ts

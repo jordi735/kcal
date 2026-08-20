@@ -1,0 +1,107 @@
+.row {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-elev-2);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.3s ease;
+}
+
+.row.selected {
+  background: var(--bg-elev);
+}
+
+.row::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.row.selected::before {
+  opacity: 1;
+}
+
+.dotBtn {
+  flex-shrink: 0;
+  width: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-dimmer);
+  transition: color 0.3s ease;
+}
+
+.dotActive {
+  color: var(--fg);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 4px 15px 0;
+  text-align: left;
+}
+
+.info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.name {
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  color: var(--fg-dimmer);
+  font-size: 11px;
+}
+
+.macros {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.kcal {
+  color: var(--fg);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--fg-dimmer);
+  transition: transform 0.3s ease;
+}
+
+.chevronExpanded {
+  transform: rotate(90deg);
+}
+
+.editBtn {
+  width: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-dim);
+}
