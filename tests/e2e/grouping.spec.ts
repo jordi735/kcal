@@ -159,9 +159,15 @@ test('[J-169] selected entries become one collapsed persistent group without cha
   await expect(parent).toContainText('F6');
   await expect(foodRow(page, a)).toHaveCount(0);
   await expect(foodRow(page, b)).toHaveCount(0);
-  await expect(foodRow(page, c)).toBeVisible();
-  await expect(consumed).toContainText('350 kcal');
+  const looseRow = foodRow(page, c);
+  await expect(looseRow).toBeVisible();
   await expect(page.getByRole('button', { name: 'Clear selection', exact: true })).toHaveCount(0);
+  const [parentBackground, looseBackground] = await Promise.all([
+    parent.evaluate((element) => getComputedStyle(element).backgroundColor),
+    looseRow.evaluate((element) => getComputedStyle(element).backgroundColor),
+  ]);
+  expect(parentBackground).toBe(looseBackground);
+  await expect(consumed).toContainText('350 kcal');
 
   await page.getByRole('button', { name: 'Expand Ice cream batch', exact: true }).tap();
   await expect(foodRow(page, a)).toBeVisible();
