@@ -60,3 +60,13 @@ export type ExtractedLabel = {
   unit: 'g' | 'ml';
   per100: Macros;
 };
+
+export type WeightInput = {
+  local_date: string;
+  weight_kg: number;
+  note: string | null;
+};
+
+export type WeightEntry = WeightInput & {
+  id: number;
+};

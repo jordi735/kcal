@@ -227,6 +227,16 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-116 · `onPick`: dismiss mid-adopt followed by a server 500 suppresses the error toast (catch-branch `flowGenRef` gate)
 - J-117 · `onProductSave`: without dismissal, a server 500 DOES surface the error toast and leaves the form mounted for retry (positive control for J-114 — pins the catch-branch comparator)
 
+# 15. Weight tracking
+
+- J-181 · The bottom-dock Weights button opens an empty, usable weight-history Sheet
+- J-182 · Adding a decimal weigh-in defaults to today; its full multiline note renders safely and persists without a time
+- J-183 · Future and note-free weigh-ins sort newest-first; Add opens today's existing record instead of duplicating it
+- J-184 · Editing date, weight, and note updates one record, reorders history, and persists after reload
+- J-185 · One-tap weigh-in deletion removes only the chosen record and persists after reload
+- J-186 · Weight form validation and Cancel prevent invalid writes; failed saves retain the complete draft for retry
+- J-187 · Weight API validates bodies and IDs, rejects date collisions, and isolates every user's records
+
 # Verification
 
 Run from the repo root:

@@ -1,0 +1,258 @@
+.header {
+  flex-shrink: 0;
+  padding: 0 20px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  color: var(--fg-dim);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+}
+
+.closeBtn {
+  color: var(--fg-dim);
+  letter-spacing: 0.14em;
+}
+
+.closeBtn:disabled {
+  opacity: 0.4;
+}
+
+.history {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+}
+
+.status {
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--fg-dimmer);
+  letter-spacing: 0.14em;
+}
+
+.emptyState {
+  min-height: 280px;
+  padding: 64px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 44px;
+  height: 44px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-dimmer);
+}
+
+.emptyTitle {
+  color: var(--fg-dim);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+.emptyHint {
+  color: var(--fg-dimmer);
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 260px;
+}
+
+.retryBtn {
+  margin-top: 4px;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.weightRow {
+  width: 100%;
+  min-height: 76px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  transition: background 0.3s ease;
+}
+
+.weightRow:active {
+  background: var(--bg-elev-2);
+}
+
+.rowTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.weightValue {
+  color: var(--fg);
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.weightUnit {
+  color: var(--fg-dimmer);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.date {
+  color: var(--fg-dim);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.note {
+  margin-top: 8px;
+  color: var(--fg-dimmer);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.footer {
+  flex-shrink: 0;
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.addBtn:global(.btn-primary) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.formShell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.formScroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 20px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.dateInput {
+  color-scheme: dark;
+}
+
+.weightInputWrap {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 18px 16px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.weightInput {
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.inputUnit {
+  color: var(--fg-dimmer);
+  font-size: 16px;
+}
+
+.fieldError {
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.noteInput {
+  width: 100%;
+  resize: vertical;
+  min-height: 120px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  outline: none;
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  font: 14px/1.5 var(--sans);
+  transition: border-color 0.3s ease;
+}
+
+.noteInput:focus {
+  border-color: var(--fg-dim);
+}
+
+.noteInput::placeholder {
+  color: var(--fg-dimmer);
+}
+
+.noteCount {
+  align-self: flex-end;
+  color: var(--fg-dimmer);
+}
+
+.formError {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in oklab, var(--danger) 30%, transparent);
+  border-radius: 12px;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.formActions {
+  flex-shrink: 0;
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+}
+
+.deleteBtn {
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--danger) 30%, transparent);
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deleteBtn:disabled {
+  opacity: 0.4;
+}
+
+.saveBtn:global(.btn-primary) {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 54px;
+}

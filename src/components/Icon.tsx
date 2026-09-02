@@ -1,5 +1,5 @@
 // Heroicons (16/solid) — https://heroicons.com — paths verbatim from upstream.
-// BarcodeIcon, CircleIcon, MinusCircleIcon, and GroupIcon are custom,
+// BarcodeIcon, CircleIcon, MinusCircleIcon, GroupIcon, and WeightIcon are custom,
 // drawn in the same solid style (filled shapes, evenodd fill).
 
 type IconProps = { size?: number; className?: string | undefined };
@@ -81,6 +81,14 @@ export function GroupIcon({ size = 16, className }: IconProps) {
     <svg width={size} height={size} className={className} {...BASE}>
       <path d="M2.25 2A1.25 1.25 0 0 0 1 3.25v5.5A1.25 1.25 0 0 0 2.25 10h1V7.25A2.25 2.25 0 0 1 5.5 5h7.25V3.25A1.25 1.25 0 0 0 11.5 2h-9.25Z" />
       <path d="M5.5 6.5A.75.75 0 0 0 4.75 7.25v5.5c0 .414.336.75.75.75h8.25a.75.75 0 0 0 .75-.75v-5.5a.75.75 0 0 0-.75-.75H5.5Z" />
+    </svg>
+  );
+}
+
+export function WeightIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg width={size} height={size} className={className} {...BASE}>
+      <path d="M4 2A2 2 0 0 0 2 4v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H4Zm4 1.5A3.5 3.5 0 0 1 11.5 7h-7A3.5 3.5 0 0 1 8 3.5Zm-.75 1.75a.75.75 0 0 1 1.5 0v1.1a.75.75 0 0 1-1.5 0v-1.1Z" />
     </svg>
   );
 }

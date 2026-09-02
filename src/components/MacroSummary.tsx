@@ -5,17 +5,18 @@ import { sumMacros, type EntryWithMacros, type Goals } from '../types';
 import { MACRO_KEYS } from '../macros';
 import { cssVars } from '../styles';
 import { MacroBar } from './MacroBar';
-import { CogIcon, PlusIcon } from './Icon';
+import { CogIcon, PlusIcon, WeightIcon } from './Icon';
 import styles from './MacroSummary.module.css';
 
 type MacroSummaryProps = {
   entries: EntryWithMacros[];
   goals: Goals;
   onSettings: () => void;
+  onWeights: () => void;
   onAdd: () => void;
 };
 
-export function MacroSummary({ entries, goals, onSettings, onAdd }: MacroSummaryProps) {
+export function MacroSummary({ entries, goals, onSettings, onWeights, onAdd }: MacroSummaryProps) {
   const totals = useMemo(() => sumMacros(entries), [entries]);
 
   const kcalLeft = Math.max(0, goals.kcal - totals.kcal);
@@ -64,6 +65,13 @@ export function MacroSummary({ entries, goals, onSettings, onAdd }: MacroSummary
           aria-label="Settings"
         >
           <CogIcon size={18} />
+        </button>
+        <button
+          onClick={onWeights}
+          className={styles.settingsBtn}
+          aria-label="Weights"
+        >
+          <WeightIcon size={19} />
         </button>
         <button onClick={onAdd} className={`btn-primary ${styles.addBtn}`}>
           <PlusIcon size={16} />

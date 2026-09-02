@@ -10,6 +10,7 @@ import { authRouter } from './routes/auth.js';
 import { settingsRouter } from './routes/settings.js';
 import { productsRouter } from './routes/products.js';
 import { entriesRouter } from './routes/entries.js';
+import { weightsRouter } from './routes/weights.js';
 import { debugRouter } from './routes/debug.js';
 import { probeCodex } from './codex.js';
 import { log } from './log.js';
@@ -40,6 +41,7 @@ app.use('/auth', authRouter);
 app.use('/settings', settingsRouter);
 app.use('/products', productsRouter);
 app.use('/entries', entriesRouter);
+app.use('/weights', weightsRouter);
 
 // /debug exposes raw user + product tables. Gated behind an IP allowlist
 // driven by env.DEBUG_ALLOW_IPS. Unauthorised callers get 404 (not 403) so the

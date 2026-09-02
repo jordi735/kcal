@@ -22,6 +22,7 @@ import { AILabelScanner } from './modals/AILabelScanner';
 import { NewProductForm, type ProductDraft } from './modals/NewProductForm';
 import { GramsPicker } from './modals/GramsPicker';
 import { EntryGroupForm } from './modals/EntryGroupForm';
+import { WeightTracker } from './modals/WeightTracker';
 import { SheetCloseRegisterProvider } from './components/Sheet';
 import { useEntries } from './hooks/useEntries';
 import { FADE_EXIT_MS } from './hooks/useFadeClose';
@@ -104,6 +105,7 @@ type ModalState =
       initialOverride?: Partial<ProductDraft>;
     }
   | { kind: 'settings' }
+  | { kind: 'weights' }
   | { kind: 'entry-group-create'; entryIds: number[] }
   | { kind: 'entry-group-edit'; group: EntryGroup };
 
@@ -114,6 +116,7 @@ const SHEET_KINDS: ReadonlySet<ModalState['kind']> = new Set([
   'grams-picker',
   'edit-product',
   'settings',
+  'weights',
   'entry-group-create',
   'entry-group-edit',
 ]);
@@ -632,6 +635,7 @@ export function App() {
         onEditGroup={onEditEntryGroup}
         selectionResetVersion={selectionResetVersion}
         onOpenSettings={() => setModal({ kind: 'settings' })}
+        onOpenWeights={() => setModal({ kind: 'weights' })}
       />
 
       <SheetOverlay
@@ -712,6 +716,10 @@ export function App() {
             onLogout={onLogout}
             userEmail={user.email}
           />
+        )}
+
+        {modal.kind === 'weights' && (
+          <WeightTracker onClose={closeModal} />
         )}
 
         {modal.kind === 'entry-group-create' && (

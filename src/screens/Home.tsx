@@ -28,6 +28,7 @@ type HomeProps = {
   onEditGroup: (group: EntryGroup) => void;
   selectionResetVersion: number;
   onOpenSettings: () => void;
+  onOpenWeights: () => void;
 };
 
 type DayListItem =
@@ -83,6 +84,7 @@ export function Home({
   onEditGroup,
   selectionResetVersion,
   onOpenSettings,
+  onOpenWeights,
 }: HomeProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<number>>(() => new Set());
@@ -246,6 +248,7 @@ export function Home({
         entries={entries}
         goals={goals}
         onSettings={onOpenSettings}
+        onWeights={onOpenWeights}
         onAdd={onAddEntry}
       />
     </div>

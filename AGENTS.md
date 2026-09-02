@@ -82,7 +82,8 @@ required-key inventory and never commit real credentials.
   styles, and `cssVars` for dynamic custom properties. Kcal stays separate.
 - Prefer Heroicons 16/solid for reusable icons and add SVGs as named exports in
   `src/components/Icon.tsx`, preserving its shared `BASE` props. `BarcodeIcon`,
-  `CircleIcon`, `MinusCircleIcon`, and `GroupIcon` are the current custom icons.
+  `CircleIcon`, `MinusCircleIcon`, `GroupIcon`, and `WeightIcon` are the current
+  custom icons.
 
 ## Backend Safety Invariants
 
@@ -94,9 +95,10 @@ required-key inventory and never commit real credentials.
   stays in `server/db.ts`; deliberately unscoped debug reads stay isolated in
   `server/routes/debug.ts`. Document bind order beside statements and mirror it
   at call sites; within scoped `WHERE` bindings, owner precedes resource ID.
-- Scope entries by authenticated `user_id`, owned products by `created_by`, and
-  settings by authenticated user `id` at the SQL layer. Verify product ownership
-  before inserting an entry; never trust a client-supplied user identity.
+- Scope entries and weights by authenticated `user_id`, owned products by
+  `created_by`, and settings by authenticated user `id` at the SQL layer. Verify
+  product ownership before inserting an entry; never trust a client-supplied user
+  identity.
 - The sharing boundary is `barcode = shared, no barcode = private`. Global search
   may expose only barcoded products, arbitrary-ID adoption must reject null
   barcodes, and adoption creates a caller-owned copy. The current existing-copy
@@ -109,6 +111,10 @@ required-key inventory and never commit real credentials.
   the caller on one date; do not support nesting or silent regrouping. Group
   macros and tagged state derive from children, parent tagging is atomic, Ungroup
   preserves entries, and entry/product deletion dissolves groups below two members.
+- Weights are private, date-only records stored in kilograms, with at most one
+  record per user and `local_date`. Accept 0.1–1000.0 kg at one-decimal precision,
+  allow past or future dates, and normalize blank notes to null with a 500-character
+  limit.
 - Authentication uses emailed six-digit codes and Bearer sessions. Login codes and
   AI scan quotas are process-local maps, so multi-process deployment requires
   shared state or affinity. Preserve timing-safe code comparison and attempt caps.
@@ -156,6 +162,9 @@ required-key inventory and never commit real credentials.
   and defaults to `tests/e2e/.auth/user.json`. Use `user2.json` for user B.
 - Tests needing a pristine user, logout isolation, or absolute totals must use
   blank `storageState` and `signInFresh` from `tests/e2e/helpers.ts`.
+- Weight tests that reuse a user must avoid `local_date` collisions or deliberately
+  assert the one-record-per-date conflict; use `signInFresh` when isolated history
+  is required.
 - Reuse `signInFresh`, `fillNutField`, `longPress`, and `seedProductAndLog`. Use
   `.tap()` for touch-oriented Sheet interactions; use `.click()` only when a test
   deliberately exercises mouse behavior.

@@ -308,4 +308,35 @@ export const statements = {
       LIMIT 5
     `),
   },
+
+  weights: {
+    // (user_id)
+    all: db.prepare(`
+      SELECT id, local_date, weight_kg, note
+      FROM weights
+      WHERE user_id = ?
+      ORDER BY local_date DESC
+    `),
+    // (user_id, id)
+    selectById: db.prepare(`
+      SELECT id, local_date, weight_kg, note
+      FROM weights
+      WHERE user_id = ? AND id = ?
+    `),
+    // (user_id, local_date, weight_kg, note, created_at)
+    insert: db.prepare(`
+      INSERT INTO weights (user_id, local_date, weight_kg, note, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `),
+    // (local_date, weight_kg, note, user_id, id)
+    update: db.prepare(`
+      UPDATE weights
+      SET local_date = ?, weight_kg = ?, note = ?
+      WHERE user_id = ? AND id = ?
+    `),
+    // (user_id, id)
+    delete: db.prepare(
+      'DELETE FROM weights WHERE user_id = ? AND id = ?',
+    ),
+  },
 } as const;

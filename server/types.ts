@@ -17,6 +17,8 @@ export type {
   EntryGroup,
   EntryWithMacros,
   ExtractedLabel,
+  WeightInput,
+  WeightEntry,
 } from '../shared/types.js';
 
 import type { Macros } from '../shared/types.js';
@@ -128,6 +130,15 @@ export type EntryGroupRow = {
   local_date: string;
   name: string;
   created_at: number;
+};
+
+// --- weights ---
+
+export type WeightRow = {
+  id: number;
+  local_date: string;
+  weight_kg: number;
+  note: string | null;
 };
 
 // --- db plumbing ---

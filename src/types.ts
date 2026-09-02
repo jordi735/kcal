@@ -7,6 +7,8 @@ export type {
   EntryGroup,
   EntryWithMacros,
   ExtractedLabel,
+  WeightInput,
+  WeightEntry,
 } from '../shared/types.js';
 
 import type { EntryWithMacros, Macros } from '../shared/types.js';
