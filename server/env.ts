@@ -53,6 +53,13 @@ function parseDebugAllowIps(): ReadonlySet<string> {
   );
 }
 
+// Optional static admin credential. Blank disables MCP. Never log the value.
+const MCP_ADMIN_TOKEN = process.env.MCP_ADMIN_TOKEN?.trim() || '';
+if (MCP_ADMIN_TOKEN !== '' && MCP_ADMIN_TOKEN.length < 32) {
+  console.error('[kcal] MCP_ADMIN_TOKEN must contain at least 32 characters, or be blank to disable MCP');
+  process.exit(1);
+}
+
 // Optional — tests only. Never set in production. See .env.example.
 const TEST_MODE = process.env.TEST_MODE === 'true';
 if (TEST_MODE) {
@@ -71,6 +78,7 @@ export const env = {
   LOGIN_CODE_EXPIRY_MINUTES: toPositiveInt('LOGIN_CODE_EXPIRY_MINUTES'),
   AI_SCAN_DAILY_CAP: toPositiveInt('AI_SCAN_DAILY_CAP'),
   LOG_LEVEL: rawLevel as LogLevel,
+  MCP_ADMIN_TOKEN,
   TEST_MODE,
   // Empty set when DEBUG_ALLOW_IPS unset → /debug is fully denied (fail-closed).
   DEBUG_ALLOW_IPS: parseDebugAllowIps(),

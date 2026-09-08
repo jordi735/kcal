@@ -8,7 +8,8 @@ These instructions apply to the entire repository.
   transitions; components, screens, modals, and hooks own local interaction state.
 - `server/` is the Express 5 and SQLite backend. Routes live in `server/routes/`,
   SQL migrations in `server/migrations/`, and normal application statements in
-  `server/statements.ts`.
+  `server/statements.ts`. `server/reads.ts` shares read functions and serializers
+  between REST routes and the read-only admin MCP tools; setup is in `docs/mcp.md`.
 - `shared/` contains code compiled by both TypeScript projects, especially wire
   types, stored-text normalization, and API-prefix detection.
 - `public/` contains PWA and site assets copied into the Vite build. `tests/e2e/`
@@ -93,8 +94,9 @@ required-key inventory and never commit real credentials.
   `server/migrations/*.sql` file; never revise an applied migration.
 - Put normal application SQL in `server/statements.ts`. Bootstrap/migration SQL
   stays in `server/db.ts`; deliberately unscoped debug reads stay isolated in
-  `server/routes/debug.ts`. Document bind order beside statements and mirror it
-  at call sites; within scoped `WHERE` bindings, owner precedes resource ID.
+  `server/routes/debug.ts`, and admin MCP user discovery in `server/routes/mcp.ts`.
+  Document bind order beside statements and mirror it at call sites; within scoped
+  `WHERE` bindings, owner precedes resource ID.
 - Scope entries and weights by authenticated `user_id`, owned products by
   `created_by`, and settings by authenticated user `id` at the SQL layer. Verify
   product ownership before inserting an entry; never trust a client-supplied user
@@ -123,10 +125,16 @@ required-key inventory and never commit real credentials.
   behavior in production.
 - Preserve the `{ error: string }` failure shape. Keep request-body guards beside
   their routes and build them from `server/guards.ts` primitives.
-- `/debug` is an unauthenticated raw-data endpoint and the only administrative
-  cross-user read. Keep its fail-closed `DEBUG_ALLOW_IPS` middleware ahead of the
-  router. Configure `TRUST_PROXY` with trusted proxy addresses/subnets; the current
+- `/debug` is an unauthenticated raw-data endpoint. Keep its fail-closed
+  `DEBUG_ALLOW_IPS` middleware ahead of the router. Configure `TRUST_PROXY` with
+  trusted proxy addresses/subnets; the current
   string parser does not make `"1"` a one-hop setting.
+- `/mcp` is the other administrative cross-user read boundary: `list_users`,
+  `get_day`, `get_week`, and `get_weighins` require the separate static
+  `MCP_ADMIN_TOKEN` (at least 32 characters); blank/unset disables the endpoint.
+  App sessions never grant MCP access. Reject Origin headers, keep tools read-only,
+  exclude credentials, and reuse the app's read calculations. Only admin MCP may
+  choose a user from tool arguments; ordinary routes retain session-owned scoping.
 - Use `server/log.ts` for runtime logs and `log.emailHash(email)` for explicit email
   correlation fields. Direct console calls are limited to `server/env.ts` bootstrap
   diagnostics and logger internals.
@@ -155,8 +163,10 @@ required-key inventory and never commit real credentials.
 
 - Playwright tests the production topology: it builds the SPA and starts Express
   on `:3001` with `TEST_MODE=true` and `/tmp/kcal-e2e.db`.
-- The suite uses one worker. Global setup resets the database once per run, but
-  tests within that run share database and default-user state. Use unique product
+- The suite uses one worker and starts a fresh backend. Its startup command resets
+  the database before opening SQLite; do not move cleanup into a Playwright global
+  setup hook, which runs after the web server starts. Tests within a run share
+  database and default-user state. Use unique product
   names/barcodes for persisted fixtures.
 - The mobile project uses the Pixel 7 profile, depends on both auth setup projects,
   and defaults to `tests/e2e/.auth/user.json`. Use `user2.json` for user B.

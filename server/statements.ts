@@ -310,6 +310,14 @@ export const statements = {
   },
 
   weights: {
+    // (user_id, start_date, end_date, limit, offset) — inclusive, newest first.
+    inRange: db.prepare(`
+      SELECT id, local_date, weight_kg, note
+      FROM weights
+      WHERE user_id = ? AND local_date >= ? AND local_date <= ?
+      ORDER BY local_date DESC
+      LIMIT ? OFFSET ?
+    `),
     // (user_id)
     all: db.prepare(`
       SELECT id, local_date, weight_kg, note

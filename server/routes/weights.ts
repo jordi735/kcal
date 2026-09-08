@@ -5,8 +5,9 @@ import { authMiddleware } from '../auth.js';
 import { DATE_RE, isObject } from '../guards.js';
 import { log } from '../log.js';
 import { statements } from '../statements.js';
+import { readWeights, rowToWeight } from '../reads.js';
 import { parsePositiveInt } from '../util.js';
-import type { WeightEntry, WeightInput, WeightRow } from '../types.js';
+import type { WeightInput, WeightRow } from '../types.js';
 
 export const weightsRouter: Router = Router();
 
@@ -44,15 +45,6 @@ function parseWeightInput(value: unknown): WeightInput | null {
   };
 }
 
-function rowToWeight(row: WeightRow): WeightEntry {
-  return {
-    id: row.id,
-    local_date: row.local_date,
-    weight_kg: row.weight_kg,
-    note: row.note,
-  };
-}
-
 function isDateConflict(error: unknown): boolean {
   if (!isObject(error)) return false;
   return (
@@ -64,8 +56,7 @@ function isDateConflict(error: unknown): boolean {
 }
 
 weightsRouter.get('/', (req, res) => {
-  const rows = statements.weights.all.all(req.userId!) as WeightRow[];
-  res.json(rows.map(rowToWeight));
+  res.json(readWeights(req.userId!));
 });
 
 weightsRouter.post('/', (req, res) => {

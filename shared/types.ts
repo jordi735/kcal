@@ -70,3 +70,35 @@ export type WeightInput = {
 export type WeightEntry = WeightInput & {
   id: number;
 };
+
+// Read-only admin MCP results. Goals always describe the current settings;
+// recorded totals use current product nutrition, as the app does.
+export type McpUser = { id: number; email: string };
+
+export type McpUsersResult = {
+  users: McpUser[];
+  next_offset: number | null;
+};
+
+export type McpDayResult = {
+  user_id: number;
+  date: string;
+  entries: EntryWithMacros[];
+  totals: Macros;
+  current_daily_goals: Macros;
+};
+
+export type McpWeekResult = {
+  user_id: number;
+  start_date: string;
+  end_date: string;
+  days: Record<string, Macros>;
+  totals: Macros;
+  current_daily_goals: Macros;
+};
+
+export type McpWeighinsResult = {
+  user_id: number;
+  weighins: WeightEntry[];
+  next_offset: number | null;
+};

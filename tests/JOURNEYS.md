@@ -237,6 +237,15 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-186 · Weight form validation and Cancel prevent invalid writes; failed saves retain the complete draft for retry
 - J-187 · Weight API validates bodies and IDs, rejects date collisions, and isolates every user's records
 
+# 16. Read-only admin MCP
+
+- J-188 · MCP discovers four read-only tools and paginates users without exposing credentials
+- J-189 · Admin day/week tools match app totals across users, groups, year boundaries, and retroactive product edits
+- J-190 · Weigh-in tools preserve notes and support inclusive date filters and newest-first pagination
+- J-191 · MCP validates dates, users, and pagination, rejects arbitrary queries, and never changes stored records
+- J-192 · MCP requires its admin token for discovery/calls, rejects browser origins, and returns protocol/API errors
+- J-193 · Missing or blank MCP tokens disable the endpoint; short configured tokens prevent startup
+
 # Verification
 
 Run from the repo root:

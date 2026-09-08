@@ -1,10 +1,8 @@
 import { rmSync } from 'node:fs';
 
-// Wipe the test DB (and its WAL/SHM siblings) before Playwright boots the
-// webServer. Each `npm test` run sees a completely empty database, so
-// migrations apply fresh and there is no leftover state from prior runs.
-export default async function globalSetup() {
-  for (const suffix of ['', '-wal', '-shm']) {
-    rmSync(`/tmp/kcal-e2e.db${suffix}`, { force: true });
-  }
+// Invoked by webServer.command BEFORE Express opens SQLite. Playwright's
+// globalSetup hook runs after webServer and would unlink a live database.
+// Each test run starts a new server with a fresh DB and fresh migrations.
+for (const suffix of ['', '-wal', '-shm']) {
+  rmSync(`/tmp/kcal-e2e.db${suffix}`, { force: true });
 }

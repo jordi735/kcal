@@ -9,6 +9,11 @@ export type {
   ExtractedLabel,
   WeightInput,
   WeightEntry,
+  McpUser,
+  McpUsersResult,
+  McpDayResult,
+  McpWeekResult,
+  McpWeighinsResult,
 } from '../shared/types.js';
 
 import type { EntryWithMacros, Macros } from '../shared/types.js';

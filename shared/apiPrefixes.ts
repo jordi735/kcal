@@ -9,6 +9,7 @@ export const API_PREFIXES = [
   '/entries',
   '/weights',
   '/debug',
+  '/mcp',
 ] as const;
 
 export function isApiPath(pathname: string): boolean {

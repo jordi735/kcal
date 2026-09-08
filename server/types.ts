@@ -19,6 +19,11 @@ export type {
   ExtractedLabel,
   WeightInput,
   WeightEntry,
+  McpUser,
+  McpUsersResult,
+  McpDayResult,
+  McpWeekResult,
+  McpWeighinsResult,
 } from '../shared/types.js';
 
 import type { Macros } from '../shared/types.js';
@@ -46,6 +51,13 @@ export type UserRow = {
 };
 
 export type GoalsBody = Macros;
+
+export type GoalsRow = {
+  goal_kcal: number;
+  goal_protein: number;
+  goal_carbs: number;
+  goal_fat: number;
+};
 
 // --- products ---
 

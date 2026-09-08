@@ -6,7 +6,6 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
@@ -31,9 +30,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run build && npx tsx server/index.ts',
+    // Playwright launches webServer before globalSetup hooks. Reset before
+    // Express opens SQLite, otherwise cleanup unlinks its live DB and WAL.
+    command: 'npm run build && npx tsx tests/e2e/global-setup.ts && npx tsx server/index.ts',
     url: 'http://localhost:3001',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
     stdout: 'ignore',
     stderr: 'pipe',
@@ -47,6 +48,8 @@ export default defineConfig({
       LOGIN_CODE_EXPIRY_MINUTES: '10',
       AI_SCAN_DAILY_CAP: '100',
       LOG_LEVEL: 'warn',
+      // Fixed disposable credential shared with the MCP protocol tests.
+      MCP_ADMIN_TOKEN: 'kcal-e2e-admin-token-not-for-production',
     },
   },
 });

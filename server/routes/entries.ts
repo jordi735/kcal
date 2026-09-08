@@ -8,6 +8,7 @@ import { db } from '../db.js';
 import { DATE_RE, TIME_RE, isObject, isPositiveFinite, isPositiveInt } from '../guards.js';
 import { log } from '../log.js';
 import { statements } from '../statements.js';
+import { readDailyTotals, readDayEntries, rowToEntry } from '../reads.js';
 import { parsePositiveInt } from '../util.js';
 import { normalizeEntryGroupName } from '../../shared/normalize.js';
 import type {
@@ -15,49 +16,12 @@ import type {
   EntryGroupRow,
   EntryJoinRow,
   EntryMembershipRow,
-  EntryWithMacros,
   NewEntryBody,
-  WeekSumRow,
 } from '../types.js';
 
 export const entriesRouter: Router = Router();
 
 entriesRouter.use(authMiddleware);
-
-function rowToEntry(r: EntryJoinRow): EntryWithMacros {
-  const f = r.grams / 100;
-  return {
-    id: r.id,
-    product: {
-      id: r.p_id,
-      name: r.p_name,
-      brand: r.p_brand,
-      unit: r.p_unit === 'ml' ? 'ml' : 'g',
-      barcode: r.p_barcode,
-      per100: {
-        kcal: r.p_kcal_per100,
-        protein: r.p_protein_per100,
-        carbs: r.p_carbs_per100,
-        fat: r.p_fat_per100,
-      },
-      is_temp: r.p_is_temp === 1,
-    },
-    grams: r.grams,
-    local_date: r.local_date,
-    local_time: r.local_time,
-    macros: {
-      kcal: r.p_kcal_per100 * f,
-      protein: r.p_protein_per100 * f,
-      carbs: r.p_carbs_per100 * f,
-      fat: r.p_fat_per100 * f,
-    },
-    tagged: r.tagged === 1,
-    group:
-      r.group_id === null || r.group_name === null
-        ? null
-        : { id: r.group_id, name: r.group_name },
-  };
-}
 
 function rowToEntryGroup(r: EntryGroupRow): EntryGroup {
   return { id: r.id, name: r.name, local_date: r.local_date };
@@ -132,8 +96,7 @@ entriesRouter.get('/', (req, res) => {
     res.status(400).json({ error: 'invalid_date' });
     return;
   }
-  const rows = statements.entries.selectForDay.all(req.userId!, date) as EntryJoinRow[];
-  res.json(rows.map(rowToEntry));
+  res.json(readDayEntries(req.userId!, date));
 });
 
 // Declared before `/:id` routes so the string literal wins over any
@@ -158,20 +121,7 @@ entriesRouter.get('/week', (req, res) => {
     return;
   }
   const dates = sevenDatesFromStart(start);
-  const rows = statements.entries.weekSum.all(req.userId!, start, dates[6]!) as WeekSumRow[];
-  const byDate = new Map(rows.map((r) => [r.date, r]));
-  const result = Object.fromEntries(
-    dates.map((d) => {
-      const r = byDate.get(d);
-      return [
-        d,
-        r === undefined
-          ? { kcal: 0, protein: 0, carbs: 0, fat: 0 }
-          : { kcal: r.kcal, protein: r.protein, carbs: r.carbs, fat: r.fat },
-      ];
-    }),
-  );
-  res.json(result);
+  res.json(readDailyTotals(req.userId!, dates));
 });
 
 entriesRouter.post('/groups', (req, res) => {
