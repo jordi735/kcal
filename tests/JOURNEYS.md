@@ -239,10 +239,10 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 
 # 16. Read-only MCP and OAuth
 
-- J-188 · MCP discovers four read-only tools scoped to the connected account and rejects user discovery
+- J-188 · MCP discovers four account-scoped read-only tools with output schemas and rejects user discovery
 - J-189 · Day/week/meal tools isolate connected accounts and match app totals across groups, year boundaries, and product edits
 - J-190 · Weigh-in tools preserve notes and support inclusive date filters and newest-first pagination
-- J-191 · MCP validates dates and pagination, rejects user selection and arbitrary queries, and never changes stored records
+- J-191 · MCP validates dates and pagination, preserves text-only errors, rejects user selection and arbitrary queries, and never changes stored records
 - J-192 · MCP requires OAuth tokens, rejects app sessions and browser origins, and advertises discovery when unauthenticated
 - J-193 · Missing or blank public origins disable MCP; unsafe configured origins prevent startup
 - J-194 · OAuth discovery and DCR connect public/confidential clients through email login, escape client names, and separate app/connector tokens

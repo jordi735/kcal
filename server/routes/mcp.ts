@@ -9,7 +9,7 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 import { env } from '../env.js';
 import { MCP_SCOPE, oauthProvider } from '../oauth.js';
-import { DATE_RE } from '../guards.js';
+import { DATE_RE, TIME_RE } from '../guards.js';
 import { log } from '../log.js';
 import { readDailyTotals, readDayEntries, readGoals, readWeightPage, sumMacros } from '../reads.js';
 import type {
@@ -22,7 +22,39 @@ function isLocalDate(value: string): boolean {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
-const localDate = z.string().regex(DATE_RE).refine(isLocalDate, 'Use a valid YYYY-MM-DD calendar date');
+const dateString = z.string().regex(DATE_RE);
+const localDate = dateString.refine(isLocalDate, 'Use a valid YYYY-MM-DD calendar date');
+const macrosSchema = z.object({
+  kcal: z.number(),
+  protein: z.number(),
+  carbs: z.number(),
+  fat: z.number(),
+});
+const productSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  brand: z.string().nullable(),
+  unit: z.enum(['g', 'ml']),
+  barcode: z.string().nullable(),
+  per100: macrosSchema,
+  is_temp: z.boolean(),
+});
+const entrySchema = z.object({
+  id: z.number().int(),
+  product: productSchema,
+  grams: z.number(),
+  local_date: dateString,
+  local_time: z.string().regex(TIME_RE),
+  macros: macrosSchema,
+  tagged: z.boolean(),
+  group: z.object({ id: z.number().int(), name: z.string() }).nullable(),
+});
+const weightSchema = z.object({
+  id: z.number().int(),
+  local_date: dateString,
+  weight_kg: z.number(),
+  note: z.string().nullable(),
+});
 const pagination = {
   limit: z.number().int().min(1).max(500).default(100).describe('Maximum records to return, from 1 to 500'),
   offset: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER - 500).default(0)
@@ -86,7 +118,7 @@ function readResult(
 }
 
 function createServer(user_id: number): McpServer {
-  const server = new McpServer({ name: 'kcal', version: '2.1.0' }, {
+  const server = new McpServer({ name: 'kcal', version: '2.1.1' }, {
     instructions: 'Read-only access to the connected KCAL account. '
       + 'Dates are local YYYY-MM-DD; weeks run Monday–Sunday. Totals include all logged entries, '
       + 'including tagged entries, with groups counted only through their children. Nutrition uses '
@@ -98,6 +130,13 @@ function createServer(user_id: number): McpServer {
   server.registerTool('get_day', {
     description: 'Get one user’s food log for a date, with product details, per-entry macros, tags, groups, daily totals, and current daily goals.',
     inputSchema: z.strictObject({ date: localDate.describe('Local date to read, YYYY-MM-DD') }),
+    outputSchema: z.object({
+      user_id: z.number().int(),
+      date: dateString,
+      entries: z.array(entrySchema),
+      totals: macrosSchema,
+      current_daily_goals: macrosSchema,
+    }) satisfies z.ZodType<McpDayResult>,
     annotations,
   }, ({ date }) => readResult(() => {
     const goals = requireGoals(user_id);
@@ -115,6 +154,12 @@ function createServer(user_id: number): McpServer {
       start_date: localDate.describe('First local date to read, inclusive, YYYY-MM-DD'),
       end_date: localDate.describe('Last local date to read, inclusive, YYYY-MM-DD; at most 31 days including both bounds'),
     }),
+    outputSchema: z.object({
+      user_id: z.number().int(),
+      start_date: dateString,
+      end_date: dateString,
+      days: z.record(dateString, z.object({ entries: z.array(entrySchema), totals: macrosSchema })),
+    }) satisfies z.ZodType<McpMealsResult>,
     annotations,
   }, ({ start_date, end_date }) => readResult(() => {
     const dates = mealDates(start_date, end_date);
@@ -129,6 +174,14 @@ function createServer(user_id: number): McpServer {
   server.registerTool('get_week', {
     description: 'Get seven daily calorie/macro totals and a weekly total for the Monday–Sunday containing a date. Includes current daily goals; use get_day for food details.',
     inputSchema: z.strictObject({ date: localDate.describe('Any local date in the requested week, YYYY-MM-DD') }),
+    outputSchema: z.object({
+      user_id: z.number().int(),
+      start_date: dateString,
+      end_date: dateString,
+      days: z.record(dateString, macrosSchema),
+      totals: macrosSchema,
+      current_daily_goals: macrosSchema,
+    }) satisfies z.ZodType<McpWeekResult>,
     annotations,
   }, ({ date }) => readResult(() => {
     const goals = requireGoals(user_id);
@@ -147,6 +200,11 @@ function createServer(user_id: number): McpServer {
       end_date: localDate.optional().describe('Latest local date, inclusive'),
       ...pagination,
     }),
+    outputSchema: z.object({
+      user_id: z.number().int(),
+      weighins: z.array(weightSchema),
+      next_offset: z.number().int().nullable(),
+    }) satisfies z.ZodType<McpWeighinsResult>,
     annotations,
   }, ({ start_date, end_date, limit, offset }) => readResult(() => {
     const start = start_date ?? '0000-01-01';

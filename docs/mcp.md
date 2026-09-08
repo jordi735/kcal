@@ -82,7 +82,8 @@ Food entries include product details, computed macros, tags, and group reference
 in entry ID order. Tagged entries count toward totals; groups count only through
 their children. Historical totals use current product nutrition, matching the app.
 Goals describe current settings. Zero totals mean no recorded intake, not proof
-that logging was complete. All tools return structured JSON and equivalent text.
+that logging was complete. All tools advertise output schemas and return matching
+structured JSON and equivalent text.
 
 ## Connection lifecycle
 

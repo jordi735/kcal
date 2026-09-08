@@ -54,12 +54,25 @@ async function write(
   return response.json();
 }
 
-test('[J-188] MCP discovers four read-only tools scoped to the connected account', async ({ mcp }) => {
+test('[J-188] MCP discovers four account-scoped read-only tools with output schemas', async ({ mcp }) => {
   expect(mcp.getServerVersion()?.name).toBe('kcal');
   const { tools } = await mcp.listTools();
   expect(tools.map((tool) => tool.name).sort()).toEqual(['get_day', 'get_meals', 'get_week', 'get_weighins']);
   expect(tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true);
   expect(tools.every((tool) => !('user_id' in (tool.inputSchema.properties ?? {})))).toBe(true);
+  const outputFields: Record<string, string[]> = {
+    get_day: ['user_id', 'date', 'entries', 'totals', 'current_daily_goals'],
+    get_meals: ['user_id', 'start_date', 'end_date', 'days'],
+    get_week: ['user_id', 'start_date', 'end_date', 'days', 'totals', 'current_daily_goals'],
+    get_weighins: ['user_id', 'weighins', 'next_offset'],
+  };
+  for (const tool of tools) {
+    expect(tool.outputSchema, tool.name).toMatchObject({
+      type: 'object', properties: { user_id: { type: 'integer' } },
+    });
+    expect(Object.keys(tool.outputSchema!.properties ?? {}).sort()).toEqual(outputFields[tool.name]!.sort());
+    expect(tool.outputSchema!.required).toEqual(expect.arrayContaining(outputFields[tool.name]!));
+  }
   expect((await mcp.callTool({ name: 'list_users', arguments: {} })).isError).toBe(true);
 });
 
@@ -240,6 +253,8 @@ test('[J-191] MCP rejects invalid inputs without changing any stored records', a
     ] as const) {
       const result = await mcp.callTool({ name, arguments: input });
       expect(result.isError, `${name}: ${JSON.stringify(input)}`).toBe(true);
+      expect(result.content).toEqual([{ type: 'text', text: expect.any(String) }]);
+      expect(result.structuredContent).toBeUndefined();
     }
     const unknown = await request.post('/mcp', {
       headers: mcpHeaders,

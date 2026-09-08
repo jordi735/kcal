@@ -62,6 +62,8 @@ export async function connectMcp(page: Page, oauth = new BrowserOAuth()) {
   const code = await approveOAuth(page, oauth);
   const mcp = new Client({ name: 'kcal-e2e', version: '1.0.0' });
   await mcp.connect(new StreamableHTTPClientTransport(new URL(RESOURCE), { authProvider: oauth }));
+  // Cache advertised output schemas so the SDK validates subsequent tool results.
+  await mcp.listTools();
   return { mcp, oauth, code };
 }
 
