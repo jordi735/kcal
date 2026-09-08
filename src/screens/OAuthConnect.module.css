@@ -1,0 +1,16 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 64px 28px 40px;
+  max-width: 480px;
+  margin: auto;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.shell h1 { font-size: 24px; }
+.account { font-family: var(--mono); }
+.detail { color: var(--fg-dim); font-size: 13px; }
+.actions { display: flex; flex-direction: column; gap: 12px; }
+.error { color: var(--danger); }

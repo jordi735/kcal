@@ -71,15 +71,16 @@ export type WeightEntry = WeightInput & {
   id: number;
 };
 
-// Read-only admin MCP results. Goals always describe the current settings;
-// recorded totals use current product nutrition, as the app does.
-export type McpUser = { id: number; email: string };
-
-export type McpUsersResult = {
-  users: McpUser[];
-  next_offset: number | null;
+export type OAuthConsent = {
+  client_name: string;
+  redirect_host: string;
+  email: string;
 };
 
+export type OAuthDecision = { redirect_url: string };
+
+// Read-only MCP results. Goals always describe the current settings;
+// recorded totals use current product nutrition, as the app does.
 export type McpDayResult = {
   user_id: number;
   date: string;

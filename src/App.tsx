@@ -14,6 +14,7 @@ import {
 import { getMonday, toLocalDateString, toLocalTimeString } from './dates';
 import { mockGoals } from './mocks';
 import { Login } from './screens/Login';
+import { OAuthConnect } from './screens/OAuthConnect';
 import { Settings } from './screens/Settings';
 import { Home } from './screens/Home';
 import { AddPicker } from './modals/AddPicker';
@@ -26,7 +27,7 @@ import { WeightTracker } from './modals/WeightTracker';
 import { SheetCloseRegisterProvider } from './components/Sheet';
 import { useEntries } from './hooks/useEntries';
 import { FADE_EXIT_MS } from './hooks/useFadeClose';
-import { api, ApiError, clearStoredSession, SESSION_TOKEN_KEY, USER_KEY } from './api';
+import { api, ApiError, clearStoredSession, oauthRequestId, requestLoginCode, verifyLoginCode, SESSION_TOKEN_KEY, USER_KEY } from './api';
 import styles from './App.module.css';
 
 // Shared backdrop for sheet-style modals — stays mounted across sheet-to-sheet
@@ -145,6 +146,11 @@ function userToGoals(u: User): Goals {
 }
 
 export function App() {
+  const request = oauthRequestId();
+  return request === null ? <Tracker /> : <OAuthConnect request={request} />;
+}
+
+function Tracker() {
   const initialToken = readStoredToken();
   const initialUser = readStoredUser();
   const bootedLoggedIn = initialToken !== null && initialUser !== null;
@@ -297,28 +303,15 @@ export function App() {
     };
   }, [user?.id]);
 
-  // Handle login — request a 6-digit sign-in code by email.
-  const onRequestCode = async (email: string): Promise<void> => {
-    await api<{ ok: true }>('/auth/request-code', {
-      method: 'POST',
-      body: { email },
-    });
-  };
-
   // Verify the 6-digit code and persist the session.
   const onVerifyCode = async (email: string, code: string): Promise<void> => {
-    const res = await api<{ session_token: string; user: User }>('/auth/verify-code', {
-      method: 'POST',
-      body: { email, code },
-    });
-    localStorage.setItem(SESSION_TOKEN_KEY, res.session_token);
-    localStorage.setItem(USER_KEY, JSON.stringify(res.user));
-    setGoals(userToGoals(res.user));
-    setUser(res.user);
+    const user = await verifyLoginCode(email, code);
+    setGoals(userToGoals(user));
+    setUser(user);
   };
 
   if (user === null) {
-    return <Login onRequestCode={onRequestCode} onVerifyCode={onVerifyCode} />;
+    return <Login onRequestCode={requestLoginCode} onVerifyCode={onVerifyCode} />;
   }
 
   const closeModal = () => setModal({ kind: 'none' });

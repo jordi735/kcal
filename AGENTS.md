@@ -9,7 +9,7 @@ These instructions apply to the entire repository.
 - `server/` is the Express 5 and SQLite backend. Routes live in `server/routes/`,
   SQL migrations in `server/migrations/`, and normal application statements in
   `server/statements.ts`. `server/reads.ts` shares read functions and serializers
-  between REST routes and the read-only admin MCP tools; setup is in `docs/mcp.md`.
+  between REST routes and the read-only MCP tools; setup is in `docs/mcp.md`.
 - `shared/` contains code compiled by both TypeScript projects, especially wire
   types, stored-text normalization, and API-prefix detection.
 - `public/` contains PWA and site assets copied into the Vite build. `tests/e2e/`
@@ -94,7 +94,7 @@ required-key inventory and never commit real credentials.
   `server/migrations/*.sql` file; never revise an applied migration.
 - Put normal application SQL in `server/statements.ts`. Bootstrap/migration SQL
   stays in `server/db.ts`; deliberately unscoped debug reads stay isolated in
-  `server/routes/debug.ts`, and admin MCP user discovery in `server/routes/mcp.ts`.
+  `server/routes/debug.ts`. OAuth statements resolve users from credentials.
   Document bind order beside statements and mirror it at call sites; within scoped
   `WHERE` bindings, owner precedes resource ID.
 - Scope entries and weights by authenticated `user_id`, owned products by
@@ -129,12 +129,16 @@ required-key inventory and never commit real credentials.
   `DEBUG_ALLOW_IPS` middleware ahead of the router. Configure `TRUST_PROXY` with
   trusted proxy addresses/subnets; the current
   string parser does not make `"1"` a one-hop setting.
-- `/mcp` is the other administrative cross-user read boundary: `list_users`,
-  `get_day`, `get_week`, and `get_weighins` require the separate static
-  `MCP_ADMIN_TOKEN` (at least 32 characters); blank/unset disables the endpoint.
-  App sessions never grant MCP access. Reject Origin headers, keep tools read-only,
-  exclude credentials, and reuse the app's read calculations. Only admin MCP may
-  choose a user from tool arguments; ordinary routes retain session-owned scoping.
+- `/mcp` exposes only `get_day`, `get_week`, and `get_weighins` with user ownership
+  resolved from separate OAuth tokens. Never accept app sessions, admin tokens,
+  or caller-selected user IDs. Keep tools read-only and reuse app calculations.
+  `PUBLIC_ORIGIN` enables OAuth/MCP; unset disables them. SDK OAuth routes own
+  discovery/DCR/PKCE; `server/oauth.ts` persists clients, browser-bound consent,
+  single-use codes, rotating tokens, and revocation in SQLite. Enforce resource
+  binding in the provider (SDK bearer middleware does not check audience).
+  Keep OAuth's standard error responses; reject Origin headers at `/mcp` and
+  require same-origin authenticated consent. Preserve the pending OAuth request
+  through app-session expiry without allowing arbitrary return URLs.
 - Use `server/log.ts` for runtime logs and `log.emailHash(email)` for explicit email
   correlation fields. Direct console calls are limited to `server/env.ts` bootstrap
   diagnostics and logger internals.

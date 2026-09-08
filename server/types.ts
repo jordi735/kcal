@@ -19,14 +19,42 @@ export type {
   ExtractedLabel,
   WeightInput,
   WeightEntry,
-  McpUser,
-  McpUsersResult,
+  OAuthConsent,
+  OAuthDecision,
   McpDayResult,
   McpWeekResult,
   McpWeighinsResult,
 } from '../shared/types.js';
 
 import type { Macros } from '../shared/types.js';
+
+export type OAuthRequestRow = {
+  id_hash: string;
+  browser_hash: string;
+  client_id: string;
+  redirect_uri: string;
+  state: string | null;
+  challenge: string;
+  resource: string;
+  expires_at: number;
+  user_id: number | null;
+  code_hash: string | null;
+};
+
+export type OAuthGrantRow = {
+  id: string;
+  user_id: number;
+  client_id: string;
+  resource: string;
+  expires_at: number;
+  revoked: number;
+};
+
+export type OAuthTokenRow = OAuthGrantRow & {
+  kind: 'access' | 'refresh';
+  used: number;
+  token_expires_at: number;
+};
 
 // --- auth / sessions ---
 

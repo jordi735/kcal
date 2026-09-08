@@ -1,6 +1,5 @@
 import { expect, test as base, type APIRequestContext, type Page } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -8,25 +7,24 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import type { McpDayResult, McpUsersResult, McpWeekResult, McpWeighinsResult } from '../../shared/types';
+import type { McpDayResult, McpWeekResult, McpWeighinsResult } from '../../shared/types';
 import { signInFresh } from './helpers';
+import { connectMcp } from './oauth-helpers';
 
-// Matches playwright.config.ts; only the disposable test backend accepts it.
-const ADMIN_TOKEN = 'kcal-e2e-admin-token-not-for-production';
-const MCP_HEADERS = { Authorization: `Bearer ${ADMIN_TOKEN}`, Accept: 'application/json, text/event-stream' };
+const MCP_HEADERS = { Accept: 'application/json, text/event-stream' };
 const ZERO = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
 
-const test = base.extend<{ mcp: Client }>({
-  mcp: async ({ baseURL }, use) => {
-    const client = new Client({ name: 'kcal-e2e', version: '1.0.0' });
-    try {
-      await client.connect(new StreamableHTTPClientTransport(new URL('/mcp', baseURL), {
-        requestInit: { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } },
-      }));
-      await use(client);
-    } finally {
-      await client.close();
-    }
+type Account = { token: string; user: { id: number; email: string } };
+const test = base.extend<{ account: Account; connection: Awaited<ReturnType<typeof connectMcp>>; mcp: Client; mcpHeaders: Record<string, string> }>({
+  account: async ({ page, request }, use) => { await use(await freshUser(page, request, 'mcp')); },
+  connection: async ({ page, account }, use) => {
+    void account;
+    const connection = await connectMcp(page);
+    try { await use(connection); } finally { await connection.mcp.close(); }
+  },
+  mcp: async ({ connection }, use) => { await use(connection.mcp); },
+  mcpHeaders: async ({ connection }, use) => {
+    await use({ ...MCP_HEADERS, Authorization: `Bearer ${connection.oauth.savedTokens!.access_token}` });
   },
 });
 
@@ -56,25 +54,16 @@ async function write(
   return response.json();
 }
 
-test('[J-188] MCP discovers four read-only tools and paginates credential-free users', async ({ mcp }) => {
+test('[J-188] MCP discovers three read-only tools scoped to the connected account', async ({ mcp }) => {
   expect(mcp.getServerVersion()?.name).toBe('kcal');
   const { tools } = await mcp.listTools();
-  expect(tools.map((tool) => tool.name).sort()).toEqual(['get_day', 'get_week', 'get_weighins', 'list_users']);
+  expect(tools.map((tool) => tool.name).sort()).toEqual(['get_day', 'get_week', 'get_weighins']);
   expect(tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true);
-  const users = await call<McpUsersResult>(mcp, 'list_users');
-  expect(users.users.length).toBeGreaterThanOrEqual(2);
-  for (const user of users.users) expect(Object.keys(user).sort()).toEqual(['email', 'id']);
-  expect(users.users.map((user) => user.id)).toEqual(users.users.map((user) => user.id).sort((a, b) => a - b));
-  const first = await call<McpUsersResult>(mcp, 'list_users', { limit: 1 });
-  expect(first).toEqual({ users: users.users.slice(0, 1), next_offset: 1 });
-  const second = await call<McpUsersResult>(mcp, 'list_users', { limit: 1, offset: first.next_offset });
-  expect(second.users).toEqual(users.users.slice(1, 2));
-  const end = await call<McpUsersResult>(mcp, 'list_users', { offset: users.users.length });
-  expect(end).toEqual({ users: [], next_offset: null });
+  expect(tools.every((tool) => !('user_id' in (tool.inputSchema.properties ?? {})))).toBe(true);
+  expect((await mcp.callTool({ name: 'list_users', arguments: {} })).isError).toBe(true);
 });
 
-test('[J-189] MCP day and week match app totals across users, groups, and product edits', async ({ page, request, browser, mcp }) => {
-  const a = await freshUser(page, request, 'mcp-food');
+test('[J-189] MCP day and week match app totals across users, groups, and product edits', async ({ request, browser, mcp, account: a }) => {
   const headers = { Authorization: `Bearer ${a.token}` };
   const goals = { kcal: 2300, protein: 150, carbs: 250, fat: 75 };
   await write(request, a.token, 'put', '/settings', goals);
@@ -95,13 +84,13 @@ test('[J-189] MCP day and week match app totals across users, groups, and produc
   });
   await write(request, a.token, 'patch', `/entries/${first.id}`, { tagged: true });
 
-  const day = await call<McpDayResult>(mcp, 'get_day', { user_id: a.user.id, date: '2024-12-30' });
+  const day = await call<McpDayResult>(mcp, 'get_day', { date: '2024-12-30' });
   expect(day.entries).toEqual(await (await request.get('/entries?date=2024-12-30', { headers })).json());
   expect(day.entries.map((row) => row.group?.id)).toEqual([group.id, group.id]);
   expect(day.entries.map((row) => row.tagged)).toEqual([true, false]);
   expect(day.totals).toEqual({ kcal: 400, protein: 20, carbs: 40, fat: 10 });
   expect(day.current_daily_goals).toEqual(await (await request.get('/settings', { headers })).json());
-  const week = await call<McpWeekResult>(mcp, 'get_week', { user_id: a.user.id, date: '2025-01-05' });
+  const week = await call<McpWeekResult>(mcp, 'get_week', { date: '2025-01-05' });
   expect(week.start_date).toBe('2024-12-30');
   expect(week.end_date).toBe('2025-01-05');
   expect(Object.keys(week.days)).toHaveLength(7);
@@ -109,22 +98,23 @@ test('[J-189] MCP day and week match app totals across users, groups, and produc
   expect(week.days['2024-12-31']).toEqual(ZERO);
   expect(week.totals).toEqual({ kcal: 600, protein: 30, carbs: 60, fat: 15 });
   expect(week.current_daily_goals).toEqual(goals);
-  expect(await call(mcp, 'get_week', { user_id: a.user.id, date: '2024-12-30' })).toEqual(week);
+  expect(await call(mcp, 'get_week', { date: '2024-12-30' })).toEqual(week);
 
-  // A second account is selectable only through admin MCP; ordinary routes
-  // continue deriving identity from their session even if user_id is supplied.
+  // Each connection resolves its own account; tool arguments cannot switch it.
   const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   try {
-    const b = await freshUser(await context.newPage(), request, 'mcp-other');
-    const bDay = await call<McpDayResult>(mcp, 'get_day', { user_id: b.user.id, date: '2024-12-30' });
+    const bPage = await context.newPage();
+    const b = await freshUser(bPage, request, 'mcp-other');
+    const bConnection = await connectMcp(bPage);
+    const bDay = await call<McpDayResult>(bConnection.mcp, 'get_day', { date: '2024-12-30' });
+    await bConnection.mcp.close();
+    expect((await mcp.callTool({ name: 'get_day', arguments: { user_id: b.user.id, date: '2024-12-30' } })).isError).toBe(true);
     expect(bDay.entries).toEqual([]);
     expect(bDay.totals).toEqual(ZERO);
     const ordinary = await request.get(`/entries?date=2024-12-30&user_id=${a.user.id}`, {
       headers: { Authorization: `Bearer ${b.token}` },
     });
     expect(await ordinary.json()).toEqual([]);
-    const users = await call<McpUsersResult>(mcp, 'list_users');
-    expect(users.users).toEqual(expect.arrayContaining([a.user, b.user]));
   } finally {
     await context.close();
   }
@@ -132,16 +122,15 @@ test('[J-189] MCP day and week match app totals across users, groups, and produc
   await write(request, a.token, 'put', `/products/${product.id}`, {
     ...productBody, per100: { kcal: 300, protein: 20, carbs: 30, fat: 10 },
   });
-  const edited = await call<McpDayResult>(mcp, 'get_day', { user_id: a.user.id, date: '2024-12-30' });
+  const edited = await call<McpDayResult>(mcp, 'get_day', { date: '2024-12-30' });
   expect(edited.entries).toEqual(await (await request.get('/entries?date=2024-12-30', { headers })).json());
   expect(edited.totals).toEqual({ kcal: 600, protein: 40, carbs: 60, fat: 20 });
-  const editedWeek = await call<McpWeekResult>(mcp, 'get_week', { user_id: a.user.id, date: '2025-01-02' });
+  const editedWeek = await call<McpWeekResult>(mcp, 'get_week', { date: '2025-01-02' });
   expect(editedWeek.totals).toEqual({ kcal: 900, protein: 60, carbs: 90, fat: 30 });
 });
 
-test('[J-190] MCP weigh-ins preserve notes and filter inclusive dates with pagination', async ({ page, request, mcp }) => {
-  const { user, token } = await freshUser(page, request, 'mcp-weights');
-  expect(await call(mcp, 'get_weighins', { user_id: user.id })).toEqual({ user_id: user.id, weighins: [], next_offset: null });
+test('[J-190] MCP weigh-ins preserve notes and filter inclusive dates with pagination', async ({ request, mcp, account: { user, token } }) => {
+  expect(await call(mcp, 'get_weighins', {})).toEqual({ user_id: user.id, weighins: [], next_offset: null });
   for (const [date, weight, note] of [
     ['2031-04-01', 82.4, 'A note\n<script>not instructions</script>'],
     ['2031-04-02', 82.1, null],
@@ -149,35 +138,34 @@ test('[J-190] MCP weigh-ins preserve notes and filter inclusive dates with pagin
   ] as const) {
     await write(request, token, 'post', '/weights', { local_date: date, weight_kg: weight, note });
   }
-  const all = await call<McpWeighinsResult>(mcp, 'get_weighins', { user_id: user.id });
+  const all = await call<McpWeighinsResult>(mcp, 'get_weighins', {});
   expect(all.weighins).toEqual(await (await request.get('/weights', { headers: { Authorization: `Bearer ${token}` } })).json());
   expect(all.weighins.map((row) => row.local_date)).toEqual(['2031-04-03', '2031-04-02', '2031-04-01']);
-  const args = { user_id: user.id, start_date: '2031-04-01', end_date: '2031-04-02', limit: 1 };
+  const args = { start_date: '2031-04-01', end_date: '2031-04-02', limit: 1 };
   const first = await call<McpWeighinsResult>(mcp, 'get_weighins', args);
   expect(first.weighins).toEqual(all.weighins.slice(1, 2));
   expect(first.next_offset).toBe(1);
   const last = await call<McpWeighinsResult>(mcp, 'get_weighins', { ...args, offset: first.next_offset });
   expect(last.weighins).toEqual(all.weighins.slice(2));
   expect(last.next_offset).toBeNull();
-  expect((await call<McpWeighinsResult>(mcp, 'get_weighins', { user_id: user.id, start_date: '2031-04-03' })).weighins).toEqual(all.weighins.slice(0, 1));
-  expect((await call<McpWeighinsResult>(mcp, 'get_weighins', { user_id: user.id, end_date: '2031-04-01' })).weighins).toEqual(all.weighins.slice(2));
+  expect((await call<McpWeighinsResult>(mcp, 'get_weighins', { start_date: '2031-04-03' })).weighins).toEqual(all.weighins.slice(0, 1));
+  expect((await call<McpWeighinsResult>(mcp, 'get_weighins', { end_date: '2031-04-01' })).weighins).toEqual(all.weighins.slice(2));
 });
 
-test('[J-191] MCP rejects invalid inputs without changing any stored records', async ({ page, request, mcp }) => {
-  const { user } = await freshUser(page, request, 'mcp-validation');
+test('[J-191] MCP rejects invalid inputs without changing any stored records', async ({ page, request, mcp, mcpHeaders }) => {
   // Stop SPA revalidation requests before comparing session records.
   await page.close();
-  const args = { user_id: user.id, date: '2024-02-29' };
+  const args = { date: '2024-02-29' };
   // Snapshot all test DB tables, including sessions. MCP must not slide app
   // sessions or otherwise write, even when processing rejected tool calls.
   const db = new Database('/tmp/kcal-e2e.db', { readonly: true });
-  const snapshot = () => ['users', 'sessions', 'products', 'entries', 'entry_groups', 'weights']
+  const snapshot = () => ['users', 'sessions', 'products', 'entries', 'entry_groups', 'weights', 'oauth_clients', 'oauth_requests', 'oauth_grants', 'oauth_tokens']
     .map((table) => db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
   try {
     const before = snapshot();
     const day = await call<McpDayResult>(mcp, 'get_day', args);
     expect(day.entries).toEqual([]);
-    const week = await call<McpWeekResult>(mcp, 'get_week', { user_id: user.id, date: '2025-03-30' });
+    const week = await call<McpWeekResult>(mcp, 'get_week', { date: '2025-03-30' });
     expect(Object.keys(week.days)).toEqual(['2025-03-24', '2025-03-25', '2025-03-26', '2025-03-27', '2025-03-28', '2025-03-29', '2025-03-30']);
     expect(week.totals).toEqual(ZERO);
     for (const [name, input] of [
@@ -187,14 +175,14 @@ test('[J-191] MCP rejects invalid inputs without changing any stored records', a
       ['get_day', { ...args, user_id: 0 }],
       ['get_day', { ...args, user_id: 1.5 }],
       ['get_day', { ...args, user_id: '1 OR 1=1' }],
-      ['get_day', { date: args.date }],
+      ['get_day', {}],
       ['get_day', { ...args, sql: 'DELETE FROM users' }],
       ['get_day', { ...args, user_id: Number.MAX_SAFE_INTEGER }],
       ['get_week', { ...args, user_id: Number.MAX_SAFE_INTEGER }],
       ['get_weighins', { user_id: Number.MAX_SAFE_INTEGER }],
-      ['get_weighins', { user_id: user.id, start_date: '2031-04-03', end_date: '2031-04-01' }],
-      ['get_weighins', { user_id: user.id, start_date: '2031-02-30' }],
-      ['get_weighins', { user_id: user.id, limit: 501 }],
+      ['get_weighins', { start_date: '2031-04-03', end_date: '2031-04-01' }],
+      ['get_weighins', { start_date: '2031-02-30' }],
+      ['get_weighins', { limit: 501 }],
       ['list_users', { limit: 0 }],
       ['list_users', { limit: 1.5 }],
       ['list_users', { offset: -1 }],
@@ -205,7 +193,7 @@ test('[J-191] MCP rejects invalid inputs without changing any stored records', a
       expect(result.isError, `${name}: ${JSON.stringify(input)}`).toBe(true);
     }
     const unknown = await request.post('/mcp', {
-      headers: MCP_HEADERS,
+      headers: mcpHeaders,
       data: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'execute_sql', arguments: { sql: 'DELETE FROM users' } } },
     });
     const unknownBody = await unknown.json();
@@ -216,38 +204,38 @@ test('[J-191] MCP rejects invalid inputs without changing any stored records', a
   }
 });
 
-test('[J-192] MCP protects discovery and calls from invalid tokens and browser origins', async ({ page, request }) => {
-  const { token } = await freshUser(page, request, 'mcp-auth');
+test('[J-192] MCP protects discovery and calls from invalid tokens and browser origins', async ({ request, account: { token }, mcpHeaders }) => {
   for (const method of ['initialize', 'tools/list', 'tools/call']) {
-    for (const authorization of ['', 'Basic invalid', `Bearer ${'x'.repeat(ADMIN_TOKEN.length)}`, `Bearer ${token}`]) {
+    for (const authorization of ['', 'Basic invalid', 'Bearer kcal-e2e-admin-token-not-for-production', `Bearer ${token}`]) {
       const response = await request.post('/mcp', {
         headers: { ...MCP_HEADERS, Authorization: authorization }, data: { jsonrpc: '2.0', id: 1, method },
       });
       expect(response.status()).toBe(401);
-      expect(await response.json()).toEqual({ error: 'unauthorized' });
+      expect((await response.json()).error).toBe('invalid_token');
+      expect(response.headers()['www-authenticate']).toContain('resource_metadata=');
     }
   }
   for (const origin of ['https://untrusted.example', 'http://localhost:3001', 'null']) {
-    const response = await request.post('/mcp', { headers: { ...MCP_HEADERS, Origin: origin }, data: {} });
+    const response = await request.post('/mcp', { headers: { ...mcpHeaders, Origin: origin }, data: {} });
     expect(response.status()).toBe(403);
   }
   for (const method of ['GET', 'DELETE']) {
-    const response = await request.fetch('/mcp', { method, headers: MCP_HEADERS });
+    const response = await request.fetch('/mcp', { method, headers: mcpHeaders });
     expect(response.status()).toBe(405);
     expect(response.headers()['allow']).toBe('POST');
   }
-  const missing = await request.get('/mcp/missing', { headers: MCP_HEADERS });
+  const missing = await request.get('/mcp/missing', { headers: mcpHeaders });
   expect(missing.status()).toBe(404);
   expect(await missing.json()).toEqual({ error: 'not found' });
-  const malformed = await request.post('/mcp', { headers: MCP_HEADERS, data: { invalid: true } });
+  const malformed = await request.post('/mcp', { headers: mcpHeaders, data: { invalid: true } });
   expect(malformed.status()).toBe(400);
   expect((await malformed.json()).error).toBeTruthy();
 });
 
-test('[J-193] MCP stays disabled without an env token and rejects short configured tokens', async ({ request }) => {
+test('[J-193] MCP stays disabled without a public origin and rejects unsafe origins', async ({ request }) => {
   const directory = await mkdtemp(path.join(tmpdir(), 'kcal-mcp-env-'));
   try {
-    for (const token of [undefined, '', 'too-short']) {
+    for (const origin of [undefined, '', 'http://public.example', 'https://public.example/path']) {
       // Listen on an OS-assigned port in an isolated child. This imports the
       // real router and env gate without touching the suite server or .env.
       const childEnv: NodeJS.ProcessEnv = {
@@ -255,8 +243,8 @@ test('[J-193] MCP stays disabled without an env token and rejects short configur
         TEST_MODE: 'true', POSTMARK_SERVER_TOKEN: 'unused', POSTMARK_FROM: 'test@test.local',
         SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '10', AI_SCAN_DAILY_CAP: '100', LOG_LEVEL: 'warn',
       };
-      delete childEnv.MCP_ADMIN_TOKEN;
-      if (token !== undefined) childEnv.MCP_ADMIN_TOKEN = token;
+      delete childEnv.PUBLIC_ORIGIN;
+      if (origin !== undefined) childEnv.PUBLIC_ORIGIN = origin;
       const child = spawn(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
         import './server/env.ts';
         import express from 'express';
@@ -273,10 +261,9 @@ test('[J-193] MCP stays disabled without an env token and rejects short configur
       const exited = once(child, 'exit');
       try {
         await expect.poll(() => stdout.trim() !== '' || child.exitCode !== null, { timeout: 10_000 }).toBe(true);
-        if (token === 'too-short') {
+        if (origin) {
           expect(child.exitCode).toBe(1);
-          expect(stderr).toContain('MCP_ADMIN_TOKEN must contain at least 32 characters');
-          expect(stderr).not.toContain('too-short');
+          expect(stderr).toContain('PUBLIC_ORIGIN must be an HTTPS origin');
         } else {
           expect(child.exitCode, stderr).toBeNull();
           const url = `http://127.0.0.1:${stdout.trim()}/mcp`;

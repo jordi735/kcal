@@ -1,84 +1,100 @@
-# Read-only MCP access
+# Connect KCAL to ChatGPT or Codex
 
-KCAL exposes four tools for Codex at `/mcp` on the existing backend. A single
-static token grants administrative read access to every user's food logs,
-nutrition goals, and weight history. There is no OAuth or additional login flow.
+KCAL exposes three read-only tools at `/mcp`. Connect using OAuth, sign in with
+KCAL's existing email code, and approve access to your own account.
 
-## Setup
+## Server setup
 
-1. Generate a token:
+Set the public origin in the backend's root `.env`, then restart the backend:
 
-   ```bash
-   node --input-type=module -e 'import { randomBytes } from "node:crypto"; console.log(randomBytes(32).toString("base64url"))'
-   ```
+```dotenv
+PUBLIC_ORIGIN=https://usekcal.com
+```
 
-2. Put that token in the backend's root `.env`:
+Use your actual deployment origin if different. It must use HTTPS and have no
+path. Keep the existing email settings working so users can sign in. An unset
+or blank value disables OAuth/MCP; the ordinary KCAL app still works.
+`MCP_ADMIN_TOKEN` is no longer used. Existing token-based clients must reconnect.
 
-   ```dotenv
-   MCP_ADMIN_TOKEN=your-generated-token
-   ```
+The reverse proxy must forward the Authorization header and these routes to
+Express: `/mcp`, `/authorize`, `/token`, `/register`, `/revoke`, `/oauth`, and
+`/.well-known`. Configure `TRUST_PROXY` with the actual trusted proxy addresses
+or subnets so rate limiting identifies clients correctly.
 
-   Tokens must contain at least 32 characters. An unset or blank value disables
-   `/mcp` with HTTP 404. Restart the backend after setting or changing the token.
-   The root `.env` is ignored by Git.
+For local development, run Vite and Express normally and set
+`PUBLIC_ORIGIN=http://localhost:5173`. Connect local clients to
+`http://localhost:5173/mcp`; Vite proxies the OAuth routes too. ChatGPT needs a
+public HTTPS deployment or HTTPS tunnel, with `PUBLIC_ORIGIN` matching it.
 
-3. Start the backend normally, for example with `npm run server:dev`.
+## ChatGPT
 
-4. Add this to your Codex `~/.codex/config.toml`:
+1. Enable developer mode where available in ChatGPT's app/connector settings.
+2. Create a custom app/connector with the URL `https://usekcal.com/mcp` and OAuth
+   authentication. Use dynamic client registration (DCR); leave client ID and
+   secret blank so ChatGPT registers them automatically.
+3. Connect, sign into KCAL if prompted, and select **Allow access**.
+4. Ask: “Use KCAL to show my totals for this week and my recent weigh-ins.”
 
-   ```toml
-   [mcp_servers.kcal]
-   url = "http://localhost:3000/mcp"
-   bearer_token_env_var = "MCP_ADMIN_TOKEN"
-   ```
+ChatGPT registers its exact callback automatically. KCAL uses the SDK's standard
+callback flow and does not advertise the optional issuer-identification extension.
+Availability of custom connectors depends on your ChatGPT account/workspace.
+See [OpenAI's connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt)
+and [OAuth guide](https://developers.openai.com/plugins/build/auth).
 
-5. Make the same token available in the environment that launches Codex:
+## Codex
 
-   ```bash
-   export MCP_ADMIN_TOKEN='your-generated-token'
-   codex
-   ```
+```bash
+codex mcp add kcal --url https://usekcal.com/mcp
+codex mcp login kcal
+```
 
-   Codex does not automatically load the app's `.env`. Its configured environment
-   variable supplies the `Authorization: Bearer ...` header. In Codex, `/mcp`
-   shows the connection. For remote access, use your deployed **HTTPS** origin
-   followed by `/mcp` and forward the Authorization header through your proxy.
-
-See the [official Codex MCP documentation](https://developers.openai.com/codex/mcp/)
-for configuration options. Native Codex clients are supported in this version;
-ChatGPT web connection setup is deferred. Browser Origin headers are rejected.
+If an older `kcal` entry uses `bearer_token_env_var`, remove that entry before
+adding the OAuth connection. Sign in and approve access in the browser. Use
+`/mcp` in Codex to inspect the connection. See the
+[Codex MCP documentation](https://developers.openai.com/codex/mcp/).
 
 ## Tools
 
 | Tool | Arguments | Result |
 | --- | --- | --- |
-| `list_users` | Optional `limit`, `offset` | `users` with IDs and emails, plus `next_offset` |
-| `get_day` | `user_id`, `date` | `entries`, `totals`, `current_daily_goals`, user ID and date |
-| `get_week` | `user_id`, `date` | Monday–Sunday `days`, weekly `totals`, `current_daily_goals`, user ID and week bounds |
-| `get_weighins` | `user_id`; optional `start_date`, `end_date`, `limit`, `offset` | `weighins`, user ID, and `next_offset` |
+| `get_day` | `date` | Food entries, daily totals, and current daily goals |
+| `get_week` | `date` | Seven Monday–Sunday daily totals, weekly totals, and current goals |
+| `get_weighins` | Optional `start_date`, `end_date`, `limit`, `offset` | Weight history and `next_offset` |
 
-Use `list_users` to select a user, then pass that ID explicitly. App session
-tokens do not grant MCP access. For example, ask Codex:
-
-> Use KCAL to find my user ID by email, show my nutrition totals for the week
-> containing 2026-09-08, and show my weigh-ins since 2026-09-01.
+The account comes from the OAuth token. Tools do not accept a user ID, list other
+accounts, execute SQL, or write data. Responses include the connected account's ID.
 
 Dates are timezone-free `YYYY-MM-DD` calendar dates. `get_week` accepts any date
-in the requested week and returns all seven days, Monday first. Weigh-in date
-bounds are inclusive; omitted bounds include all dates. Invalid dates, reversed
-ranges, and nonexistent users produce tool errors.
+in the requested week. Weigh-in bounds are inclusive; omitted bounds include all
+dates. Pagination defaults to 100 records, allows 1–500, and returns newest first.
+Follow `next_offset` until null for a complete history; concurrent edits can shift
+live offsets. Weigh-ins include kilograms and notes.
 
 Food entries include product details, computed macros, tags, and group references,
-in entry ID order. Both tagged and untagged entries count toward totals; grouping
-does not add calories. Historical totals use **current** product nutrition values,
-matching the app. Goals are current daily settings, not historical goal snapshots.
-Zero totals mean zero recorded intake and do not establish whether logging was complete.
+in entry ID order. Tagged entries count toward totals; groups count only through
+their children. Historical totals use current product nutrition, matching the app.
+Goals describe current settings. Zero totals mean no recorded intake, not proof
+that logging was complete. All tools return structured JSON and equivalent text.
 
-Weigh-ins include kilograms and notes, newest first. Paginated tools default to
-100 records and allow 1–500. Follow `next_offset` until it is null for a complete
-history. Pages read live data; concurrent additions or deletions can shift offsets.
+## Connection lifecycle
 
-All tools return structured JSON and equivalent text and are marked read-only.
-They expose no credentials, SQL execution, or write operations. To revoke or rotate
-access, clear or replace `MCP_ADMIN_TOKEN` in `.env`, restart the backend, and
-update the Codex environment if applicable.
+OAuth uses authorization codes with S256 PKCE and the single `kcal:read` scope.
+Discovery is at `/.well-known/oauth-authorization-server` and
+`/.well-known/oauth-protected-resource/mcp`. Clients register explicitly with
+`none` or `client_secret_post`; other or omitted authentication methods are
+rejected. HTTP Basic client authentication is not supported.
+
+Client registrations persist in SQLite. Connection requests expire after ten
+minutes, authorization codes after five minutes, and access tokens after one
+hour. Refresh tokens rotate and expire 90 days after approval; reconnect then.
+Reuse of a consumed refresh token revokes that connection. The client can revoke
+access or refresh tokens through `/revoke`, invalidating the whole connection.
+Remove/disconnect KCAL in the client; there is no KCAL connection-management screen.
+Clients that only discard credentials instead of calling `/revoke` leave the
+server grant valid until it expires.
+
+App sessions and connector tokens are separate. Signing out of KCAL does not
+revoke connectors. OAuth codes and access/refresh tokens are stored as hashes;
+the SDK stores confidential-client registration secrets in the protected SQLite
+client metadata. Credentials are never returned by MCP tools. Browser Origin
+headers are rejected at `/mcp`; browser login and consent use the OAuth routes.

@@ -53,11 +53,20 @@ function parseDebugAllowIps(): ReadonlySet<string> {
   );
 }
 
-// Optional static admin credential. Blank disables MCP. Never log the value.
-const MCP_ADMIN_TOKEN = process.env.MCP_ADMIN_TOKEN?.trim() || '';
-if (MCP_ADMIN_TOKEN !== '' && MCP_ADMIN_TOKEN.length < 32) {
-  console.error('[kcal] MCP_ADMIN_TOKEN must contain at least 32 characters, or be blank to disable MCP');
-  process.exit(1);
+// A configured origin enables OAuth/MCP. Never trust a request Host as issuer.
+let PUBLIC_ORIGIN = '';
+const rawOrigin = process.env.PUBLIC_ORIGIN?.trim();
+if (rawOrigin) {
+  try {
+    const url = new URL(rawOrigin);
+    const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback))
+      || url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error();
+    PUBLIC_ORIGIN = url.origin;
+  } catch {
+    console.error('[kcal] PUBLIC_ORIGIN must be an HTTPS origin (local HTTP is allowed), or blank to disable OAuth/MCP');
+    process.exit(1);
+  }
 }
 
 // Optional — tests only. Never set in production. See .env.example.
@@ -78,12 +87,12 @@ export const env = {
   LOGIN_CODE_EXPIRY_MINUTES: toPositiveInt('LOGIN_CODE_EXPIRY_MINUTES'),
   AI_SCAN_DAILY_CAP: toPositiveInt('AI_SCAN_DAILY_CAP'),
   LOG_LEVEL: rawLevel as LogLevel,
-  MCP_ADMIN_TOKEN,
+  PUBLIC_ORIGIN,
   TEST_MODE,
   // Empty set when DEBUG_ALLOW_IPS unset → /debug is fully denied (fail-closed).
   DEBUG_ALLOW_IPS: parseDebugAllowIps(),
   // Express `trust proxy` setting. Default 'loopback' is safe for local dev;
-  // set to '1' (or your specific config) when behind a reverse proxy so that
-  // req.ip resolves to the real client and not the proxy hop.
+  // set trusted proxy addresses/subnets behind a reverse proxy. This string
+  // parser does not interpret '1' as Express's numeric one-hop setting.
   TRUST_PROXY: process.env.TRUST_PROXY?.trim() || 'loopback',
 } as const;

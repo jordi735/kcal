@@ -10,6 +10,12 @@ export const API_PREFIXES = [
   '/weights',
   '/debug',
   '/mcp',
+  '/authorize',
+  '/token',
+  '/register',
+  '/revoke',
+  '/oauth',
+  '/.well-known',
 ] as const;
 
 export function isApiPath(pathname: string): boolean {

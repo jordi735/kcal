@@ -48,8 +48,7 @@ export default defineConfig({
       LOGIN_CODE_EXPIRY_MINUTES: '10',
       AI_SCAN_DAILY_CAP: '100',
       LOG_LEVEL: 'warn',
-      // Fixed disposable credential shared with the MCP protocol tests.
-      MCP_ADMIN_TOKEN: 'kcal-e2e-admin-token-not-for-production',
+      PUBLIC_ORIGIN: 'http://localhost:3001',
     },
   },
 });

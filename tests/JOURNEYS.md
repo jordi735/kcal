@@ -237,14 +237,19 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-186 · Weight form validation and Cancel prevent invalid writes; failed saves retain the complete draft for retry
 - J-187 · Weight API validates bodies and IDs, rejects date collisions, and isolates every user's records
 
-# 16. Read-only admin MCP
+# 16. Read-only MCP and OAuth
 
-- J-188 · MCP discovers four read-only tools and paginates users without exposing credentials
-- J-189 · Admin day/week tools match app totals across users, groups, year boundaries, and retroactive product edits
+- J-188 · MCP discovers three read-only tools scoped to the connected account and rejects user discovery
+- J-189 · Day/week tools isolate connected accounts and match app totals across groups, year boundaries, and product edits
 - J-190 · Weigh-in tools preserve notes and support inclusive date filters and newest-first pagination
-- J-191 · MCP validates dates, users, and pagination, rejects arbitrary queries, and never changes stored records
-- J-192 · MCP requires its admin token for discovery/calls, rejects browser origins, and returns protocol/API errors
-- J-193 · Missing or blank MCP tokens disable the endpoint; short configured tokens prevent startup
+- J-191 · MCP validates dates and pagination, rejects user selection and arbitrary queries, and never changes stored records
+- J-192 · MCP requires OAuth tokens, rejects app sessions and browser origins, and advertises discovery when unauthenticated
+- J-193 · Missing or blank public origins disable MCP; unsafe configured origins prevent startup
+- J-194 · OAuth discovery and DCR connect public/confidential clients through email login, escape client names, and separate app/connector tokens
+- J-195 · Consent binds the browser, protects decisions, supports denial, and preserves login context after session expiry
+- J-196 · OAuth rejects unsafe client metadata, mismatched PKCE/callbacks/resources, and expired or reused codes
+- J-197 · OAuth rotates refresh tokens, revokes replayed grants, enforces client-bound revocation, and rejects expired credentials
+- J-198 · OAuth registrations and hashed credentials survive backend restart and allow continued refresh
 
 # Verification
 

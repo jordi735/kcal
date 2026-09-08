@@ -1,5 +1,5 @@
-// Read helpers shared by HTTP routes and the admin MCP tools. Callers choose
-// the user only after authenticating; every statement keeps its owner binding.
+// Read helpers shared by HTTP routes and MCP tools. Callers resolve the user
+// from verified credentials; every statement keeps its owner binding.
 
 import { statements } from './statements.js';
 import type {

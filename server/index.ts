@@ -13,6 +13,7 @@ import { entriesRouter } from './routes/entries.js';
 import { weightsRouter } from './routes/weights.js';
 import { debugRouter } from './routes/debug.js';
 import { mcpRouter } from './routes/mcp.js';
+import { oauthRouter } from './routes/oauth.js';
 import { probeCodex } from './codex.js';
 import { log } from './log.js';
 import { isApiPath } from '../shared/apiPrefixes.js';
@@ -21,6 +22,8 @@ const app = express();
 
 app.set('trust proxy', env.TRUST_PROXY);
 
+app.use(['/register', '/authorize', '/token', '/revoke', '/oauth'],
+  express.json({ limit: '16kb' }), express.urlencoded({ extended: false, limit: '16kb' }));
 app.use(express.json({ limit: '2mb' }));
 app.use(log.requestLogger);
 
@@ -44,6 +47,7 @@ app.use('/products', productsRouter);
 app.use('/entries', entriesRouter);
 app.use('/weights', weightsRouter);
 app.use('/mcp', mcpRouter);
+app.use(oauthRouter);
 
 // /debug exposes raw user + product tables. Gated behind an IP allowlist
 // driven by env.DEBUG_ALLOW_IPS. Unauthorised callers get 404 (not 403) so the
@@ -97,6 +101,13 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
     return;
   }
   const obj = (typeof err === 'object' && err !== null ? err : {}) as Record<string, unknown>;
+  // JSON parse errors can contain fragments of OAuth credentials. Do not log
+  // the parser's message/body or return it in an error response.
+  if (obj.type === 'entity.parse.failed') {
+    log.warn('invalid JSON body', { path: _req.path });
+    res.status(400).json({ error: 'invalid_json' });
+    return;
+  }
   const status = typeof obj.status === 'number' ? obj.status : 500;
   const message = typeof obj.message === 'string' ? obj.message : 'internal';
   log.error('unhandled', {

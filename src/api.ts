@@ -1,7 +1,26 @@
 // Fetch wrapper: injects Bearer from localStorage, handles 401 by logging out.
+import type { User } from './types';
 
 export const SESSION_TOKEN_KEY = 'kcal_session_token';
 export const USER_KEY = 'kcal_user';
+
+export function oauthRequestId(): string | null {
+  const id = new URLSearchParams(window.location.search).get('oauth_request');
+  return id !== null && /^[A-Za-z0-9_-]{43}$/.test(id) ? id : null;
+}
+
+export async function requestLoginCode(email: string): Promise<void> {
+  await api('/auth/request-code', { method: 'POST', body: { email } });
+}
+
+export async function verifyLoginCode(email: string, code: string): Promise<User> {
+  const res = await api<{ session_token: string; user: User }>('/auth/verify-code', {
+    method: 'POST', body: { email, code },
+  });
+  localStorage.setItem(SESSION_TOKEN_KEY, res.session_token);
+  localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+  return res.user;
+}
 
 export function clearStoredSession(): void {
   localStorage.removeItem(SESSION_TOKEN_KEY);
@@ -49,7 +68,8 @@ export async function api<T>(path: string, opts?: ApiOpts): Promise<T> {
 
   if (res.status === 401) {
     clearStoredSession();
-    window.location.assign('/');
+    const request = oauthRequestId();
+    window.location.assign(request === null ? '/' : `/?oauth_request=${request}`);
     throw new ApiError('unauthorized', 401);
   }
 

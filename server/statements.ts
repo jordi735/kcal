@@ -39,6 +39,38 @@ const ENTRY_JOIN_FROM = `
 `;
 
 export const statements = {
+  oauth: {
+    // Clients are protocol identities, not app users. SDK client auth needs a
+    // retrievable client secret; never expose this metadata through app/MCP reads.
+    client: db.prepare('SELECT metadata FROM oauth_clients WHERE id = ?'), // (client_id)
+    insertClient: db.prepare('INSERT INTO oauth_clients (id, metadata) VALUES (?, ?)'), // (id, JSON)
+    // (id_hash, browser_hash, client_id, redirect_uri, state, challenge, resource, expires_at)
+    insertRequest: db.prepare(`INSERT INTO oauth_requests
+      (id_hash, browser_hash, client_id, redirect_uri, state, challenge, resource, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
+    // (id_hash, browser_hash, now) — an unapproved request belongs to a browser.
+    pendingRequest: db.prepare(`SELECT * FROM oauth_requests
+      WHERE id_hash = ? AND browser_hash = ? AND expires_at > ? AND code_hash IS NULL`),
+    // (user_id, code_hash, expires_at, id_hash)
+    approveRequest: db.prepare(`UPDATE oauth_requests SET user_id = ?, code_hash = ?, expires_at = ? WHERE id_hash = ?`),
+    deleteRequest: db.prepare('DELETE FROM oauth_requests WHERE id_hash = ?'), // (id_hash)
+    // (client_id, code_hash, now)
+    code: db.prepare('SELECT * FROM oauth_requests WHERE client_id = ? AND code_hash = ? AND expires_at > ?'),
+    // (id, user_id, client_id, resource, expires_at)
+    insertGrant: db.prepare(`INSERT INTO oauth_grants (id, user_id, client_id, resource, expires_at) VALUES (?, ?, ?, ?, ?)`),
+    // (hash, grant_id, kind, expires_at)
+    insertToken: db.prepare('INSERT INTO oauth_tokens (hash, grant_id, kind, expires_at) VALUES (?, ?, ?, ?)'),
+    // (hash) — the credential resolves its own owner; callers cannot select one.
+    token: db.prepare(`SELECT t.kind, t.used, t.expires_at AS token_expires_at,
+      g.id, g.user_id, g.client_id, g.resource, g.expires_at, g.revoked
+      FROM oauth_tokens t JOIN oauth_grants g ON g.id = t.grant_id WHERE t.hash = ?`),
+    useRefresh: db.prepare('UPDATE oauth_tokens SET used = 1 WHERE hash = ?'), // (hash)
+    revokeGrant: db.prepare('UPDATE oauth_grants SET revoked = 1 WHERE client_id = ? AND id = ?'), // (client_id, grant_id)
+    cleanRequests: db.prepare('DELETE FROM oauth_requests WHERE expires_at <= ?'), // (now)
+    cleanGrants: db.prepare('DELETE FROM oauth_grants WHERE expires_at <= ?'), // (now), cascades token history
+    // Retain used refresh tokens until grant expiry to detect replay.
+    cleanAccess: db.prepare("DELETE FROM oauth_tokens WHERE kind = 'access' AND expires_at <= ?"), // (now)
+  },
   sessions: {
     insert: db.prepare(
       'INSERT INTO sessions (token, user_id, created_at, last_used_at, expires_at) VALUES (?, ?, ?, ?, ?)',
@@ -53,6 +85,7 @@ export const statements = {
   },
 
   users: {
+    selectEmailById: db.prepare('SELECT email FROM users WHERE id = ?'), // (user_id)
     upsert: db.prepare(`
       INSERT INTO users (email, goal_kcal, goal_protein, goal_carbs, goal_fat, created_at)
       VALUES (?, 2400, 180, 240, 80, ?)
