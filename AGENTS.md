@@ -129,9 +129,11 @@ required-key inventory and never commit real credentials.
   `DEBUG_ALLOW_IPS` middleware ahead of the router. Configure `TRUST_PROXY` with
   trusted proxy addresses/subnets; the current
   string parser does not make `"1"` a one-hop setting.
-- `/mcp` exposes only `get_day`, `get_week`, and `get_weighins` with user ownership
+- `/mcp` exposes `get_day`, `get_meals`, `get_week`, and `get_weighins` with user ownership
   resolved from separate OAuth tokens. Never accept app sessions, admin tokens,
   or caller-selected user IDs. Keep tools read-only and reuse app calculations.
+  `get_meals` returns flat food entries and totals per date for an inclusive range
+  of at most 31 days, including empty dates; named groups remain entry metadata.
   `PUBLIC_ORIGIN` enables OAuth/MCP; unset disables them. SDK OAuth routes own
   discovery/DCR/PKCE; `server/oauth.ts` persists clients, browser-bound consent,
   single-use codes, rotating tokens, and revocation in SQLite. Enforce resource

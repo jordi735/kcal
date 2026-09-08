@@ -7,7 +7,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import type { McpDayResult, McpWeekResult, McpWeighinsResult } from '../../shared/types';
+import type { McpDayResult, McpMealsResult, McpWeekResult, McpWeighinsResult } from '../../shared/types';
 import { signInFresh } from './helpers';
 import { connectMcp } from './oauth-helpers';
 
@@ -54,16 +54,16 @@ async function write(
   return response.json();
 }
 
-test('[J-188] MCP discovers three read-only tools scoped to the connected account', async ({ mcp }) => {
+test('[J-188] MCP discovers four read-only tools scoped to the connected account', async ({ mcp }) => {
   expect(mcp.getServerVersion()?.name).toBe('kcal');
   const { tools } = await mcp.listTools();
-  expect(tools.map((tool) => tool.name).sort()).toEqual(['get_day', 'get_week', 'get_weighins']);
+  expect(tools.map((tool) => tool.name).sort()).toEqual(['get_day', 'get_meals', 'get_week', 'get_weighins']);
   expect(tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true);
   expect(tools.every((tool) => !('user_id' in (tool.inputSchema.properties ?? {})))).toBe(true);
   expect((await mcp.callTool({ name: 'list_users', arguments: {} })).isError).toBe(true);
 });
 
-test('[J-189] MCP day and week match app totals across users, groups, and product edits', async ({ request, browser, mcp, account: a }) => {
+test('[J-189] MCP day, week and meals match app totals across users, groups, and product edits', async ({ request, browser, mcp, account: a }) => {
   const headers = { Authorization: `Bearer ${a.token}` };
   const goals = { kcal: 2300, protein: 150, carbs: 250, fat: 75 };
   await write(request, a.token, 'put', '/settings', goals);
@@ -79,6 +79,7 @@ test('[J-189] MCP day and week match app totals across users, groups, and produc
   const second = await entry('2024-12-30', 50);
   await entry('2025-01-05', 100);
   await entry('2024-12-29', 999); // Outside the requested Monday–Sunday.
+  await entry('2025-01-06', 999); // After the inclusive end date.
   const group = await write(request, a.token, 'post', '/entries/groups', {
     name: `MCP meal ${a.user.id}`, entry_ids: [first.id, second.id],
   });
@@ -99,6 +100,18 @@ test('[J-189] MCP day and week match app totals across users, groups, and produc
   expect(week.totals).toEqual({ kcal: 600, protein: 30, carbs: 60, fat: 15 });
   expect(week.current_daily_goals).toEqual(goals);
   expect(await call(mcp, 'get_week', { date: '2024-12-30' })).toEqual(week);
+  const range = { start_date: '2024-12-30', end_date: '2025-01-05' };
+  const meals = await call<McpMealsResult>(mcp, 'get_meals', range);
+  expect(meals.user_id).toBe(a.user.id);
+  expect(meals.start_date).toBe(range.start_date);
+  expect(meals.end_date).toBe(range.end_date);
+  expect(Object.keys(meals.days)).toEqual(Object.keys(week.days));
+  expect(meals.days['2024-12-30']).toEqual({ entries: day.entries, totals: day.totals });
+  expect(meals.days['2024-12-30']!.entries.map((row) => row.id)).toEqual([first.id, second.id]);
+  expect(meals.days['2024-12-31']).toEqual({ entries: [], totals: ZERO });
+  const lastDay = await call<McpDayResult>(mcp, 'get_day', { date: range.end_date });
+  expect(meals.days[range.end_date]).toEqual({ entries: lastDay.entries, totals: lastDay.totals });
+  expect(Object.fromEntries(Object.entries(meals.days).map(([date, value]) => [date, value.totals]))).toEqual(week.days);
 
   // Each connection resolves its own account; tool arguments cannot switch it.
   const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
@@ -107,6 +120,10 @@ test('[J-189] MCP day and week match app totals across users, groups, and produc
     const b = await freshUser(bPage, request, 'mcp-other');
     const bConnection = await connectMcp(bPage);
     const bDay = await call<McpDayResult>(bConnection.mcp, 'get_day', { date: '2024-12-30' });
+    const bMeals = await call<McpMealsResult>(bConnection.mcp, 'get_meals', range);
+    expect(bMeals.user_id).toBe(b.user.id);
+    expect(Object.values(bMeals.days).every((value) => value.entries.length === 0)).toBe(true);
+    expect(Object.values(bMeals.days).every((value) => value.totals.kcal === 0)).toBe(true);
     await bConnection.mcp.close();
     expect((await mcp.callTool({ name: 'get_day', arguments: { user_id: b.user.id, date: '2024-12-30' } })).isError).toBe(true);
     expect(bDay.entries).toEqual([]);
@@ -125,8 +142,29 @@ test('[J-189] MCP day and week match app totals across users, groups, and produc
   const edited = await call<McpDayResult>(mcp, 'get_day', { date: '2024-12-30' });
   expect(edited.entries).toEqual(await (await request.get('/entries?date=2024-12-30', { headers })).json());
   expect(edited.totals).toEqual({ kcal: 600, protein: 40, carbs: 60, fat: 20 });
+  const editedMeals = await call<McpMealsResult>(mcp, 'get_meals', range);
+  expect(editedMeals.days['2024-12-30']).toEqual({ entries: edited.entries, totals: edited.totals });
   const editedWeek = await call<McpWeekResult>(mcp, 'get_week', { date: '2025-01-02' });
   expect(editedWeek.totals).toEqual({ kcal: 900, protein: 60, carbs: 90, fat: 30 });
+});
+
+test('[J-199] MCP meals include empty days and handle calendar boundaries through 31 days', async ({ mcp }) => {
+  for (const dates of [
+    ['2024-02-29'],
+    ['2024-02-28', '2024-02-29', '2024-03-01'],
+    ['2025-03-29', '2025-03-30', '2025-03-31'],
+    ['0000-01-01'],
+    ['9999-12-31'],
+  ]) {
+    const range = { start_date: dates[0]!, end_date: dates.at(-1)! };
+    const meals = await call<McpMealsResult>(mcp, 'get_meals', range);
+    expect(Object.keys(meals.days)).toEqual(dates);
+    for (const day of Object.values(meals.days)) expect(day).toEqual({ entries: [], totals: ZERO });
+  }
+  const month = await call<McpMealsResult>(mcp, 'get_meals', { start_date: '2025-01-01', end_date: '2025-01-31' });
+  expect(Object.keys(month.days)).toHaveLength(31);
+  expect(Object.keys(month.days)[0]).toBe('2025-01-01');
+  expect(Object.keys(month.days).at(-1)).toBe('2025-01-31');
 });
 
 test('[J-190] MCP weigh-ins preserve notes and filter inclusive dates with pagination', async ({ request, mcp, account: { user, token } }) => {
@@ -168,6 +206,8 @@ test('[J-191] MCP rejects invalid inputs without changing any stored records', a
     const week = await call<McpWeekResult>(mcp, 'get_week', { date: '2025-03-30' });
     expect(Object.keys(week.days)).toEqual(['2025-03-24', '2025-03-25', '2025-03-26', '2025-03-27', '2025-03-28', '2025-03-29', '2025-03-30']);
     expect(week.totals).toEqual(ZERO);
+    const meals = await call<McpMealsResult>(mcp, 'get_meals', { start_date: '2024-02-28', end_date: '2024-03-01' });
+    expect(Object.keys(meals.days)).toEqual(['2024-02-28', '2024-02-29', '2024-03-01']);
     for (const [name, input] of [
       ['get_day', { ...args, date: '2023-02-29' }],
       ['get_week', { ...args, date: '2024-04-31' }],
@@ -178,6 +218,15 @@ test('[J-191] MCP rejects invalid inputs without changing any stored records', a
       ['get_day', {}],
       ['get_day', { ...args, sql: 'DELETE FROM users' }],
       ['get_day', { ...args, user_id: Number.MAX_SAFE_INTEGER }],
+      ['get_meals', {}],
+      ['get_meals', { start_date: '2024-01-01' }],
+      ['get_meals', { start_date: '2023-02-29', end_date: '2023-03-01' }],
+      ['get_meals', { start_date: '2024-04-01', end_date: '2024-04-31' }],
+      ['get_meals', { start_date: '2024-01-01T00:00:00Z', end_date: '2024-01-02' }],
+      ['get_meals', { start_date: '2024-03-01', end_date: '2024-02-29' }],
+      ['get_meals', { start_date: '2025-01-01', end_date: '2025-02-01' }],
+      ['get_meals', { start_date: '2025-01-01', end_date: '2025-01-01', user_id: 1 }],
+      ['get_meals', { start_date: '2025-01-01', end_date: '2025-01-01', sql: 'DELETE FROM users' }],
       ['get_week', { ...args, user_id: Number.MAX_SAFE_INTEGER }],
       ['get_weighins', { user_id: Number.MAX_SAFE_INTEGER }],
       ['get_weighins', { start_date: '2031-04-03', end_date: '2031-04-01' }],

@@ -1,6 +1,6 @@
 # Connect KCAL to ChatGPT or Codex
 
-KCAL exposes three read-only tools at `/mcp`. Connect using OAuth, sign in with
+KCAL exposes four read-only tools at `/mcp`. Connect using OAuth, sign in with
 KCAL's existing email code, and approve access to your own account.
 
 ## Server setup
@@ -58,11 +58,19 @@ adding the OAuth connection. Sign in and approve access in the browser. Use
 | Tool | Arguments | Result |
 | --- | --- | --- |
 | `get_day` | `date` | Food entries, daily totals, and current daily goals |
+| `get_meals` | `start_date`, `end_date` | Food entries and macro totals for each date in an inclusive range of up to 31 days |
 | `get_week` | `date` | Seven Monday–Sunday daily totals, weekly totals, and current goals |
 | `get_weighins` | Optional `start_date`, `end_date`, `limit`, `offset` | Weight history and `next_offset` |
 
 The account comes from the OAuth token. Tools do not accept a user ID, list other
 accounts, execute SQL, or write data. Responses include the connected account's ID.
+
+Use `get_meals` to ask what you ate across several days. Both dates are required.
+Its response contains `user_id`, `start_date`, `end_date`, and `days` keyed by
+`YYYY-MM-DD`, oldest first. Each day has `entries` (the same food-entry shape as
+`get_day`) and `totals`. Empty dates have `entries: []` and zero totals. Named
+groups remain attached to their food entries; the tool does not infer meal times
+or count meals. Longer periods can be requested in separate ranges.
 
 Dates are timezone-free `YYYY-MM-DD` calendar dates. `get_week` accepts any date
 in the requested week. Weigh-in bounds are inclusive; omitted bounds include all

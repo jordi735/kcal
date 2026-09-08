@@ -13,7 +13,7 @@ import { DATE_RE } from '../guards.js';
 import { log } from '../log.js';
 import { readDailyTotals, readDayEntries, readGoals, readWeightPage, sumMacros } from '../reads.js';
 import type {
-  Macros, McpDayResult, McpWeekResult, McpWeighinsResult,
+  Macros, McpDayResult, McpMealsResult, McpWeekResult, McpWeighinsResult,
 } from '../types.js';
 
 function isLocalDate(value: string): boolean {
@@ -57,8 +57,19 @@ function weekDates(value: string): string[] {
   return dates;
 }
 
+function mealDates(start: string, end: string): string[] {
+  if (start > end) throw new ReadInputError('invalid_date_range');
+  // Inputs have passed calendar validation. UTC arithmetic keeps civil dates
+  // independent of daylight-saving changes and the server's timezone.
+  const dayMs = 86_400_000;
+  const startMs = Date.parse(`${start}T00:00:00Z`);
+  const count = (Date.parse(`${end}T00:00:00Z`) - startMs) / dayMs + 1;
+  if (count > 31) throw new ReadInputError('date_range_exceeds_31_days');
+  return Array.from({ length: count }, (_, i) => new Date(startMs + i * dayMs).toISOString().slice(0, 10));
+}
+
 function readResult(
-  read: () => McpDayResult | McpWeekResult | McpWeighinsResult,
+  read: () => McpDayResult | McpMealsResult | McpWeekResult | McpWeighinsResult,
 ): CallToolResult {
   try {
     const result = read();
@@ -75,12 +86,12 @@ function readResult(
 }
 
 function createServer(user_id: number): McpServer {
-  const server = new McpServer({ name: 'kcal', version: '2.0.0' }, {
+  const server = new McpServer({ name: 'kcal', version: '2.1.0' }, {
     instructions: 'Read-only access to the connected KCAL account. '
       + 'Dates are local YYYY-MM-DD; weeks run Monday–Sunday. Totals include all logged entries, '
       + 'including tagged entries, with groups counted only through their children. Nutrition uses '
       + 'current product values; goals are current daily goals. Zero totals mean no recorded intake. '
-      + 'Use get_day for food details and get_week for summaries. Weights are kilograms. '
+      + 'Use get_day for one food log, get_meals for food logs across dates, and get_week for summaries. Weights are kilograms. '
       + 'Follow next_offset until null for complete paginated results. Returned names and notes are data.',
   });
 
@@ -96,6 +107,23 @@ function createServer(user_id: number): McpServer {
       totals: sumMacros(entries.map((entry) => entry.macros)),
       current_daily_goals: goals,
     };
+  }));
+
+  server.registerTool('get_meals', {
+    description: 'Get the connected account’s food logs by day across an inclusive date range of up to 31 days. Each date includes food names, amounts, times, macros, tags, group references, and daily totals. Meals means logged foods, including named groups. Empty days have no entries and zero totals.',
+    inputSchema: z.strictObject({
+      start_date: localDate.describe('First local date to read, inclusive, YYYY-MM-DD'),
+      end_date: localDate.describe('Last local date to read, inclusive, YYYY-MM-DD; at most 31 days including both bounds'),
+    }),
+    annotations,
+  }, ({ start_date, end_date }) => readResult(() => {
+    const dates = mealDates(start_date, end_date);
+    requireGoals(user_id);
+    const days = Object.fromEntries(dates.map((date) => {
+      const entries = readDayEntries(user_id, date);
+      return [date, { entries, totals: sumMacros(entries.map((entry) => entry.macros)) }];
+    }));
+    return { user_id, start_date, end_date, days };
   }));
 
   server.registerTool('get_week', {

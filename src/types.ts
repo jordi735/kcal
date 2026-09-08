@@ -12,6 +12,7 @@ export type {
   OAuthConsent,
   OAuthDecision,
   McpDayResult,
+  McpMealsResult,
   McpWeekResult,
   McpWeighinsResult,
 } from '../shared/types.js';

@@ -89,6 +89,16 @@ export type McpDayResult = {
   current_daily_goals: Macros;
 };
 
+export type McpMealsResult = {
+  user_id: number;
+  start_date: string;
+  end_date: string;
+  days: Record<string, {
+    entries: EntryWithMacros[];
+    totals: Macros;
+  }>;
+};
+
 export type McpWeekResult = {
   user_id: number;
   start_date: string;

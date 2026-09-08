@@ -239,8 +239,8 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 
 # 16. Read-only MCP and OAuth
 
-- J-188 · MCP discovers three read-only tools scoped to the connected account and rejects user discovery
-- J-189 · Day/week tools isolate connected accounts and match app totals across groups, year boundaries, and product edits
+- J-188 · MCP discovers four read-only tools scoped to the connected account and rejects user discovery
+- J-189 · Day/week/meal tools isolate connected accounts and match app totals across groups, year boundaries, and product edits
 - J-190 · Weigh-in tools preserve notes and support inclusive date filters and newest-first pagination
 - J-191 · MCP validates dates and pagination, rejects user selection and arbitrary queries, and never changes stored records
 - J-192 · MCP requires OAuth tokens, rejects app sessions and browser origins, and advertises discovery when unauthenticated
@@ -250,6 +250,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-196 · OAuth rejects unsafe client metadata, mismatched PKCE/callbacks/resources, and expired or reused codes
 - J-197 · OAuth rotates refresh tokens, revokes replayed grants, enforces client-bound revocation, and rejects expired credentials
 - J-198 · OAuth registrations and hashed credentials survive backend restart and allow continued refresh
+- J-199 · Meal reads include every date in an inclusive range, preserve empty days, and support single-day, leap-day, and 31-day ranges
 
 # Verification
 
