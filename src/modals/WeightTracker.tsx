@@ -165,6 +165,9 @@ function WeightTrackerInner() {
                     {formatDate(entry.local_date)}
                   </span>
                 </div>
+                <div className={styles.conditions}>
+                  Peed: {entry.peed ? 'Yes' : 'No'} · Pooped: {entry.pooped ? 'Yes' : 'No'}
+                </div>
                 {entry.note !== null && <div className={styles.note}>{entry.note}</div>}
               </button>
             ))}
@@ -200,6 +203,8 @@ function WeightForm({ mode, entry, onCancel, onSave, onDelete }: WeightFormProps
     entry?.local_date ?? toLocalDateString(new Date()),
   );
   const [weight, setWeight] = useState(entry === undefined ? '' : entry.weight_kg.toFixed(1));
+  const [peed, setPeed] = useState(entry?.peed ?? true);
+  const [pooped, setPooped] = useState(entry?.pooped ?? false);
   const [note, setNote] = useState(entry?.note ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -222,6 +227,8 @@ function WeightForm({ mode, entry, onCancel, onSave, onDelete }: WeightFormProps
         {
           local_date: localDate,
           weight_kg: numericWeight,
+          peed,
+          pooped,
           note: note.trim() === '' ? null : note.trim(),
         },
         entry?.id ?? null,
@@ -308,6 +315,30 @@ function WeightForm({ mode, entry, onCancel, onSave, onDelete }: WeightFormProps
               <span className={styles.fieldError}>Use 0.1–1000.0 kg with one decimal at most.</span>
             )}
           </label>
+
+          <fieldset className={styles.conditionsField} disabled={submitting}>
+            <legend className="field-label">Before weigh-in</legend>
+            <div className={styles.checkboxOptions}>
+              <label className={styles.checkboxOption}>
+                <input
+                  type="checkbox"
+                  checked={peed}
+                  onChange={(event) => setPeed(event.currentTarget.checked)}
+                  className={styles.checkbox}
+                />
+                <span>Peed</span>
+              </label>
+              <label className={styles.checkboxOption}>
+                <input
+                  type="checkbox"
+                  checked={pooped}
+                  onChange={(event) => setPooped(event.currentTarget.checked)}
+                  className={styles.checkbox}
+                />
+                <span>Pooped</span>
+              </label>
+            </div>
+          </fieldset>
 
           <label className="field">
             <span className="field-label">Note</span>

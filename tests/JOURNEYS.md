@@ -230,18 +230,21 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 # 15. Weight tracking
 
 - J-181 · The bottom-dock Weights button opens an empty, usable weight-history Sheet
-- J-182 · Adding a decimal weigh-in defaults to today; its full multiline note renders safely and persists without a time
-- J-183 · Future and note-free weigh-ins sort newest-first; Add opens today's existing record instead of duplicating it
-- J-184 · Editing date, weight, and note updates one record, reorders history, and persists after reload
+- J-182 · Adding a decimal weigh-in defaults to today and Peed only; its checkbox summary and full safe multiline note persist without a time
+- J-183 · Future and note-free weigh-ins sort newest-first; Add opens today's existing record and restores its checkbox choices
+- J-184 · Editing date, weight, checkbox choices, and note updates one record, reorders history, and persists after reload
 - J-185 · One-tap weigh-in deletion removes only the chosen record and persists after reload
-- J-186 · Weight form validation and Cancel prevent invalid writes; failed saves retain the complete draft for retry
+- J-186 · Weight form validation and Cancel prevent invalid writes and reset checkbox drafts; failed saves retain every field for a successful retry
 - J-187 · Weight API validates bodies and IDs, rejects date collisions, and isolates every user's records
+- J-215 · Touch checkboxes toggle independently, persist all four combinations in history and edits, reset for new dates, and discard cancelled edits
+- J-216 · Weight API supplies omitted checkbox defaults, preserves omitted flags on edits, and rejects non-boolean values without partial writes
+- J-217 · Weight checkbox migration backfills every owner with Peed true and Pooped false, preserves legacy records and notes, and enforces defaults and constraints
 
 # 16. MCP and OAuth
 
-- J-188 · MCP discovers six account-scoped read-only tools with output schemas and rejects user discovery
+- J-188 · MCP discovers six account-scoped read-only tools with output schemas, requires boolean weigh-in flags, and rejects user discovery
 - J-189 · Food reads and summaries isolate connected accounts and match app totals across groups, year boundaries, product edits, and current goals
-- J-190 · Weigh-in tools preserve notes and support inclusive date filters and newest-first pagination
+- J-190 · Weigh-in tools match REST checkbox combinations and edits, preserve notes, and support inclusive date filters and newest-first pagination
 - J-191 · MCP validates dates and pagination, preserves text-only errors, rejects user selection and arbitrary queries, and never changes stored records
 - J-192 · MCP requires OAuth tokens, rejects app sessions and browser origins, and advertises discovery when unauthenticated
 - J-193 · Missing or blank public origins disable MCP; unsafe configured origins prevent startup

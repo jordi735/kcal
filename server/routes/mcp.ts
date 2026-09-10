@@ -61,6 +61,8 @@ const weightSchema = z.object({
   local_date: dateString,
   weight_kg: z.number(),
   note: z.string().nullable(),
+  peed: z.boolean().describe('Whether the user peed before this weigh-in'),
+  pooped: z.boolean().describe('Whether the user pooped before this weigh-in'),
 });
 const pagination = {
   limit: z.number().int().min(1).max(500).default(100).describe('Maximum records to return, from 1 to 500'),
@@ -259,7 +261,7 @@ function createServer(user_id: number, scopes: readonly string[]): McpServer {
   }));
 
   server.registerTool('get_weighins', {
-    description: 'Get one user’s weight history in kilograms, with dates and notes, newest first. Date bounds are inclusive; omitted bounds include all dates. Follow next_offset for more records.',
+    description: 'Get one user’s weight history in kilograms, with dates, notes, and peed/pooped flags for before each weigh-in, newest first. Date bounds are inclusive; omitted bounds include all dates. Follow next_offset for more records.',
     inputSchema: z.strictObject({
       start_date: localDate.optional().describe('Earliest local date, inclusive'),
       end_date: localDate.optional().describe('Latest local date, inclusive'),

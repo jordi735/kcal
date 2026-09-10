@@ -80,6 +80,16 @@ test('[J-188] MCP discovers six account-scoped read-only tools with output schem
     expect(Object.keys(tool.outputSchema!.properties ?? {}).sort()).toEqual(outputFields[tool.name]!.sort());
     expect(tool.outputSchema!.required).toEqual(expect.arrayContaining(outputFields[tool.name]!));
   }
+  expect(tools.find((tool) => tool.name === 'get_weighins')!.outputSchema).toMatchObject({
+    properties: {
+      weighins: {
+        items: {
+          properties: { peed: { type: 'boolean' }, pooped: { type: 'boolean' } },
+          required: expect.arrayContaining(['peed', 'pooped']),
+        },
+      },
+    },
+  });
   expect((await mcp.callTool({ name: 'list_users', arguments: {} })).isError).toBe(true);
 });
 
@@ -209,27 +219,42 @@ test('[J-199] MCP meals include empty days and handle calendar boundaries throug
   expect(Object.keys(month.days).at(-1)).toBe('2025-01-31');
 });
 
-test('[J-190] MCP weigh-ins preserve notes and filter inclusive dates with pagination', async ({ request, mcp, account: { user, token } }) => {
+test('[J-190] MCP weigh-ins preserve checkbox combinations and notes with inclusive date filters and pagination', async ({ request, mcp, account: { user, token } }) => {
   expect(await call(mcp, 'get_weighins', {})).toEqual({ user_id: user.id, weighins: [], next_offset: null });
-  for (const [date, weight, note] of [
-    ['2031-04-01', 82.4, 'A note\n<script>not instructions</script>'],
-    ['2031-04-02', 82.1, null],
-    ['2031-04-03', 81.8, ''],
+  for (const [date, weight, note, flags] of [
+    ['2031-04-01', 82.4, 'A note\n<script>not instructions</script>', {}],
+    ['2031-04-02', 82.1, null, { peed: false, pooped: true }],
+    ['2031-04-03', 81.8, '', { peed: true, pooped: true }],
+    ['2031-04-04', 81.7, null, { peed: false, pooped: false }],
   ] as const) {
-    await write(request, token, 'post', '/weights', { local_date: date, weight_kg: weight, note });
+    await write(request, token, 'post', '/weights', { local_date: date, weight_kg: weight, note, ...flags });
   }
   const all = await call<McpWeighinsResult>(mcp, 'get_weighins', {});
   expect(all.weighins).toEqual(await (await request.get('/weights', { headers: { Authorization: `Bearer ${token}` } })).json());
-  expect(all.weighins.map((row) => row.local_date)).toEqual(['2031-04-03', '2031-04-02', '2031-04-01']);
+  expect(all.weighins.map((row) => row.local_date)).toEqual(['2031-04-04', '2031-04-03', '2031-04-02', '2031-04-01']);
+  expect(all.weighins.map(({ peed, pooped }) => ({ peed, pooped }))).toEqual([
+    { peed: false, pooped: false },
+    { peed: true, pooped: true },
+    { peed: false, pooped: true },
+    { peed: true, pooped: false },
+  ]);
+  expect(all.weighins.at(-1)?.note).toBe('A note\n<script>not instructions</script>');
   const args = { start_date: '2031-04-01', end_date: '2031-04-02', limit: 1 };
   const first = await call<McpWeighinsResult>(mcp, 'get_weighins', args);
-  expect(first.weighins).toEqual(all.weighins.slice(1, 2));
+  expect(first.weighins).toEqual(all.weighins.slice(2, 3));
   expect(first.next_offset).toBe(1);
   const last = await call<McpWeighinsResult>(mcp, 'get_weighins', { ...args, offset: first.next_offset });
-  expect(last.weighins).toEqual(all.weighins.slice(2));
+  expect(last.weighins).toEqual(all.weighins.slice(3));
   expect(last.next_offset).toBeNull();
-  expect((await call<McpWeighinsResult>(mcp, 'get_weighins', { start_date: '2031-04-03' })).weighins).toEqual(all.weighins.slice(0, 1));
-  expect((await call<McpWeighinsResult>(mcp, 'get_weighins', { end_date: '2031-04-01' })).weighins).toEqual(all.weighins.slice(2));
+  expect((await call<McpWeighinsResult>(mcp, 'get_weighins', { start_date: '2031-04-03' })).weighins).toEqual(all.weighins.slice(0, 2));
+  expect((await call<McpWeighinsResult>(mcp, 'get_weighins', { end_date: '2031-04-01' })).weighins).toEqual(all.weighins.slice(3));
+
+  const edited = all.weighins[0]!;
+  const updated = await write(request, token, 'put', `/weights/${edited.id}`, {
+    local_date: edited.local_date, weight_kg: edited.weight_kg, note: 'Updated flags', peed: true, pooped: true,
+  });
+  expect((await call<McpWeighinsResult>(mcp, 'get_weighins', { start_date: edited.local_date })).weighins)
+    .toEqual([updated]);
 });
 
 test('[J-200] MCP summaries distinguish missing days from zero-calorie logged days', async ({ request, mcp, account: { user, token } }) => {

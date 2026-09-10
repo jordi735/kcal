@@ -127,6 +127,13 @@
   overflow-wrap: anywhere;
 }
 
+.conditions {
+  margin-top: 8px;
+  color: var(--fg-dimmer);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .footer {
   flex-shrink: 0;
   padding: 16px 20px 20px;
@@ -186,6 +193,57 @@
   color: var(--danger);
   font-size: 11px;
   line-height: 1.4;
+}
+
+.conditionsField {
+  min-width: 0;
+  border: none;
+}
+
+.conditionsField legend {
+  margin-bottom: 10px;
+}
+
+.checkboxOptions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.checkboxOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.checkbox {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  color-scheme: dark;
+  cursor: inherit;
+}
+
+.checkbox:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.conditionsField:disabled {
+  opacity: 0.4;
+}
+
+.conditionsField:disabled .checkboxOption {
+  cursor: default;
 }
 
 .noteInput {

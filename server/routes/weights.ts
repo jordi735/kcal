@@ -24,7 +24,7 @@ function hasOneDecimalAtMost(value: number): boolean {
 
 function parseWeightInput(value: unknown): WeightInput | null {
   if (!isObject(value)) return null;
-  const { local_date, weight_kg, note } = value;
+  const { local_date, weight_kg, note, peed, pooped } = value;
   if (typeof local_date !== 'string' || !DATE_RE.test(local_date)) return null;
   if (
     typeof weight_kg !== 'number' ||
@@ -36,12 +36,16 @@ function parseWeightInput(value: unknown): WeightInput | null {
     return null;
   }
   if (note !== null && typeof note !== 'string') return null;
+  if (peed !== undefined && typeof peed !== 'boolean') return null;
+  if (pooped !== undefined && typeof pooped !== 'boolean') return null;
   const normalizedNote = typeof note === 'string' ? note.trim() : null;
   if (normalizedNote !== null && normalizedNote.length > MAX_NOTE_LENGTH) return null;
   return {
     local_date,
     weight_kg,
     note: normalizedNote === '' ? null : normalizedNote,
+    ...(peed !== undefined ? { peed } : {}),
+    ...(pooped !== undefined ? { pooped } : {}),
   };
 }
 
@@ -73,6 +77,8 @@ weightsRouter.post('/', (req, res) => {
       input.local_date,
       input.weight_kg,
       input.note,
+      Number(input.peed ?? true),
+      Number(input.pooped ?? false),
       Date.now(),
     ) as { lastInsertRowid: number | bigint };
   } catch (error) {
@@ -113,6 +119,8 @@ weightsRouter.put('/:id', (req, res) => {
       input.local_date,
       input.weight_kg,
       input.note,
+      input.peed === undefined ? null : Number(input.peed),
+      input.pooped === undefined ? null : Number(input.pooped),
       req.userId!,
       id,
     ) as { changes: number };

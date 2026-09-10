@@ -65,10 +65,14 @@ export type WeightInput = {
   local_date: string;
   weight_kg: number;
   note: string | null;
+  peed?: boolean;
+  pooped?: boolean;
 };
 
 export type WeightEntry = WeightInput & {
   id: number;
+  peed: boolean;
+  pooped: boolean;
 };
 
 export type OAuthConsent = {

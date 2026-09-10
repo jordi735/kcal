@@ -196,6 +196,8 @@ export type WeightRow = {
   local_date: string;
   weight_kg: number;
   note: string | null;
+  peed: number;
+  pooped: number;
 };
 
 // --- db plumbing ---

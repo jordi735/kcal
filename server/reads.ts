@@ -152,6 +152,8 @@ export function rowToWeight(row: WeightRow): WeightEntry {
     local_date: row.local_date,
     weight_kg: row.weight_kg,
     note: row.note,
+    peed: row.peed === 1,
+    pooped: row.pooped === 1,
   };
 }
 

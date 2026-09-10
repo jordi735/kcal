@@ -62,13 +62,18 @@ adding the OAuth connection. Sign in and approve access in the browser. Use
 | `get_day` | `date` | Food entries, daily totals, and current daily goals |
 | `get_meals` | `start_date`, `end_date` | Food entries and macro totals for each date in an inclusive range of up to 31 days |
 | `get_week` | `date` | Seven Monday–Sunday daily totals, weekly totals, and current goals |
-| `get_weighins` | Optional `start_date`, `end_date`, `limit`, `offset` | Weight history and `next_offset` |
+| `get_weighins` | Optional `start_date`, `end_date`, `limit`, `offset` | Weight history with notes and bathroom flags, plus `next_offset` |
 | `get_summary` | `start_date`, `end_date` | Period totals, averages on logged days, logging coverage, current goals, and weight change for up to 366 days |
 | `search_products` | `query` | Up to 50 saved foods from your own library, with product details and per-100 nutrition |
 
 The account comes from the OAuth token. Tools do not accept a user ID, list other
 accounts, or execute arbitrary SQL. Responses include the connected account's ID.
 Read-only connections discover only the six tools above and cannot invoke writes.
+
+`get_weighins` returns `peed` and `pooped` booleans indicating whether each
+occurred before the weigh-in. Existing records were backfilled with `peed: true`
+and `pooped: false`; these are defaults, not interpretations of their notes.
+Notes remain available separately.
 
 Use `get_meals` to ask what you ate across several days. Both dates are required.
 Its response contains `user_id`, `start_date`, `end_date`, and `days` keyed by

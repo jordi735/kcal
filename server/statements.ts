@@ -352,7 +352,7 @@ export const statements = {
     `),
     // (user_id, start_date, end_date, limit, offset) — inclusive, newest first.
     inRange: db.prepare(`
-      SELECT id, local_date, weight_kg, note
+      SELECT id, local_date, weight_kg, note, peed, pooped
       FROM weights
       WHERE user_id = ? AND local_date >= ? AND local_date <= ?
       ORDER BY local_date DESC
@@ -360,26 +360,28 @@ export const statements = {
     `),
     // (user_id)
     all: db.prepare(`
-      SELECT id, local_date, weight_kg, note
+      SELECT id, local_date, weight_kg, note, peed, pooped
       FROM weights
       WHERE user_id = ?
       ORDER BY local_date DESC
     `),
     // (user_id, id)
     selectById: db.prepare(`
-      SELECT id, local_date, weight_kg, note
+      SELECT id, local_date, weight_kg, note, peed, pooped
       FROM weights
       WHERE user_id = ? AND id = ?
     `),
-    // (user_id, local_date, weight_kg, note, created_at)
+    // (user_id, local_date, weight_kg, note, peed, pooped, created_at)
     insert: db.prepare(`
-      INSERT INTO weights (user_id, local_date, weight_kg, note, created_at)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO weights (user_id, local_date, weight_kg, note, peed, pooped, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `),
-    // (local_date, weight_kg, note, user_id, id)
+    // (local_date, weight_kg, note, peed_or_null, pooped_or_null, user_id, id)
+    // Null flag bindings preserve the stored value for older clients.
     update: db.prepare(`
       UPDATE weights
-      SET local_date = ?, weight_kg = ?, note = ?
+      SET local_date = ?, weight_kg = ?, note = ?,
+          peed = COALESCE(?, peed), pooped = COALESCE(?, pooped)
       WHERE user_id = ? AND id = ?
     `),
     // (user_id, id)

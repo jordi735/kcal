@@ -1,4 +1,8 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
+import Database from 'better-sqlite3';
+import { readdir, readFile } from 'node:fs/promises';
+import path from 'node:path';
+import type { WeightEntry } from '../../shared/types';
 import { signInFresh } from './helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -28,19 +32,20 @@ async function createApiUser(request: APIRequestContext, prefix: string): Promis
 async function createWeight(
   request: APIRequestContext,
   token: string,
-  data: { local_date: string; weight_kg: number; note: string | null },
+  data: {
+    local_date: string;
+    weight_kg: number;
+    note: string | null;
+    peed?: boolean;
+    pooped?: boolean;
+  },
 ) {
   const response = await request.post('/weights', {
     headers: { Authorization: `Bearer ${token}` },
     data,
   });
   expect(response.status(), await response.text()).toBe(201);
-  return (await response.json()) as {
-    id: number;
-    local_date: string;
-    weight_kg: number;
-    note: string | null;
-  };
+  return (await response.json()) as WeightEntry;
 }
 
 async function openWeights(page: import('@playwright/test').Page) {
@@ -60,7 +65,7 @@ test('[J-181] bottom-dock Weights action opens the empty history', async ({ page
   await expect(page.getByRole('button', { name: 'Add weight', exact: true })).toBeEnabled();
 });
 
-test('[J-182] add defaults to today and persists a full safe note without time', async ({
+test('[J-182] add defaults to today and peed only, preserving a full safe note without time', async ({
   page,
   request,
 }) => {
@@ -75,6 +80,10 @@ test('[J-182] add defaults to today and persists a full safe note without time',
   await page.getByRole('button', { name: 'Add weight', exact: true }).tap();
   await expect(page.getByText('Add weight', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Date')).toHaveValue(TODAY);
+  const beforeWeighIn = page.locator('.sheet').getByRole('group', { name: 'Before weigh-in', exact: true });
+  await expect(beforeWeighIn).toBeVisible();
+  await expect(beforeWeighIn.getByRole('checkbox', { name: 'Peed', exact: true })).toBeChecked();
+  await expect(beforeWeighIn.getByRole('checkbox', { name: 'Pooped', exact: true })).not.toBeChecked();
 
   const note = 'I did poop before the weigh-in\n<script>alert(1)</script> end of note';
   await page.getByRole('spinbutton', { name: 'Weight', exact: true }).fill('82.4');
@@ -85,6 +94,7 @@ test('[J-182] add defaults to today and persists a full safe note without time',
   await expect(row).toHaveCount(1);
   await expect(row).toContainText('82.4 kg');
   await expect(row).toContainText('06 MAY 2031');
+  await expect(row).toContainText('Peed: Yes · Pooped: No');
   await expect(row).toContainText('I did poop before the weigh-in');
   await expect(row).toContainText('<script>alert(1)</script> end of note');
   await expect(row).not.toContainText(/\d{2}:\d{2}/);
@@ -92,6 +102,7 @@ test('[J-182] add defaults to today and persists a full safe note without time',
   await page.reload();
   await openWeights(page);
   await expect(page.locator('.weight-row')).toContainText('82.4 kg');
+  await expect(page.locator('.weight-row')).toContainText('Peed: Yes · Pooped: No');
   await expect(page.locator('.weight-row')).toContainText('end of note');
 });
 
@@ -113,6 +124,8 @@ test('[J-183] future and note-free records sort first; Add edits today once occu
   await page.getByRole('button', { name: 'Add weight', exact: true }).tap();
   await expect(page.getByLabel('Date')).toHaveValue(TODAY);
   await page.getByRole('spinbutton', { name: 'Weight', exact: true }).fill('82.1');
+  await page.locator('.sheet').getByRole('checkbox', { name: 'Peed', exact: true }).tap();
+  await page.locator('.sheet').getByRole('checkbox', { name: 'Pooped', exact: true }).tap();
   await page.getByRole('button', { name: 'Add weigh-in', exact: true }).tap();
 
   const rows = page.locator('.weight-row');
@@ -121,12 +134,15 @@ test('[J-183] future and note-free records sort first; Add edits today once occu
   await expect(rows.nth(0)).toContainText('81.0 kg');
   await expect(rows.nth(1)).toContainText('06 MAY 2031');
   await expect(rows.nth(1)).toContainText('82.1 kg');
+  await expect(rows.nth(1)).toContainText('Peed: No · Pooped: Yes');
 
   // Today's unique record exists now, so Add routes to it instead of create.
   await page.getByRole('button', { name: 'Add weight', exact: true }).tap();
   await expect(page.getByText('Edit weight', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Date')).toHaveValue(TODAY);
   await expect(page.getByRole('spinbutton', { name: 'Weight', exact: true })).toHaveValue('82.1');
+  await expect(page.locator('.sheet').getByRole('checkbox', { name: 'Peed', exact: true })).not.toBeChecked();
+  await expect(page.locator('.sheet').getByRole('checkbox', { name: 'Pooped', exact: true })).toBeChecked();
 });
 
 test('[J-184] editing all fields updates one row, reorders, and persists', async ({
@@ -140,6 +156,8 @@ test('[J-184] editing all fields updates one row, reorders, and persists', async
     local_date: '2031-05-01',
     weight_kg: 84.2,
     note: 'clear me',
+    peed: false,
+    pooped: true,
   });
   await createWeight(request, token, {
     local_date: '2031-05-03',
@@ -149,6 +167,12 @@ test('[J-184] editing all fields updates one row, reorders, and persists', async
 
   await openWeights(page);
   await page.getByRole('button', { name: 'Edit weigh-in for 2031-05-01' }).tap();
+  const peed = page.locator('.sheet').getByRole('checkbox', { name: 'Peed', exact: true });
+  const pooped = page.locator('.sheet').getByRole('checkbox', { name: 'Pooped', exact: true });
+  await expect(peed).not.toBeChecked();
+  await expect(pooped).toBeChecked();
+  await peed.tap();
+  await pooped.tap();
   await page.getByLabel('Date').fill('2031-05-05');
   await page.getByRole('spinbutton', { name: 'Weight', exact: true }).fill('82.9');
   await page.getByLabel('Note').fill('');
@@ -158,6 +182,7 @@ test('[J-184] editing all fields updates one row, reorders, and persists', async
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(0)).toContainText('05 MAY 2031');
   await expect(rows.nth(0)).toContainText('82.9 kg');
+  await expect(rows.nth(0)).toContainText('Peed: Yes · Pooped: No');
   await expect(rows.nth(0)).not.toContainText('clear me');
   await expect(page.getByText('01 MAY 2031', { exact: true })).toHaveCount(0);
 
@@ -167,6 +192,10 @@ test('[J-184] editing all fields updates one row, reorders, and persists', async
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(0)).toContainText('05 MAY 2031');
   await expect(rows.nth(0)).toContainText('82.9 kg');
+  await expect(rows.nth(0)).toContainText('Peed: Yes · Pooped: No');
+  await rows.nth(0).tap();
+  await expect(peed).toBeChecked();
+  await expect(pooped).not.toBeChecked();
 });
 
 test('[J-185] one delete tap removes only its record and persists', async ({ page, request }) => {
@@ -222,13 +251,22 @@ test('[J-186] validation and Cancel prevent writes; a failed save keeps the draf
 
   await page.getByRole('spinbutton', { name: 'Weight', exact: true }).fill('82.4');
   await page.getByLabel('Note').fill('cancelled draft');
+  const peed = page.locator('.sheet').getByRole('checkbox', { name: 'Peed', exact: true });
+  const pooped = page.locator('.sheet').getByRole('checkbox', { name: 'Pooped', exact: true });
+  await peed.tap();
+  await pooped.tap();
   await page.getByRole('button', { name: 'Cancel', exact: true }).tap();
   await expect(page.locator('.weight-row')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Add weight', exact: true }).tap();
+  await expect(peed).toBeChecked();
+  await expect(pooped).not.toBeChecked();
+  await expect(page.getByLabel('Note')).toBeEmpty();
   await page.getByLabel('Date').fill('2031-06-01');
   await page.getByRole('spinbutton', { name: 'Weight', exact: true }).fill('80.3');
   await page.getByLabel('Note').fill('keep this draft');
+  await peed.tap();
+  await pooped.tap();
   await page.route('**/weights', async (route) => {
     if (route.request().method() === 'POST') {
       await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"boom"}' });
@@ -242,6 +280,14 @@ test('[J-186] validation and Cancel prevent writes; a failed save keeps the draf
   await expect(page.getByLabel('Date')).toHaveValue('2031-06-01');
   await expect(page.getByRole('spinbutton', { name: 'Weight', exact: true })).toHaveValue('80.3');
   await expect(page.getByLabel('Note')).toHaveValue('keep this draft');
+  await expect(peed).not.toBeChecked();
+  await expect(pooped).toBeChecked();
+
+  await page.unroute('**/weights');
+  await submit.tap();
+  await expect(page.locator('.weight-row')).toHaveCount(1);
+  await expect(page.locator('.weight-row')).toContainText('Peed: No · Pooped: Yes');
+  await expect(page.locator('.weight-row')).toContainText('keep this draft');
 });
 
 test('[J-187] API validates, rejects collisions, and isolates users', async ({ page, request }) => {
@@ -299,7 +345,7 @@ test('[J-187] API validates, rejects collisions, and isolates users', async ({ p
 
   const foreignUpdate = await request.put(`/weights/${first.id}`, {
     headers: otherAuth,
-    data: { local_date: TODAY, weight_kg: 60, note: null },
+    data: { local_date: TODAY, weight_kg: 60, note: null, peed: false, pooped: true },
   });
   expect(foreignUpdate.status()).toBe(404);
   expect(await foreignUpdate.json()).toEqual({ error: 'not_found' });
@@ -309,17 +355,175 @@ test('[J-187] API validates, rejects collisions, and isolates users', async ({ p
 
   const ownerList = await request.get('/weights', { headers: auth });
   expect(ownerList.ok()).toBeTruthy();
-  const ownerRows = (await ownerList.json()) as Array<{
-    id: number;
-    local_date: string;
-    weight_kg: number;
-    note: string | null;
-  }>;
+  const ownerRows = (await ownerList.json()) as WeightEntry[];
   expect(ownerRows).toHaveLength(2);
   expect(ownerRows.find((row) => row.id === first.id)).toEqual({
     id: first.id,
     local_date: TODAY,
     weight_kg: 82.4,
     note: 'normalized note',
+    peed: true,
+    pooped: false,
   });
+});
+
+test('[J-215] weigh-in checkboxes toggle independently, persist all combinations, and reset for new dates', async ({
+  page,
+  request,
+}) => {
+  await page.clock.setFixedTime(FIXED_NOW);
+  await signInFresh(page, request, 'weight-checkboxes');
+  await openWeights(page);
+
+  const sheet = page.locator('.sheet');
+  const peed = sheet.getByRole('checkbox', { name: 'Peed', exact: true });
+  const pooped = sheet.getByRole('checkbox', { name: 'Pooped', exact: true });
+  const records = [
+    { local_date: '2031-05-08', peed: true, pooped: true },
+    { local_date: '2031-05-09', peed: false, pooped: false },
+    { local_date: '2031-05-03', peed: false, pooped: true },
+    { local_date: '2031-05-02', peed: true, pooped: false },
+  ];
+  const description = (record: { peed: boolean; pooped: boolean }) =>
+    `Peed: ${record.peed ? 'Yes' : 'No'} · Pooped: ${record.pooped ? 'Yes' : 'No'}`;
+
+  for (const record of records) {
+    await sheet.getByRole('button', { name: 'Add weight', exact: true }).tap();
+    await expect(sheet.getByLabel('Date')).toHaveValue(TODAY);
+    await expect(peed).toBeChecked();
+    await expect(pooped).not.toBeChecked();
+    await sheet.getByLabel('Date').fill(record.local_date);
+    await sheet.getByRole('spinbutton', { name: 'Weight', exact: true }).fill('82.4');
+    await expect(peed).toBeChecked();
+    await expect(pooped).not.toBeChecked();
+
+    if (!record.peed) {
+      await peed.tap();
+      await expect(peed).not.toBeChecked();
+      await expect(pooped).not.toBeChecked();
+    }
+    if (record.pooped) {
+      await pooped.tap();
+      await expect(pooped).toBeChecked();
+      await expect(peed).toBeChecked({ checked: record.peed });
+    }
+
+    const [saved] = await Promise.all([
+      page.waitForResponse((response) =>
+        response.request().method() === 'POST' && new URL(response.url()).pathname === '/weights'),
+      sheet.getByRole('button', { name: 'Add weigh-in', exact: true }).tap(),
+    ]);
+    expect(saved.status()).toBe(201);
+    expect(saved.request().postDataJSON()).toEqual({ ...record, weight_kg: 82.4, note: null });
+    await expect(sheet.getByRole('button', { name: `Edit weigh-in for ${record.local_date}`, exact: true }))
+      .toContainText(description(record));
+  }
+
+  await page.reload();
+  await openWeights(page);
+  await expect(page.locator('.weight-row')).toHaveCount(4);
+  for (const record of records) {
+    const row = sheet.getByRole('button', { name: `Edit weigh-in for ${record.local_date}`, exact: true });
+    await expect(row).toContainText(description(record));
+    await row.tap();
+    await expect(peed).toBeChecked({ checked: record.peed });
+    await expect(pooped).toBeChecked({ checked: record.pooped });
+    await peed.tap();
+    await pooped.tap();
+    await sheet.getByRole('button', { name: 'Cancel', exact: true }).tap();
+    await expect(row).toContainText(description(record));
+    await row.tap();
+    await expect(peed).toBeChecked({ checked: record.peed });
+    await expect(pooped).toBeChecked({ checked: record.pooped });
+    await sheet.getByRole('button', { name: 'Cancel', exact: true }).tap();
+  }
+});
+
+test('[J-216] weight API defaults omitted checkboxes, preserves omitted edits, and rejects non-booleans atomically', async ({ request }) => {
+  const token = await createApiUser(request, 'weight-checkbox-api');
+  const headers = { Authorization: `Bearer ${token}` };
+  const legacy = await createWeight(request, token, {
+    local_date: '2031-05-01', weight_kg: 82.4, note: 'legacy client',
+  });
+  expect(legacy).toMatchObject({ peed: true, pooped: false });
+  const explicit = await createWeight(request, token, {
+    local_date: '2031-05-02', weight_kg: 82.1, note: null, peed: false, pooped: true,
+  });
+  expect(explicit).toMatchObject({ peed: false, pooped: true });
+  expect(await createWeight(request, token, {
+    local_date: '2031-05-03', weight_kg: 82, note: null, peed: false,
+  })).toMatchObject({ peed: false, pooped: false });
+  expect(await createWeight(request, token, {
+    local_date: '2031-05-04', weight_kg: 81.9, note: null, pooped: true,
+  })).toMatchObject({ peed: true, pooped: true });
+
+  const edit = { local_date: '2031-05-10', weight_kg: 81.8, note: 'changed by older client' };
+  const legacyUpdate = await request.put(`/weights/${explicit.id}`, { headers, data: edit });
+  expect(legacyUpdate.ok(), await legacyUpdate.text()).toBeTruthy();
+  expect(await legacyUpdate.json()).toEqual({ id: explicit.id, ...edit, peed: false, pooped: true });
+
+  const peedUpdate = await request.put(`/weights/${explicit.id}`, { headers, data: { ...edit, peed: true } });
+  expect(peedUpdate.ok(), await peedUpdate.text()).toBeTruthy();
+  expect(await peedUpdate.json()).toEqual({ id: explicit.id, ...edit, peed: true, pooped: true });
+  const poopedUpdate = await request.put(`/weights/${explicit.id}`, { headers, data: { ...edit, pooped: false } });
+  expect(poopedUpdate.ok(), await poopedUpdate.text()).toBeTruthy();
+  expect(await poopedUpdate.json()).toEqual({ id: explicit.id, ...edit, peed: true, pooped: false });
+
+  const beforeInvalid = await (await request.get('/weights', { headers })).json();
+  for (const field of ['peed', 'pooped']) {
+    for (const value of [0, 1, 'true', 'false', null, [], {}]) {
+      const data = { local_date: '2031-05-20', weight_kg: 70, note: 'must not be saved', [field]: value };
+      for (const method of ['post', 'put'] as const) {
+        const response = await request[method](method === 'post' ? '/weights' : `/weights/${explicit.id}`, { headers, data });
+        expect(response.status(), `${method} ${JSON.stringify(data)}`).toBe(400);
+        expect(await response.json()).toEqual({ error: 'invalid_weight' });
+      }
+    }
+  }
+  const afterInvalid = await request.get('/weights', { headers });
+  expect(afterInvalid.ok()).toBeTruthy();
+  expect(await afterInvalid.json()).toEqual(beforeInvalid);
+});
+
+test('[J-217] weight checkbox migration backfills all owners while preserving legacy records and constraints', async () => {
+  const db = new Database(':memory:');
+  const migration = '007_add_weight_bathroom_flags.sql';
+  try {
+    db.pragma('foreign_keys = ON');
+    const previous = (await readdir('server/migrations'))
+      .filter((filename) => filename.endsWith('.sql') && filename < migration).sort();
+    for (const filename of previous) {
+      db.exec(await readFile(path.join('server/migrations', filename), 'utf8'));
+    }
+    db.prepare('INSERT INTO users (id, email, created_at) VALUES (?, ?, ?)').run(1, 'weight-a@test.local', 111);
+    db.prepare('INSERT INTO users (id, email, created_at) VALUES (?, ?, ?)').run(2, 'weight-b@test.local', 222);
+    const insert = db.prepare('INSERT INTO weights (id, user_id, local_date, weight_kg, note, created_at) VALUES (?, ?, ?, ?, ?, ?)');
+    insert.run(11, 1, '2031-05-01', 82.4, 'Did not pee; did poop.\nKeep this exact note.', 333);
+    insert.run(12, 1, '2031-05-02', 82.1, null, 444);
+    insert.run(13, 2, '2031-05-01', 65.7, 'Other owner', 555);
+    const before = db.prepare('SELECT * FROM weights ORDER BY id').all() as Record<string, unknown>[];
+
+    db.exec(await readFile(path.join('server/migrations', migration), 'utf8'));
+    expect(db.prepare('SELECT * FROM weights ORDER BY id').all()).toEqual(
+      before.map((record) => ({ ...record, peed: 1, pooped: 0 })),
+    );
+    db.prepare('INSERT INTO weights (user_id, local_date, weight_kg, note, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(1, '2031-05-03', 81.9, null, 666);
+    expect(db.prepare('SELECT peed, pooped FROM weights WHERE user_id = ? AND local_date = ?').get(1, '2031-05-03'))
+      .toEqual({ peed: 1, pooped: 0 });
+
+    for (const field of ['peed', 'pooped']) {
+      const update = db.prepare(`UPDATE weights SET ${field} = ? WHERE id = ?`);
+      for (const value of [-1, 2, 0.5, 'true', null]) {
+        expect(() => update.run(value, 11), `${field}: ${String(value)}`).toThrow(/constraint/i);
+      }
+    }
+    expect(() => db.prepare('INSERT INTO weights (user_id, local_date, weight_kg, note, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(1, '2031-05-01', 80, null, 777)).toThrow(/UNIQUE constraint failed/i);
+    expect(db.prepare('SELECT * FROM weights WHERE id <= 13 ORDER BY id').all()).toEqual(
+      before.map((record) => ({ ...record, peed: 1, pooped: 0 })),
+    );
+  } finally {
+    db.close();
+  }
 });
