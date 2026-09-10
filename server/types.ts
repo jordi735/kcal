@@ -25,6 +25,9 @@ export type {
   McpMealsResult,
   McpWeekResult,
   McpWeighinsResult,
+  WeightSummaryPoint,
+  McpSummaryResult,
+  McpProductSearchResult,
 } from '../shared/types.js';
 
 import type { Macros } from '../shared/types.js';

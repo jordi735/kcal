@@ -7,7 +7,9 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import type { McpDayResult, McpMealsResult, McpWeekResult, McpWeighinsResult } from '../../shared/types';
+import type {
+  McpDayResult, McpMealsResult, McpProductSearchResult, McpSummaryResult, McpWeekResult, McpWeighinsResult,
+} from '../../shared/types';
 import { signInFresh } from './helpers';
 import { connectMcp } from './oauth-helpers';
 
@@ -54,10 +56,12 @@ async function write(
   return response.json();
 }
 
-test('[J-188] MCP discovers four account-scoped read-only tools with output schemas', async ({ mcp }) => {
+test('[J-188] MCP discovers six account-scoped read-only tools with output schemas', async ({ mcp }) => {
   expect(mcp.getServerVersion()?.name).toBe('kcal');
   const { tools } = await mcp.listTools();
-  expect(tools.map((tool) => tool.name).sort()).toEqual(['get_day', 'get_meals', 'get_week', 'get_weighins']);
+  expect(tools.map((tool) => tool.name).sort()).toEqual([
+    'get_day', 'get_meals', 'get_summary', 'get_week', 'get_weighins', 'search_products',
+  ]);
   expect(tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true);
   expect(tools.every((tool) => !('user_id' in (tool.inputSchema.properties ?? {})))).toBe(true);
   const outputFields: Record<string, string[]> = {
@@ -65,6 +69,9 @@ test('[J-188] MCP discovers four account-scoped read-only tools with output sche
     get_meals: ['user_id', 'start_date', 'end_date', 'days'],
     get_week: ['user_id', 'start_date', 'end_date', 'days', 'totals', 'current_daily_goals'],
     get_weighins: ['user_id', 'weighins', 'next_offset'],
+    get_summary: ['user_id', 'start_date', 'end_date', 'days_total', 'days_logged', 'days_without_entries',
+      'totals', 'average_on_logged_days', 'current_daily_goals', 'weight'],
+    search_products: ['user_id', 'query', 'products'],
   };
   for (const tool of tools) {
     expect(tool.outputSchema, tool.name).toMatchObject({
@@ -76,7 +83,7 @@ test('[J-188] MCP discovers four account-scoped read-only tools with output sche
   expect((await mcp.callTool({ name: 'list_users', arguments: {} })).isError).toBe(true);
 });
 
-test('[J-189] MCP day, week and meals match app totals across users, groups, and product edits', async ({ request, browser, mcp, account: a }) => {
+test('[J-189] MCP food reads and summaries match app totals across users, groups, and product edits', async ({ request, browser, mcp, account: a }) => {
   const headers = { Authorization: `Bearer ${a.token}` };
   const goals = { kcal: 2300, protein: 150, carbs: 250, fat: 75 };
   await write(request, a.token, 'put', '/settings', goals);
@@ -125,6 +132,16 @@ test('[J-189] MCP day, week and meals match app totals across users, groups, and
   const lastDay = await call<McpDayResult>(mcp, 'get_day', { date: range.end_date });
   expect(meals.days[range.end_date]).toEqual({ entries: lastDay.entries, totals: lastDay.totals });
   expect(Object.fromEntries(Object.entries(meals.days).map(([date, value]) => [date, value.totals]))).toEqual(week.days);
+  for (const [local_date, weight_kg] of [['2024-12-30', 82.4], ['2025-01-05', 81.9]] as const) {
+    await write(request, a.token, 'post', '/weights', { local_date, weight_kg, note: null });
+  }
+  const summary = await call<McpSummaryResult>(mcp, 'get_summary', range);
+  expect(summary).toMatchObject({
+    user_id: a.user.id, ...range, days_total: 7, days_logged: 2, days_without_entries: 5,
+    totals: week.totals, current_daily_goals: goals,
+    average_on_logged_days: { kcal: 300, protein: 15, carbs: 30, fat: 7.5 },
+    weight: { weighin_count: 2, change_kg: -0.5 },
+  });
 
   // Each connection resolves its own account; tool arguments cannot switch it.
   const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
@@ -134,6 +151,12 @@ test('[J-189] MCP day, week and meals match app totals across users, groups, and
     const bConnection = await connectMcp(bPage);
     const bDay = await call<McpDayResult>(bConnection.mcp, 'get_day', { date: '2024-12-30' });
     const bMeals = await call<McpMealsResult>(bConnection.mcp, 'get_meals', range);
+    const bSummary = await call<McpSummaryResult>(bConnection.mcp, 'get_summary', range);
+    expect(bSummary).toMatchObject({
+      user_id: b.user.id, days_logged: 0, days_without_entries: 7,
+      totals: ZERO, average_on_logged_days: null,
+      weight: { weighin_count: 0, first: null, last: null, change_kg: null },
+    });
     expect(bMeals.user_id).toBe(b.user.id);
     expect(Object.values(bMeals.days).every((value) => value.entries.length === 0)).toBe(true);
     expect(Object.values(bMeals.days).every((value) => value.totals.kcal === 0)).toBe(true);
@@ -159,6 +182,12 @@ test('[J-189] MCP day, week and meals match app totals across users, groups, and
   expect(editedMeals.days['2024-12-30']).toEqual({ entries: edited.entries, totals: edited.totals });
   const editedWeek = await call<McpWeekResult>(mcp, 'get_week', { date: '2025-01-02' });
   expect(editedWeek.totals).toEqual({ kcal: 900, protein: 60, carbs: 90, fat: 30 });
+  const newGoals = { kcal: 2500, protein: 170, carbs: 260, fat: 80 };
+  await write(request, a.token, 'put', '/settings', newGoals);
+  const editedSummary = await call<McpSummaryResult>(mcp, 'get_summary', range);
+  expect(editedSummary.totals).toEqual(editedWeek.totals);
+  expect(editedSummary.average_on_logged_days).toEqual({ kcal: 450, protein: 30, carbs: 45, fat: 15 });
+  expect(editedSummary.current_daily_goals).toEqual(newGoals);
 });
 
 test('[J-199] MCP meals include empty days and handle calendar boundaries through 31 days', async ({ mcp }) => {
@@ -203,6 +232,163 @@ test('[J-190] MCP weigh-ins preserve notes and filter inclusive dates with pagin
   expect((await call<McpWeighinsResult>(mcp, 'get_weighins', { end_date: '2031-04-01' })).weighins).toEqual(all.weighins.slice(2));
 });
 
+test('[J-200] MCP summaries distinguish missing days from zero-calorie logged days', async ({ request, mcp, account: { user, token } }) => {
+  const range = { start_date: '2024-02-28', end_date: '2024-03-01' };
+  const empty = await call<McpSummaryResult>(mcp, 'get_summary', range);
+  expect(empty).toMatchObject({
+    user_id: user.id, ...range, days_total: 3, days_logged: 0, days_without_entries: 3,
+    totals: ZERO, average_on_logged_days: null,
+  });
+  const body = { name: `MCP summary water ${user.id}`, brand: null, unit: 'ml', barcode: null, is_temp: false, per100: ZERO };
+  const water = await write(request, token, 'post', '/products', body);
+  await write(request, token, 'post', '/entries', {
+    product_id: water.id, grams: 250, local_date: '2024-02-29', local_time: '09:00',
+  });
+  const zero = await call<McpSummaryResult>(mcp, 'get_summary', range);
+  expect(zero).toMatchObject({ days_logged: 1, days_without_entries: 2, totals: ZERO, average_on_logged_days: ZERO });
+
+  const product = await write(request, token, 'post', '/products', {
+    ...body, name: `MCP summary food ${user.id}`, unit: 'g', per100: { kcal: 150, protein: 9, carbs: 18, fat: 6 },
+  });
+  for (const [local_date, grams] of [
+    ['2024-02-28', 100], ['2024-03-01', 100], ['2024-02-28', 50],
+    ['2024-02-27', 999], ['2024-03-02', 999],
+    // Existing REST guards allow impossible date-shaped strings. Summary reads
+    // must ignore these just as the calendar-based day/week reads do.
+    ['2024-02-30', 999],
+  ] as const) {
+    await write(request, token, 'post', '/entries', { product_id: product.id, grams, local_date, local_time: '12:30' });
+  }
+  await write(request, token, 'post', '/weights', { local_date: '2024-02-30', weight_kg: 82, note: null });
+  const full = await call<McpSummaryResult>(mcp, 'get_summary', range);
+  expect(full).toMatchObject({
+    days_total: 3, days_logged: 3, days_without_entries: 0,
+    totals: { kcal: 375, protein: 22.5, carbs: 45, fat: 15 },
+    average_on_logged_days: { kcal: 125, protein: 7.5, carbs: 15, fat: 5 },
+    weight: { weighin_count: 0, first: null, last: null, change_kg: null },
+  });
+});
+
+test('[J-201] MCP summaries compare first and last in-range weigh-ins with sparse history', async ({ request, mcp, account: { token } }) => {
+  const range = { start_date: '2024-02-28', end_date: '2024-03-05' };
+  expect((await call<McpSummaryResult>(mcp, 'get_summary', range)).weight).toEqual({
+    weighin_count: 0, first: null, last: null, change_kg: null,
+  });
+  const point = { local_date: '2024-03-02', weight_kg: 80.1 };
+  await write(request, token, 'post', '/weights', { ...point, note: 'Not part of the summary' });
+  expect((await call<McpSummaryResult>(mcp, 'get_summary', range)).weight).toEqual({
+    weighin_count: 1, first: point, last: point, change_kg: null,
+  });
+  // Insert out of order; only the calendar endpoints determine change.
+  for (const [local_date, weight_kg] of [
+    ['2024-03-05', 81.9], ['2024-03-03', 88.8], ['2024-02-28', 82.4],
+    ['2024-02-27', 86.3], ['2024-03-06', 60.2], ['2024-03-04', 80.1],
+  ] as const) {
+    await write(request, token, 'post', '/weights', { local_date, weight_kg, note: null });
+  }
+  expect((await call<McpSummaryResult>(mcp, 'get_summary', range)).weight).toEqual({
+    weighin_count: 5,
+    first: { local_date: range.start_date, weight_kg: 82.4 },
+    last: { local_date: range.end_date, weight_kg: 81.9 },
+    change_kg: -0.5,
+  });
+  const gain = await call<McpSummaryResult>(mcp, 'get_summary', { start_date: '2024-03-02', end_date: '2024-03-03' });
+  expect(gain.weight.change_kg).toBe(8.7);
+  const same = await call<McpSummaryResult>(mcp, 'get_summary', { start_date: '2024-03-02', end_date: '2024-03-04' });
+  expect(same.weight.change_kg).toBe(0);
+  const singleDay = await call<McpSummaryResult>(mcp, 'get_summary', { start_date: point.local_date, end_date: point.local_date });
+  expect(singleDay.weight).toEqual({ weighin_count: 1, first: point, last: point, change_kg: null });
+});
+
+test('[J-202] MCP summaries handle calendar boundaries and a full year without weight pagination', async ({ request, mcp, account: { token } }) => {
+  for (const [start_date, end_date, days_total] of [
+    ['2024-02-29', '2024-02-29', 1],
+    ['2024-02-28', '2024-03-01', 3],
+    ['2025-03-29', '2025-03-31', 3],
+    ['2024-12-31', '2025-01-01', 2],
+    ['0000-01-01', '0000-01-01', 1],
+    ['9999-12-31', '9999-12-31', 1],
+    ['2024-01-01', '2024-12-31', 366],
+  ] as const) {
+    const summary = await call<McpSummaryResult>(mcp, 'get_summary', { start_date, end_date });
+    expect(summary).toMatchObject({ start_date, end_date, days_total, days_logged: 0,
+      days_without_entries: days_total, totals: ZERO, average_on_logged_days: null });
+  }
+  // More than the weight tool's default page of 100, all inside a leap year.
+  for (let i = 0; i < 101; i++) {
+    const local_date = new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10);
+    await write(request, token, 'post', '/weights', { local_date, weight_kg: 80 + i / 10, note: null });
+  }
+  const year = await call<McpSummaryResult>(mcp, 'get_summary', { start_date: '2024-01-01', end_date: '2024-12-31' });
+  expect(year.weight).toEqual({
+    weighin_count: 101,
+    first: { local_date: '2024-01-01', weight_kg: 80 },
+    last: { local_date: '2024-04-10', weight_kg: 90 },
+    change_kg: 10,
+  });
+});
+
+test('[J-203] MCP product search matches the owned saved library by name and brand', async ({ request, browser, mcp, account: a }) => {
+  const query = `MCP lookup ${a.user.id}`;
+  const body = { name: `${query} Zebra`, brand: null, unit: 'g', barcode: null,
+    per100: { kcal: 100, protein: 12, carbs: 7, fat: 3 }, is_temp: false };
+  // Saved but never logged: these products must still be searchable.
+  const zebra = await write(request, a.token, 'post', '/products', body);
+  const alpha = await write(request, a.token, 'post', '/products', { ...body, name: `${query} Alpha` });
+  const branded = await write(request, a.token, 'post', '/products', {
+    ...body, name: `Drink ${a.user.id}`, brand: `${query} Maker`, unit: 'ml', barcode: `mcp-lookup-${a.user.id}`,
+  });
+  await write(request, a.token, 'post', '/products', { ...body, name: `${query} Temporary`, is_temp: true });
+
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  try {
+    const bPage = await context.newPage();
+    const b = await freshUser(bPage, request, 'mcp-search-other');
+    await write(request, b.token, 'post', '/products', { ...body, name: `${query} Private` });
+    const shared = await write(request, b.token, 'post', '/products', {
+      ...body, name: `${query} Shared`, barcode: `mcp-lookup-${b.user.id}`,
+    });
+    const headers = { Authorization: `Bearer ${a.token}` };
+    const global = await (await request.get(`/products/search?q=${encodeURIComponent(query)}&global=1`, { headers })).json();
+    expect(global.some((product: { id: number }) => product.id === shared.id)).toBe(true);
+
+    const result = await call<McpProductSearchResult>(mcp, 'search_products', { query: `  ${query.toUpperCase()}  ` });
+    expect(result).toEqual({ user_id: a.user.id, query: query.toUpperCase(), products: [branded, alpha, zebra] });
+    expect(result.products).toEqual(await (await request.get(`/products/search?q=${encodeURIComponent(query)}`, { headers })).json());
+    expect((await call<McpProductSearchResult>(mcp, 'search_products', { query: `${query} Maker` })).products).toEqual([branded]);
+    expect((await call<McpProductSearchResult>(mcp, 'search_products', { query: `${query} Missing` })).products).toEqual([]);
+
+    const bConnection = await connectMcp(bPage);
+    try {
+      const own = await call<McpProductSearchResult>(bConnection.mcp, 'search_products', { query });
+      expect(own.user_id).toBe(b.user.id);
+      expect(own.products).toHaveLength(2);
+      expect(own.products.some((product) => product.id === shared.id)).toBe(true);
+      expect(own.products.some((product) => [branded.id, alpha.id, zebra.id].includes(product.id))).toBe(false);
+    } finally {
+      await bConnection.mcp.close();
+    }
+  } finally {
+    await context.close();
+  }
+});
+
+test('[J-204] MCP product search caps broad queries at 50 alphabetically ordered results', async ({ request, mcp, account: { user, token } }) => {
+  const query = `MCP capped ${user.id}`;
+  const names: string[] = [];
+  for (let i = 50; i >= 0; i--) {
+    const product = await write(request, token, 'post', '/products', {
+      name: `${query} ${String(i).padStart(2, '0')}`, brand: null, unit: 'g', barcode: null,
+      per100: ZERO, is_temp: false,
+    });
+    names.push(product.name);
+  }
+  const result = await call<McpProductSearchResult>(mcp, 'search_products', { query });
+  expect(result.products).toHaveLength(50);
+  expect(result.products.map((product) => product.name)).toEqual(names.reverse().slice(0, 50));
+  expect((await call<McpProductSearchResult>(mcp, 'search_products', { query: `${query} 50` })).products).toHaveLength(1);
+});
+
 test('[J-191] MCP rejects invalid inputs without changing any stored records', async ({ page, request, mcp, mcpHeaders }) => {
   // Stop SPA revalidation requests before comparing session records.
   await page.close();
@@ -221,6 +407,10 @@ test('[J-191] MCP rejects invalid inputs without changing any stored records', a
     expect(week.totals).toEqual(ZERO);
     const meals = await call<McpMealsResult>(mcp, 'get_meals', { start_date: '2024-02-28', end_date: '2024-03-01' });
     expect(Object.keys(meals.days)).toEqual(['2024-02-28', '2024-02-29', '2024-03-01']);
+    const summary = await call<McpSummaryResult>(mcp, 'get_summary', { start_date: '2024-01-01', end_date: '2024-12-31' });
+    expect(summary.days_total).toBe(366);
+    expect(summary.average_on_logged_days).toBeNull();
+    expect((await call<McpProductSearchResult>(mcp, 'search_products', { query: "%' OR 1=1 --" })).products).toEqual([]);
     for (const [name, input] of [
       ['get_day', { ...args, date: '2023-02-29' }],
       ['get_week', { ...args, date: '2024-04-31' }],
@@ -245,6 +435,22 @@ test('[J-191] MCP rejects invalid inputs without changing any stored records', a
       ['get_weighins', { start_date: '2031-04-03', end_date: '2031-04-01' }],
       ['get_weighins', { start_date: '2031-02-30' }],
       ['get_weighins', { limit: 501 }],
+      ['get_summary', {}],
+      ['get_summary', { start_date: '2024-01-01' }],
+      ['get_summary', { start_date: '2023-02-29', end_date: '2023-03-01' }],
+      ['get_summary', { start_date: '2024-04-01', end_date: '2024-04-31' }],
+      ['get_summary', { start_date: '2024-01-01T00:00:00Z', end_date: '2024-01-02' }],
+      ['get_summary', { start_date: '2024-03-01', end_date: '2024-02-29' }],
+      ['get_summary', { start_date: '2024-01-01', end_date: '2025-01-01' }],
+      ['get_summary', { start_date: '2024-01-01', end_date: '2024-01-01', user_id: 1 }],
+      ['get_summary', { start_date: '2024-01-01', end_date: '2024-01-01', sql: 'DELETE FROM users' }],
+      ['search_products', {}],
+      ['search_products', { query: '' }],
+      ['search_products', { query: '  ' }],
+      ['search_products', { query: 1 }],
+      ['search_products', { query: 'food', user_id: 1 }],
+      ['search_products', { query: 'food', global: true }],
+      ['search_products', { query: 'food', sql: 'DELETE FROM users' }],
       ['list_users', { limit: 0 }],
       ['list_users', { limit: 1.5 }],
       ['list_users', { offset: -1 }],

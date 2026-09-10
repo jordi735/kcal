@@ -16,6 +16,7 @@ import { db } from '../db.js';
 import { env } from '../env.js';
 import { isObject } from '../guards.js';
 import { log } from '../log.js';
+import { rowToProduct, searchOwnProducts } from '../reads.js';
 import { statements } from '../statements.js';
 import { parsePositiveInt, trimOrNull } from '../util.js';
 import type {
@@ -66,23 +67,6 @@ function checkAndBumpQuota(userId: number): boolean {
   return true;
 }
 
-function rowToProduct(r: ProductRow): Product {
-  return {
-    id: r.id,
-    name: r.name,
-    brand: r.brand,
-    unit: r.unit === 'ml' ? 'ml' : 'g',
-    barcode: r.barcode,
-    per100: {
-      kcal: r.kcal_per100,
-      protein: r.protein_per100,
-      carbs: r.carbs_per100,
-      fat: r.fat_per100,
-    },
-    is_temp: r.is_temp === 1,
-  };
-}
-
 function searchRowToProduct(r: ProductSearchRow): Product {
   return { ...rowToProduct(r), is_mine: r.is_mine === 1 };
 }
@@ -127,12 +111,7 @@ productsRouter.get('/search', (req, res) => {
     res.json(rows.map(searchRowToProduct));
     return;
   }
-  const rows = statements.products.searchOwn.all(
-    req.userId!,
-    pattern,
-    pattern,
-  ) as ProductRow[];
-  res.json(rows.map(rowToProduct));
+  res.json(searchOwnProducts(req.userId!, q));
 });
 
 productsRouter.get('/recent', (req, res) => {

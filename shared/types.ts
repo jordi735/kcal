@@ -113,3 +113,32 @@ export type McpWeighinsResult = {
   weighins: WeightEntry[];
   next_offset: number | null;
 };
+
+export type WeightSummaryPoint = Pick<WeightEntry, 'local_date' | 'weight_kg'>;
+
+export type McpSummaryResult = {
+  user_id: number;
+  start_date: string;
+  end_date: string;
+  days_total: number;
+  days_logged: number;
+  days_without_entries: number;
+  totals: Macros;
+  // Days with at least one entry, including zero-calorie entries. This does
+  // not imply complete logging; null means there were no logged days.
+  average_on_logged_days: Macros | null;
+  current_daily_goals: Macros;
+  weight: {
+    weighin_count: number;
+    first: WeightSummaryPoint | null;
+    last: WeightSummaryPoint | null;
+    // Latest minus earliest within the range; null with fewer than two points.
+    change_kg: number | null;
+  };
+};
+
+export type McpProductSearchResult = {
+  user_id: number;
+  query: string;
+  products: Product[];
+};

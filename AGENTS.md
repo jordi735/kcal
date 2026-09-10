@@ -129,11 +129,18 @@ required-key inventory and never commit real credentials.
   `DEBUG_ALLOW_IPS` middleware ahead of the router. Configure `TRUST_PROXY` with
   trusted proxy addresses/subnets; the current
   string parser does not make `"1"` a one-hop setting.
-- `/mcp` exposes `get_day`, `get_meals`, `get_week`, and `get_weighins` with user ownership
-  resolved from separate OAuth tokens. Never accept app sessions, admin tokens,
-  or caller-selected user IDs. Keep tools read-only and reuse app calculations.
+- `/mcp` exposes `get_day`, `get_meals`, `get_week`, `get_weighins`, `get_summary`,
+  and `search_products` with user ownership resolved from separate OAuth tokens.
+  Never accept app sessions, admin tokens, or caller-selected user IDs. Keep tools
+  read-only and reuse app calculations.
   `get_meals` returns flat food entries and totals per date for an inclusive range
   of at most 31 days, including empty dates; named groups remain entry metadata.
+  `get_summary` accepts at most 366 days, averages only days containing entries
+  (including zero-calorie entries), and compares first/last in-range weights.
+  Empty-period averages and changes with fewer than two weights are null;
+  summary reads exclude impossible stored dates. `search_products` reuses the
+  app's saved-product name/brand search, limited to 50 caller-owned non-temporary
+  products. Every tool declares an output schema matching its structured result.
   `PUBLIC_ORIGIN` enables OAuth/MCP; unset disables them. SDK OAuth routes own
   discovery/DCR/PKCE; `server/oauth.ts` persists clients, browser-bound consent,
   single-use codes, rotating tokens, and revocation in SQLite. Enforce resource

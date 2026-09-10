@@ -1,6 +1,6 @@
 # Connect KCAL to ChatGPT or Codex
 
-KCAL exposes four read-only tools at `/mcp`. Connect using OAuth, sign in with
+KCAL exposes six read-only tools at `/mcp`. Connect using OAuth, sign in with
 KCAL's existing email code, and approve access to your own account.
 
 ## Server setup
@@ -61,6 +61,8 @@ adding the OAuth connection. Sign in and approve access in the browser. Use
 | `get_meals` | `start_date`, `end_date` | Food entries and macro totals for each date in an inclusive range of up to 31 days |
 | `get_week` | `date` | Seven Monday–Sunday daily totals, weekly totals, and current goals |
 | `get_weighins` | Optional `start_date`, `end_date`, `limit`, `offset` | Weight history and `next_offset` |
+| `get_summary` | `start_date`, `end_date` | Period totals, averages on logged days, logging coverage, current goals, and weight change for up to 366 days |
+| `search_products` | `query` | Up to 50 saved foods from your own library, with product details and per-100 nutrition |
 
 The account comes from the OAuth token. Tools do not accept a user ID, list other
 accounts, execute SQL, or write data. Responses include the connected account's ID.
@@ -72,6 +74,30 @@ Its response contains `user_id`, `start_date`, `end_date`, and `days` keyed by
 groups remain attached to their food entries; the tool does not infer meal times
 or count meals. Longer periods can be requested in separate ranges.
 
+Use `get_summary` for questions such as “How did my last month look?” Both dates
+are required and inclusive, with at most 366 days. The response includes:
+
+- `user_id`, `start_date`, and `end_date` for the connected account and period.
+- `days_total`, `days_logged`, and `days_without_entries`. A logged day has at
+  least one entry, including zero-calorie foods; it does not imply complete logging.
+- `totals`, `average_on_logged_days`, and `current_daily_goals`. Averages divide
+  the recorded totals by logged days, excluding missing days. With no logged
+  days, totals are zero and averages are `null`. Goals are the current settings.
+- `weight`: `weighin_count`, `first`, `last`, and `change_kg`. Endpoints contain
+  `local_date` and `weight_kg` for the earliest/latest measurements inside the
+  range. Change is latest minus earliest, rounded to one decimal. With no
+  measurements, endpoints and change are `null`; with one, both endpoints
+  describe that measurement and change is `null`. No outside-range baseline or
+  interpolation is used. Impossible stored dates are excluded from summaries.
+
+Use `search_products` for questions such as “What are the macros for 250g of my
+usual yoghurt?” Supply a nonblank `query`; surrounding whitespace is removed.
+The response is `{ user_id, query, products }`, with the same product objects used
+in food logs. Matching uses the app's name/brand search and alphabetical
+ordering, capped at 50 results. Narrow the query when 50 are returned. Saved
+foods are searchable even if never logged; temporary foods and other accounts'
+products are excluded. Nutrition is per 100 of the product's `g` or `ml` unit.
+
 Dates are timezone-free `YYYY-MM-DD` calendar dates. `get_week` accepts any date
 in the requested week. Weigh-in bounds are inclusive; omitted bounds include all
 dates. Pagination defaults to 100 records, allows 1–500, and returns newest first.
@@ -81,8 +107,8 @@ live offsets. Weigh-ins include kilograms and notes.
 Food entries include product details, computed macros, tags, and group references,
 in entry ID order. Tagged entries count toward totals; groups count only through
 their children. Historical totals use current product nutrition, matching the app.
-Goals describe current settings. Zero totals mean no recorded intake, not proof
-that logging was complete. All tools advertise output schemas and return matching
+Goals describe current settings. Zero totals can mean missing logs or logged
+zero-calorie foods. All tools advertise output schemas and return matching
 structured JSON and equivalent text.
 
 ## Connection lifecycle

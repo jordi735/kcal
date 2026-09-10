@@ -239,8 +239,8 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 
 # 16. Read-only MCP and OAuth
 
-- J-188 · MCP discovers four account-scoped read-only tools with output schemas and rejects user discovery
-- J-189 · Day/week/meal tools isolate connected accounts and match app totals across groups, year boundaries, and product edits
+- J-188 · MCP discovers six account-scoped read-only tools with output schemas and rejects user discovery
+- J-189 · Food reads and summaries isolate connected accounts and match app totals across groups, year boundaries, product edits, and current goals
 - J-190 · Weigh-in tools preserve notes and support inclusive date filters and newest-first pagination
 - J-191 · MCP validates dates and pagination, preserves text-only errors, rejects user selection and arbitrary queries, and never changes stored records
 - J-192 · MCP requires OAuth tokens, rejects app sessions and browser origins, and advertises discovery when unauthenticated
@@ -251,6 +251,11 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-197 · OAuth rotates refresh tokens, revokes replayed grants, enforces client-bound revocation, and rejects expired credentials
 - J-198 · OAuth registrations and hashed credentials survive backend restart and allow continued refresh
 - J-199 · Meal reads include every date in an inclusive range, preserve empty days, and support single-day, leap-day, and 31-day ranges
+- J-200 · Summaries distinguish missing days from zero-calorie logged days, average over logged days, and exclude impossible stored dates
+- J-201 · Summaries compare first and last in-range weigh-ins, include measurement dates, and handle empty, single-point, rising, falling, and unchanged weights
+- J-202 · Summaries support calendar boundaries and 366-day periods without truncating weight history to a page
+- J-203 · MCP product search matches owned saved foods by name and brand, preserves nutrition and units, and excludes temporary and cross-user products
+- J-204 · MCP product search caps broad queries at 50 alphabetically ordered results and supports narrowing the query
 
 # Verification
 
