@@ -9,8 +9,8 @@ These instructions apply to the entire repository.
 - `server/` is the Express 5 and SQLite backend. Routes live in `server/routes/`,
   SQL migrations in `server/migrations/`, and normal application statements in
   `server/statements.ts`. `server/reads.ts` shares read functions and serializers
-  between REST routes and MCP tools; `server/writes.ts` shares transactional entry
-  and product mutations. Setup is in `docs/mcp.md`.
+  between REST routes and MCP tools; `server/writes.ts` shares transactional entry,
+  entry-group, and product mutations. Setup is in `docs/mcp.md`.
 - `shared/` contains code compiled by both TypeScript projects, especially wire
   types, stored-text normalization, and API-prefix detection.
 - `public/` contains PWA and site assets copied into the Vite build. `tests/e2e/`
@@ -74,6 +74,9 @@ required-key inventory and never commit real credentials.
   strings. Generate them with `src/dates.ts`; weeks are Monday-first.
 - Normalize stored product names, brands, and entry-group names with the helpers
   in `shared/normalize.ts` on every create and update path.
+- Use `shared/constraints.ts` for the UI/REST/MCP entry minimum and group-name
+  validation. New or changed amounts must be at least 1 g/ml; decimals are allowed.
+  Do not rewrite legacy smaller entries or reject their tag-only edits or deletion.
 - `useEntries` applies local cache changes only after successful requests. Preserve
   entry insertion order by `id` and recompute week totals only for loaded dates;
   tagged-only updates do not change totals.
@@ -111,9 +114,13 @@ required-key inventory and never commit real credentials.
   totals.
 - Entry groups are day-scoped metadata referenced by nullable `entries.group_id`.
   Create groups atomically from at least two unique, ungrouped entries owned by
-  the caller on one date; do not support nesting or silent regrouping. Group
+  the caller on one valid calendar date, derived from the children. Normalize
+  names to 1–64 characters, preserving case. Do not support nesting, silent
+  regrouping, membership replacement, date changes, or group portions/nutrition. Group
   macros and tagged state derive from children, parent tagging is atomic, Ungroup
   preserves entries, and entry/product deletion dissolves groups below two members.
+  Whole-group deletion atomically removes its children and metadata while
+  preserving products. Return real children in entry-ID order.
 - Weights are private, date-only records stored in kilograms, with at most one
   record per user and `local_date`. Accept 0.1–1000.0 kg at one-decimal precision,
   allow past or future dates, and normalize blank notes to null with a 500-character
@@ -136,10 +143,19 @@ required-key inventory and never commit real credentials.
   calculations. Read-only connections expose only these six tools. Connections
   granted both `kcal:read` and `kcal:write` additionally expose `create_entry`,
   `update_entry`, `delete_entry`, `create_product`, `update_product`, and
-  `delete_product`. Check write scope before mutation and reuse `server/writes.ts`
-  from REST and MCP. Entry edits allow only grams/tagged; product updates preserve
+  `delete_product`, `create_entry_group`, `update_entry_group`,
+  `set_entry_group_tagged`, `ungroup_entries`, and `delete_entry_group`. Check write
+  scope before mutation and reuse `server/writes.ts` from REST and MCP. MCP entry
+  creation requires an owned saved food; do not reuse temporary foods. Keep the
+  UI's new-temporary-food workflow and existing temporary-entry operations working.
+  Entry edits allow only grams/tagged; product updates preserve
   omitted metadata/macros. Product deletion cascades through the owner's logs and
-  dissolves undersized groups. Controlled failures must leave no partial changes.
+  dissolves undersized groups. Controlled failures must leave no partial changes;
+  validate MCP output before committing the mutation transaction.
+  MCP may offer a more convenient interface, but cannot enable an action or
+  stored value forbidden by the UI. Keep explicit creation timestamps, partial
+  updates, summaries/pagination, and single-call deletion; UI gestures and
+  confirmation steps are not protocol requirements. Apply this rule to future tools.
   `get_meals` returns flat food entries and totals per date for an inclusive range
   of at most 31 days, including empty dates; named groups remain entry metadata.
   `get_summary` accepts at most 366 days, averages only days containing entries

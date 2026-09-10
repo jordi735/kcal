@@ -265,6 +265,14 @@ export const statements = {
       WHERE e.user_id = ? AND e.local_date = ?
       ORDER BY e.id ASC
     `),
+    // (user_id, group_id) — group mutation results keep the same insertion order
+    // as day reads, independent of the order used to select the children.
+    selectForGroup: db.prepare(`
+      SELECT ${ENTRY_WITH_PRODUCT_COLS}
+      ${ENTRY_JOIN_FROM}
+      WHERE e.user_id = ? AND e.group_id = ?
+      ORDER BY e.id ASC
+    `),
     // (user_id, start_date, end_date)
     weekSum: db.prepare(`
       SELECT
@@ -323,6 +331,11 @@ export const statements = {
     // (user_id, id)
     delete: db.prepare(
       'DELETE FROM entries WHERE user_id = ? AND id = ?',
+    ),
+    // (user_id, group_id) — delete children only after verifying group ownership
+    // in the same transaction; library products remain untouched.
+    deleteForGroup: db.prepare(
+      'DELETE FROM entries WHERE user_id = ? AND group_id = ?',
     ),
     // (user_id, product_id) — prunes every row referencing a to-be-deleted
     // product for this user. Runs before products.delete inside a transaction.

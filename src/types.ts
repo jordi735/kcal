@@ -22,6 +22,9 @@ export type {
   McpEntryDeleteResult,
   McpProductWriteResult,
   McpProductDeleteResult,
+  McpEntryGroupResult,
+  McpUngroupResult,
+  McpEntryGroupDeleteResult,
 } from '../shared/types.js';
 
 import type { EntryWithMacros, Macros } from '../shared/types.js';

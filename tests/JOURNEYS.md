@@ -269,6 +269,13 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-212 · OAuth reconnects legacy clients for write without upgrading old or omitted-scope grants
 - J-213 · OAuth refresh preserves or narrows scope without restoring write permissions
 - J-214 · OAuth scope migration preserves legacy requests grants and tokens as read-only
+- J-218 · MCP group tools declare write schemas and read-only tokens cannot mutate groups
+- J-219 · MCP group creation, renaming, tagging, and ungrouping preserve child fields and totals and appear after UI reload
+- J-220 · MCP groups reject invalid membership, impossible legacy dates, unsupported edits, and invalid output without partial changes
+- J-221 · MCP group operations reject missing and foreign resources and isolate connected accounts
+- J-222 · MCP groups support existing temporary children and individual edits, dissolve below two members, and delete whole groups while preserving products
+- J-223 · MCP and REST enforce the UI amount minimum, allow fractional amounts above it, and preserve legacy reads and tag-only edits
+- J-224 · MCP blocks temporary-food reuse while preserving UI temporary-food creation and existing temporary log edits and deletion
 
 # Verification
 

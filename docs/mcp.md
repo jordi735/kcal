@@ -1,9 +1,10 @@
 # Connect KCAL to ChatGPT or Codex
 
-KCAL exposes six read tools and six optional write tools at `/mcp`. Connect using
+KCAL exposes six read tools and eleven optional write tools at `/mcp`. Connect using
 OAuth, sign in with KCAL's existing email code, and approve access to your own
 account. `kcal:read` permits reads; `kcal:read kcal:write` also permits creating,
-editing, and deleting food logs and library foods. Write-only access is unsupported.
+editing, and deleting food logs, combined items, and library foods. Write-only
+access is unsupported.
 
 ## Server setup
 
@@ -125,6 +126,8 @@ Request both `kcal:read` and `kcal:write` during OAuth authorization. The consen
 screen lists write permissions before approval. Existing read-only connections
 stay read-only: reconnect with both scopes and approve the new request to enable
 writes. Reauthorization creates new credentials; it does not upgrade old tokens.
+Combined-item tools use the same write permission; existing write-authorized
+connections can discover them without a new scope or additional consent.
 
 | Tool | Arguments | Result (in addition to `user_id`) |
 | --- | --- | --- |
@@ -134,6 +137,11 @@ writes. Reauthorization creates new credentials; it does not upgrade old tokens.
 | `create_product` | `name`, `unit`, complete `per100`; optional nullable `brand`, `barcode` | Saved `product` |
 | `update_product` | `product_id`, supplied changes to `name`, `brand`, `unit`, `barcode`, or individual `per100` values | Updated `product` |
 | `delete_product` | `product_id` | `ok: true`, `product_id`, `deleted_entry_count` |
+| `create_entry_group` | `name`, `entry_ids` | `group`, grouped `entries` |
+| `update_entry_group` | `group_id`, `name` | Renamed `group`, `entries` |
+| `set_entry_group_tagged` | `group_id`, `tagged` | `group`, updated `entries` |
+| `ungroup_entries` | `group_id` | `ok: true`, `group_id`, ungrouped `entries` |
+| `delete_entry_group` | `group_id` | `ok: true`, `group_id`, `deleted_entry_ids` |
 
 Find food IDs with `search_products`; find entry IDs with `get_day` or `get_meals`.
 All referenced entries and products must belong to the connected account. Creating
@@ -141,12 +149,19 @@ a product does not log it: call `create_entry` with the returned product ID to l
 an amount. Newly created products are saved foods, never temporary foods. Brand
 and barcode default to `null`; product names and brands use the app's normalization.
 Barcoded products can appear in the app's shared catalog; unbarcoded foods are private.
+MCP can log only saved foods; temporary foods cannot be reused for new logs.
+Existing temporary entries remain readable, editable, taggable, groupable, and
+deletable. The app's workflow for creating a new temporary food and its first log
+is unchanged.
 
 Entry creation requires an actual calendar date (`YYYY-MM-DD`), a valid local
-`HH:MM` time, and a positive finite amount no greater than `Number.MAX_SAFE_INTEGER`
+`HH:MM` time, and a finite amount of at least **1 g/ml**, no greater than `Number.MAX_SAFE_INTEGER`
 (9,007,199,254,740,991), keeping nutrition arithmetic within finite bounds.
 The existing `grams` field represents
 the amount in the product's `g` or `ml` unit. New entries are untagged and ungrouped.
+Decimals such as `1.5` are allowed. The same minimum applies to amount edits in
+REST and MCP. Existing smaller entries are not rewritten and can still be read,
+tagged, grouped, or deleted without changing their amount.
 Entry edits accept only amount and tagged status, matching the app. Product edits
 preserve omitted fields and macros; explicit `null` clears brand or barcode. Empty
 updates are rejected. Nutrition is per 100 units: kcal must be between 0 and 2000,
@@ -157,12 +172,44 @@ deletes every food log referencing it across all dates.** Entry deletion preserv
 the library product. Either kind of deletion dissolves groups below two remaining
 members while preserving surviving entries. Other users' adopted copies are untouched.
 
-Create tools are non-idempotent: repeating a request creates another record. If a
-creation's response is lost, inspect the current logs or library before retrying.
+### Combined items
+
+Find group IDs on entries returned by `get_day` or `get_meals`. A group combines
+at least two unique, caller-owned, ungrouped entries from one valid calendar date;
+its date is derived from those children. Names are trimmed, internal whitespace
+is collapsed, casing is preserved, and the normalized name must be 1–64 characters.
+Entries may reference saved or temporary foods.
+
+`update_entry_group` changes only the name. Use `update_entry` to edit an
+individual child's amount or eaten status. `set_entry_group_tagged` sets every
+child's eaten status atomically. Groups cannot be nested or silently regrouped,
+and their membership, date, portions, and nutrition cannot be edited as group fields.
+Totals and mixed/all-eaten status always derive from the children.
+
+**Ungroup preserves all food logs. Delete group deletes all of its food logs.**
+`ungroup_entries` preserves each child's amount, date, time, tag, and nutrition,
+so totals stay unchanged. `delete_entry_group` preserves library products and
+unrelated logs. Both remove the group metadata. Create, rename, and tag results
+contain `group: { id, name, local_date }` and real children in entry-ID order;
+ungroup returns those children with `group: null`. Day responses remain flat.
+
+Create tools are non-idempotent. Repeating an entry or product creation makes
+another record; repeating a group creation with already-grouped children is
+rejected. If a creation's response is lost, inspect the current logs or library
+before retrying.
 Updates and deletes are idempotent in their effects; deleting an already absent ID
 returns `not_found`. Controlled write failures return MCP tool errors without
-partial mutations. There are no bulk, group-management, weight, goal, or adoption
-write tools.
+partial mutations. There are no arbitrary bulk, weight, goal, or adoption write tools.
+
+### UI rules
+
+MCP follows the app's data and action restrictions, including ownership, editable
+fields, normalization, nutrition limits, and deletion consequences. Shared
+validation and mutations keep these rules aligned across REST and MCP. MCP may
+offer a more convenient interface, but cannot enable an otherwise forbidden
+action or stored value. Explicit creation dates/times, partial edits, read
+summaries and pagination, and single-call deletion remain available; UI gestures
+and confirmation steps are not protocol requirements.
 
 ## Connection lifecycle
 

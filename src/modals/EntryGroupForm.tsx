@@ -3,6 +3,7 @@
 import { useState } from 'preact/hooks';
 import { ClearableField } from '../components/ClearableField';
 import { Sheet, useSheetClose } from '../components/Sheet';
+import { MAX_ENTRY_GROUP_NAME_LENGTH, parseEntryGroupName } from '../../shared/constraints';
 import styles from './EntryGroupForm.module.css';
 
 type EntryGroupFormProps = {
@@ -12,8 +13,6 @@ type EntryGroupFormProps = {
   onClose: () => void;
   onUngroup?: (() => Promise<void>) | undefined;
 };
-
-const MAX_NAME_LENGTH = 64;
 
 export function EntryGroupForm(props: EntryGroupFormProps) {
   return (
@@ -32,11 +31,11 @@ function EntryGroupFormInner({
   const close = useSheetClose();
   const [name, setName] = useState(initialName ?? '');
   const [submitting, setSubmitting] = useState(false);
-  const normalized = name.trim();
-  const valid = normalized.length > 0 && normalized.length <= MAX_NAME_LENGTH;
+  const normalized = parseEntryGroupName(name);
+  const valid = normalized !== null;
 
   const submit = async () => {
-    if (!valid || submitting) return;
+    if (normalized === null || submitting) return;
     setSubmitting(true);
     try {
       await onSave(normalized);
@@ -82,7 +81,7 @@ function EntryGroupFormInner({
             value={name}
             onChange={setName}
             placeholder="e.g. Ice cream"
-            maxLength={MAX_NAME_LENGTH}
+            maxLength={MAX_ENTRY_GROUP_NAME_LENGTH}
             autoComplete="off"
             autoFocus
             aria-label="Group name"

@@ -172,3 +172,23 @@ export type McpProductDeleteResult = {
   product_id: number;
   deleted_entry_count: number;
 };
+
+export type McpEntryGroupResult = {
+  user_id: number;
+  group: EntryGroup;
+  entries: EntryWithMacros[];
+};
+
+export type McpUngroupResult = {
+  user_id: number;
+  ok: true;
+  group_id: number;
+  entries: EntryWithMacros[];
+};
+
+export type McpEntryGroupDeleteResult = {
+  user_id: number;
+  ok: true;
+  group_id: number;
+  deleted_entry_ids: number[];
+};

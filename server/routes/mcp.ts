@@ -7,6 +7,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
+import { isLocalDate, MIN_ENTRY_AMOUNT, parseEntryGroupName } from '../../shared/constraints.js';
 import { env } from '../env.js';
 import { db } from '../db.js';
 import { MCP_SCOPE, MCP_WRITE_SCOPE, oauthProvider } from '../oauth.js';
@@ -17,17 +18,13 @@ import {
 } from '../reads.js';
 import {
   createEntry, updateEntry, deleteEntry, createProduct, updateProduct, deleteProduct, WriteError,
+  createEntryGroup, updateEntryGroup, setEntryGroupTagged, ungroupEntries, deleteEntryGroup,
 } from '../writes.js';
 import type {
   Macros, McpDayResult, McpMealsResult, McpProductSearchResult, McpSummaryResult, McpWeekResult, McpWeighinsResult,
   McpEntryWriteResult, McpEntryDeleteResult, McpProductWriteResult, McpProductDeleteResult,
+  McpEntryGroupResult, McpUngroupResult, McpEntryGroupDeleteResult,
 } from '../types.js';
-
-function isLocalDate(value: string): boolean {
-  if (!DATE_RE.test(value)) return false;
-  const date = new Date(`${value}T00:00:00Z`);
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
 
 const dateString = z.string().regex(DATE_RE);
 const localDate = dateString.refine(isLocalDate, 'Use a valid YYYY-MM-DD calendar date');
@@ -45,6 +42,9 @@ const productSchema = z.object({
   barcode: z.string().nullable(),
   per100: macrosSchema,
   is_temp: z.boolean(),
+});
+const entryGroupSchema = z.object({
+  id: z.number().int(), name: z.string(), local_date: dateString,
 });
 const entrySchema = z.object({
   id: z.number().int(),
@@ -83,7 +83,10 @@ const changeAnnotations = {
 };
 const positiveId = z.number().int().positive();
 // Keep SQLite's grams * per100 arithmetic finite as well as entry serialization.
-const amount = z.number().positive().max(Number.MAX_SAFE_INTEGER);
+const amount = z.number().min(MIN_ENTRY_AMOUNT).max(Number.MAX_SAFE_INTEGER);
+const entryGroupName = z.string()
+  .refine((name) => parseEntryGroupName(name) !== null, 'Use a group name of 1–64 characters after whitespace normalization')
+  .describe('Group name; trim and collapse whitespace, preserve casing, 1–64 characters after normalization');
 const per100Input = z.strictObject({
   kcal: z.number().min(0).max(2000),
   protein: z.number().min(0).max(200),
@@ -106,6 +109,15 @@ const productDeleteSchema = z.object({
   user_id: z.number().int(), ok: z.literal(true), product_id: z.number().int(),
   deleted_entry_count: z.number().int().nonnegative(),
 }) satisfies z.ZodType<McpProductDeleteResult>;
+const entryGroupResultSchema = z.object({
+  user_id: z.number().int(), group: entryGroupSchema, entries: z.array(entrySchema),
+}) satisfies z.ZodType<McpEntryGroupResult>;
+const ungroupResultSchema = z.object({
+  user_id: z.number().int(), ok: z.literal(true), group_id: z.number().int(), entries: z.array(entrySchema),
+}) satisfies z.ZodType<McpUngroupResult>;
+const entryGroupDeleteSchema = z.object({
+  user_id: z.number().int(), ok: z.literal(true), group_id: z.number().int(), deleted_entry_ids: z.array(z.number().int()),
+}) satisfies z.ZodType<McpEntryGroupDeleteResult>;
 
 class ReadInputError extends Error {}
 
@@ -159,7 +171,7 @@ function readResult(
 
 function createServer(user_id: number, scopes: readonly string[]): McpServer {
   const canWrite = scopes.includes(MCP_WRITE_SCOPE);
-  const server = new McpServer({ name: 'kcal', version: '2.3.0' }, {
+  const server = new McpServer({ name: 'kcal', version: '2.4.0' }, {
     instructions: (canWrite ? 'Read and write access to the connected KCAL account. ' : 'Read-only access to the connected KCAL account. ')
       + 'Dates are local YYYY-MM-DD; weeks run Monday–Sunday. Totals include all logged entries, '
       + 'including tagged entries, with groups counted only through their children. Nutrition uses '
@@ -171,12 +183,19 @@ function createServer(user_id: number, scopes: readonly string[]): McpServer {
       + (canWrite ? ' Use create_entry, update_entry, and delete_entry for individual food logs, and '
         + 'create_product, update_product, and delete_product for foods. Find product IDs with search_products '
         + 'and entry IDs with get_day or get_meals. Entry creation requires an explicit local date and time; '
-        + 'entry edits change only amount and tagged status. Product nutrition edits change historical totals. '
+        + 'entry edits change only amount and tagged status. Amounts must be at least 1 g/ml; new logs must use saved foods. '
+        + 'Existing temporary logs can still be edited, tagged, grouped, and deleted. '
+        + 'Use create_entry_group to combine two or more ungrouped entries from the same day, update_entry_group to rename, '
+        + 'and set_entry_group_tagged to mark all children eaten or not eaten. Find group IDs on entries returned by get_day/get_meals. '
+        + 'ungroup_entries preserves food logs; delete_entry_group deletes every food log in the group while preserving products. '
+        + 'Groups cannot be nested, moved, or assigned a portion/nutrition; edit their real child entries instead. '
+        + 'Product nutrition edits change historical totals. '
         + 'Deleting a product also deletes every food log referencing it. Creates are not retry-safe: '
         + 'check the current logs or library before retrying a creation whose outcome is uncertain.' : ''),
   });
 
-  function writeResult<T extends McpEntryWriteResult | McpEntryDeleteResult | McpProductWriteResult | McpProductDeleteResult>(
+  function writeResult<T extends McpEntryWriteResult | McpEntryDeleteResult | McpProductWriteResult | McpProductDeleteResult
+    | McpEntryGroupResult | McpUngroupResult | McpEntryGroupDeleteResult>(
     schema: z.ZodType<T>, write: () => T,
   ): CallToolResult {
     try {
@@ -331,7 +350,7 @@ function createServer(user_id: number, scopes: readonly string[]): McpServer {
 
   if (canWrite) {
     server.registerTool('create_entry', {
-      description: 'Log one food from the connected account’s library on an explicit local date and time. Supply an owned product_id and a positive amount in the product’s g or ml unit using the grams field. The new entry starts untagged and ungrouped. Repeating this call creates another entry.',
+      description: 'Log one saved food from the connected account’s library on an explicit local date and time. Supply an owned, non-temporary product_id and an amount of at least 1 in the product’s g or ml unit using the grams field; decimals are allowed. The new entry starts untagged and ungrouped. Existing temporary foods cannot be reused. Repeating this call creates another entry.',
       inputSchema: z.strictObject({
         product_id: positiveId,
         grams: amount,
@@ -340,10 +359,10 @@ function createServer(user_id: number, scopes: readonly string[]): McpServer {
       }),
       outputSchema: entryWriteSchema,
       annotations: createAnnotations,
-    }, (input) => writeResult(entryWriteSchema, () => ({ user_id, entry: createEntry(user_id, input) })));
+    }, (input) => writeResult(entryWriteSchema, () => ({ user_id, entry: createEntry(user_id, input, true) })));
 
     server.registerTool('update_entry', {
-      description: 'Edit one owned food log’s amount, tagged status, or both. Omitted fields are preserved. Food, date, time, and group cannot be changed through this tool. Amount changes recalculate macros; tagged entries still count toward totals.',
+      description: 'Edit one owned food log’s amount, tagged status, or both, including existing temporary logs. New amounts must be at least 1 g/ml; decimals are allowed. Omitted fields are preserved. Food, date, time, and group cannot be changed through this tool. Amount changes recalculate macros; tagged entries still count toward totals.',
       inputSchema: z.strictObject({ entry_id: positiveId, grams: amount.optional(), tagged: z.boolean().optional() })
         .refine((input) => input.grams !== undefined || input.tagged !== undefined, 'Supply grams or tagged'),
       outputSchema: entryWriteSchema,
@@ -404,6 +423,44 @@ function createServer(user_id: number, scopes: readonly string[]): McpServer {
       outputSchema: productDeleteSchema,
       annotations: changeAnnotations,
     }, ({ product_id }) => writeResult(productDeleteSchema, () => ({ user_id, ...deleteProduct(user_id, product_id) })));
+
+    server.registerTool('create_entry_group', {
+      description: 'Combine at least two existing food logs into one named group, matching Group items in the app. Supply unique, owned, currently ungrouped entry IDs from one valid local date; the date is derived from the entries. Saved and temporary food logs can be grouped. Nesting and silent regrouping are rejected. Entries, tagged states, amounts, and day/week totals are preserved; group nutrition derives from its children.',
+      inputSchema: z.strictObject({
+        name: entryGroupName,
+        entry_ids: z.array(positiveId).min(2).refine((ids) => new Set(ids).size === ids.length, 'Entry IDs must be unique'),
+      }),
+      outputSchema: entryGroupResultSchema,
+      annotations: createAnnotations,
+    }, ({ name, entry_ids }) => writeResult(entryGroupResultSchema, () => ({ user_id, ...createEntryGroup(user_id, name, entry_ids) })));
+
+    server.registerTool('update_entry_group', {
+      description: 'Rename one owned entry group, matching Edit group in the app. This changes only its name; children, amounts, tags, date, and totals are preserved. Membership, date, group portions, and group nutrition cannot be edited.',
+      inputSchema: z.strictObject({ group_id: positiveId, name: entryGroupName }),
+      outputSchema: entryGroupResultSchema,
+      annotations: changeAnnotations,
+    }, ({ group_id, name }) => writeResult(entryGroupResultSchema, () => ({ user_id, ...updateEntryGroup(user_id, group_id, name) })));
+
+    server.registerTool('set_entry_group_tagged', {
+      description: 'Mark every real child of an owned entry group as eaten (tagged=true) or not eaten (tagged=false) atomically, matching the group’s eaten control. Setting true changes a mixed group to all eaten. Tags never change day/week calorie or macro totals. Returns the updated children; group eaten state is derived from them.',
+      inputSchema: z.strictObject({ group_id: positiveId, tagged: z.boolean() }),
+      outputSchema: entryGroupResultSchema,
+      annotations: changeAnnotations,
+    }, ({ group_id, tagged }) => writeResult(entryGroupResultSchema, () => ({ user_id, ...setEntryGroupTagged(user_id, group_id, tagged) })));
+
+    server.registerTool('ungroup_entries', {
+      description: 'Remove one owned entry group while preserving every food log, matching Ungroup in the app. Only group metadata is removed; children keep their IDs, products, amounts, dates, times, and tags. Totals do not change. Returns the former children with group=null. To remove the food logs instead, use delete_entry_group.',
+      inputSchema: z.strictObject({ group_id: positiveId }),
+      outputSchema: ungroupResultSchema,
+      annotations: changeAnnotations,
+    }, ({ group_id }) => writeResult(ungroupResultSchema, () => ({ user_id, ...ungroupEntries(user_id, group_id) })));
+
+    server.registerTool('delete_entry_group', {
+      description: 'Permanently delete an owned entry group AND every food log in that group, matching selecting the group parent and pressing Delete in the app. Removes those logs from day/week totals, preserves library products and unrelated logs, and returns the deleted entry IDs. Use ungroup_entries to preserve the food logs instead.',
+      inputSchema: z.strictObject({ group_id: positiveId }),
+      outputSchema: entryGroupDeleteSchema,
+      annotations: changeAnnotations,
+    }, ({ group_id }) => writeResult(entryGroupDeleteSchema, () => ({ user_id, ...deleteEntryGroup(user_id, group_id) })));
   }
 
   return server;

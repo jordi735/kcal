@@ -3,7 +3,7 @@
 
 import { statements } from './statements.js';
 import type {
-  EntryJoinRow, EntryWithMacros, GoalsRow, Macros, McpSummaryResult, Product, ProductRow,
+  EntryGroup, EntryGroupRow, EntryJoinRow, EntryWithMacros, GoalsRow, Macros, McpSummaryResult, Product, ProductRow,
   WeightEntry, WeightRow, WeightSummaryPoint, WeekSumRow,
 } from './types.js';
 
@@ -79,6 +79,15 @@ export function rowToEntry(r: EntryJoinRow): EntryWithMacros {
 
 export function readDayEntries(userId: number, date: string): EntryWithMacros[] {
   const rows = statements.entries.selectForDay.all(userId, date) as EntryJoinRow[];
+  return rows.map(rowToEntry);
+}
+
+export function rowToEntryGroup(row: EntryGroupRow): EntryGroup {
+  return { id: row.id, name: row.name, local_date: row.local_date };
+}
+
+export function readGroupEntries(userId: number, groupId: number): EntryWithMacros[] {
+  const rows = statements.entries.selectForGroup.all(userId, groupId) as EntryJoinRow[];
   return rows.map(rowToEntry);
 }
 
