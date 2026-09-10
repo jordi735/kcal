@@ -4,7 +4,7 @@ import { OAuthError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
 import { authMiddleware } from '../auth.js';
 import { env } from '../env.js';
 import { isObject } from '../guards.js';
-import { MCP_RESOURCE, MCP_SCOPE, oauthProvider, pendingConsent, decideConsent } from '../oauth.js';
+import { MCP_RESOURCE, MCP_SCOPES, oauthProvider, pendingConsent, decideConsent } from '../oauth.js';
 import { statements } from '../statements.js';
 import type { OAuthConsent, OAuthDecision } from '../types.js';
 
@@ -24,7 +24,7 @@ if (env.PUBLIC_ORIGIN) {
   });
   oauthRouter.use(mcpAuthRouter({
     provider: oauthProvider, issuerUrl: new URL(env.PUBLIC_ORIGIN),
-    resourceServerUrl: new URL(MCP_RESOURCE), scopesSupported: [MCP_SCOPE], resourceName: 'KCAL',
+    resourceServerUrl: new URL(MCP_RESOURCE), scopesSupported: MCP_SCOPES, resourceName: 'KCAL',
     clientRegistrationOptions: {
       clientSecretExpirySeconds: 0, clientIdGeneration: false,
       ...(env.TEST_MODE ? { rateLimit: { max: 1000 } } : {}),
@@ -56,6 +56,7 @@ if (env.PUBLIC_ORIGIN) {
       const result: OAuthConsent = {
         client_name: client?.client_name ?? 'MCP client',
         redirect_host: new URL(request.redirect_uri).host, email: user.email,
+        scopes: request.scopes.split(' '),
       };
       res.json(result);
     } catch (error) {

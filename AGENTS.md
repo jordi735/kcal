@@ -9,7 +9,8 @@ These instructions apply to the entire repository.
 - `server/` is the Express 5 and SQLite backend. Routes live in `server/routes/`,
   SQL migrations in `server/migrations/`, and normal application statements in
   `server/statements.ts`. `server/reads.ts` shares read functions and serializers
-  between REST routes and the read-only MCP tools; setup is in `docs/mcp.md`.
+  between REST routes and MCP tools; `server/writes.ts` shares transactional entry
+  and product mutations. Setup is in `docs/mcp.md`.
 - `shared/` contains code compiled by both TypeScript projects, especially wire
   types, stored-text normalization, and API-prefix detection.
 - `public/` contains PWA and site assets copied into the Vite build. `tests/e2e/`
@@ -131,8 +132,14 @@ required-key inventory and never commit real credentials.
   string parser does not make `"1"` a one-hop setting.
 - `/mcp` exposes `get_day`, `get_meals`, `get_week`, `get_weighins`, `get_summary`,
   and `search_products` with user ownership resolved from separate OAuth tokens.
-  Never accept app sessions, admin tokens, or caller-selected user IDs. Keep tools
-  read-only and reuse app calculations.
+  Never accept app sessions, admin tokens, or caller-selected user IDs. Reuse app
+  calculations. Read-only connections expose only these six tools. Connections
+  granted both `kcal:read` and `kcal:write` additionally expose `create_entry`,
+  `update_entry`, `delete_entry`, `create_product`, `update_product`, and
+  `delete_product`. Check write scope before mutation and reuse `server/writes.ts`
+  from REST and MCP. Entry edits allow only grams/tagged; product updates preserve
+  omitted metadata/macros. Product deletion cascades through the owner's logs and
+  dissolves undersized groups. Controlled failures must leave no partial changes.
   `get_meals` returns flat food entries and totals per date for an inclusive range
   of at most 31 days, including empty dates; named groups remain entry metadata.
   `get_summary` accepts at most 366 days, averages only days containing entries
@@ -143,7 +150,12 @@ required-key inventory and never commit real credentials.
   products. Every tool declares an output schema matching its structured result.
   `PUBLIC_ORIGIN` enables OAuth/MCP; unset disables them. SDK OAuth routes own
   discovery/DCR/PKCE; `server/oauth.ts` persists clients, browser-bound consent,
-  single-use codes, rotating tokens, and revocation in SQLite. Enforce resource
+  single-use codes, rotating tokens, scopes, and revocation in SQLite. Only
+  read-only or read-and-write scope sets are valid; omitted authorization scopes
+  default to read-only. Legacy credentials stay read-only; gaining write access
+  requires fresh consent. Persist per-token scopes so refresh narrowing cannot
+  regain write access; reject escalation before consuming a refresh token.
+  Enforce resource
   binding in the provider (SDK bearer middleware does not check audience).
   Keep OAuth's standard error responses; reject Origin headers at `/mcp` and
   require same-origin authenticated consent. Preserve the pending OAuth request

@@ -13,6 +13,8 @@ import { statements } from './statements.js';
 import type { OAuthGrantRow, OAuthRequestRow, OAuthTokenRow } from './types.js';
 
 export const MCP_SCOPE = 'kcal:read';
+export const MCP_WRITE_SCOPE = 'kcal:write';
+export const MCP_SCOPES = [MCP_SCOPE, MCP_WRITE_SCOPE];
 export const MCP_RESOURCE = `${env.PUBLIC_ORIGIN}/mcp`;
 const REQUEST_MS = 10 * 60_000;
 const CODE_MS = 5 * 60_000;
@@ -39,8 +41,12 @@ function safeRedirect(value: string): boolean {
   } catch { return false; }
 }
 
-function checkScopes(scopes: string[] | undefined): void {
-  if (scopes?.some((scope) => scope !== MCP_SCOPE)) throw new InvalidScopeError('Only kcal:read is supported');
+function normalizeScopes(scopes: string[] | undefined): string {
+  const requested = scopes ?? [MCP_SCOPE];
+  if (!requested.includes(MCP_SCOPE) || requested.some((scope) => !MCP_SCOPES.includes(scope))) {
+    throw new InvalidScopeError('Request kcal:read, optionally with kcal:write');
+  }
+  return requested.includes(MCP_WRITE_SCOPE) ? MCP_SCOPES.join(' ') : MCP_SCOPE;
 }
 
 function checkResource(resource: URL | undefined): void {
@@ -64,12 +70,14 @@ const clientsStore: OAuthRegisteredClientsStore = {
     if (method !== 'none' && method !== 'client_secret_post') {
       throw new InvalidClientMetadataError('Specify token_endpoint_auth_method: none or client_secret_post');
     }
+    let scopes: string;
+    try { scopes = normalizeScopes(metadata.scope?.split(' ')); }
+    catch { throw new InvalidClientMetadataError('Request kcal:read, optionally with kcal:write'); }
     if (metadata.redirect_uris.length < 1 || metadata.redirect_uris.length > 10
       || !metadata.redirect_uris.every(safeRedirect)
       || (metadata.client_name?.length ?? 0) > 100
       || metadata.grant_types?.some((grant) => !['authorization_code', 'refresh_token'].includes(grant))
-      || metadata.response_types?.some((type) => type !== 'code')
-      || (metadata.scope !== undefined && metadata.scope !== MCP_SCOPE)) {
+      || metadata.response_types?.some((type) => type !== 'code')) {
       throw new InvalidClientMetadataError('Invalid redirect URI, name, grants, response types, or scope');
     }
     // Keep only metadata we use. SDK confidential-client authentication needs
@@ -80,7 +88,7 @@ const clientsStore: OAuthRegisteredClientsStore = {
       redirect_uris: metadata.redirect_uris,
       token_endpoint_auth_method: method,
       grant_types: metadata.grant_types ?? ['authorization_code', 'refresh_token'],
-      response_types: ['code'], scope: MCP_SCOPE,
+      response_types: ['code'], scope: scopes,
       ...(method === 'client_secret_post' ? {
         client_secret: metadata.client_secret!, client_secret_expires_at: 0,
       } : {}),
@@ -99,17 +107,17 @@ function codeRequest(clientId: string, code: string): OAuthRequestRow {
 
 // Call only within a transaction. Old access tokens keep their short lifetime;
 // consumed refresh tokens remain as replay evidence until the grant expires.
-function issueTokens(grant: OAuthGrantRow, refresh: boolean): OAuthTokens {
+function issueTokens(grant: OAuthGrantRow, refresh: boolean, scopes = grant.scopes): OAuthTokens {
   const access = nonce();
   const expiresAt = Math.min(Date.now() + ACCESS_MS, grant.expires_at);
-  sql.insertToken.run(hash(access), grant.id, 'access', expiresAt);
+  sql.insertToken.run(hash(access), grant.id, 'access', expiresAt, scopes);
   const result: OAuthTokens = {
-    access_token: access, token_type: 'Bearer', scope: MCP_SCOPE,
+    access_token: access, token_type: 'Bearer', scope: scopes,
     expires_in: Math.max(0, Math.floor((expiresAt - Date.now()) / 1000)),
   };
   if (refresh) {
     result.refresh_token = nonce();
-    sql.insertToken.run(hash(result.refresh_token), grant.id, 'refresh', grant.expires_at);
+    sql.insertToken.run(hash(result.refresh_token), grant.id, 'refresh', grant.expires_at, scopes);
   }
   return result;
 }
@@ -118,7 +126,11 @@ export const oauthProvider: OAuthServerProvider = {
   clientsStore,
   async authorize(client: OAuthClientInformationFull, params: AuthorizationParams, res: Response) {
     checkResource(params.resource);
-    checkScopes(params.scopes);
+    // Client metadata describes intent, not a user's grant. Existing clients may
+    // request write access through fresh consent; omitted scope stays read-only.
+    // The SDK represents an omitted authorization scope as [], while an
+    // explicitly empty scope string becomes [''] and must still be rejected.
+    const scopes = normalizeScopes(params.scopes?.length === 0 ? undefined : params.scopes);
     if (!client.grant_types?.includes('authorization_code') || !safeRedirect(params.redirectUri)
       || !NONCE_RE.test(params.codeChallenge) || (params.state?.length ?? 0) > 2048) {
       throw new InvalidRequestError('Invalid authorization request');
@@ -127,7 +139,7 @@ export const oauthProvider: OAuthServerProvider = {
     const id = nonce();
     const browser = browserCookie(res.req) || nonce();
     sql.insertRequest.run(hash(id), hash(browser), client.client_id, params.redirectUri,
-      params.state ?? null, params.codeChallenge, MCP_RESOURCE, Date.now() + REQUEST_MS);
+      params.state ?? null, params.codeChallenge, MCP_RESOURCE, Date.now() + REQUEST_MS, scopes);
     res.cookie(COOKIE_NAME, browser, {
       httpOnly: true, secure: env.PUBLIC_ORIGIN.startsWith('https:'),
       sameSite: 'lax', path: '/', maxAge: REQUEST_MS,
@@ -147,15 +159,15 @@ export const oauthProvider: OAuthServerProvider = {
       }
       const grant: OAuthGrantRow = {
         id: nonce(), user_id: request.user_id!, client_id: client.client_id,
-        resource: request.resource, expires_at: Date.now() + GRANT_MS, revoked: 0,
+        resource: request.resource, scopes: request.scopes, expires_at: Date.now() + GRANT_MS, revoked: 0,
       };
       sql.deleteRequest.run(request.id_hash);
-      sql.insertGrant.run(grant.id, grant.user_id, grant.client_id, grant.resource, grant.expires_at);
+      sql.insertGrant.run(grant.id, grant.user_id, grant.client_id, grant.resource, grant.expires_at, grant.scopes);
       return issueTokens(grant, client.grant_types?.includes('refresh_token') === true);
     })();
   },
   async exchangeRefreshToken(client, refreshToken, scopes, resource) {
-    checkScopes(scopes);
+    const requestedScopes = scopes === undefined ? undefined : normalizeScopes(scopes);
     if (resource !== undefined) checkResource(resource);
     if (!client.grant_types?.includes('refresh_token')) throw new InvalidGrantError('Refresh is not enabled');
     const tokens = db.transaction(() => {
@@ -170,8 +182,15 @@ export const oauthProvider: OAuthServerProvider = {
         // Commit revocation before throwing; throwing here would roll it back.
         return null;
       }
+      // Narrow only this token lineage. Earlier access tokens keep their own
+      // scope, and a narrowed refresh token cannot recover the grant's write scope.
+      const nextScopes = requestedScopes ?? row.token_scopes;
+      if (nextScopes.split(' ').some((scope) => !row.token_scopes.split(' ').includes(scope)
+        || !row.scopes.split(' ').includes(scope))) {
+        throw new InvalidScopeError('Refresh cannot add permissions; reconnect to request write access');
+      }
       sql.useRefresh.run(hash(refreshToken));
-      return issueTokens(row, true);
+      return issueTokens(row, true, nextScopes);
     })();
     if (!tokens) throw new InvalidGrantError('Refresh token was already used; reconnect');
     return tokens;
@@ -179,11 +198,12 @@ export const oauthProvider: OAuthServerProvider = {
   async verifyAccessToken(token): Promise<AuthInfo> {
     const row = sql.token.get(hash(token)) as OAuthTokenRow | undefined;
     if (!row || row.kind !== 'access' || row.revoked || row.token_expires_at <= Date.now()
-      || row.expires_at <= Date.now() || row.resource !== MCP_RESOURCE) {
+      || row.expires_at <= Date.now() || row.resource !== MCP_RESOURCE
+      || row.token_scopes.split(' ').some((scope) => !row.scopes.split(' ').includes(scope))) {
       throw new InvalidTokenError('Invalid or expired access token');
     }
     return {
-      token, clientId: row.client_id, scopes: [MCP_SCOPE],
+      token, clientId: row.client_id, scopes: row.token_scopes.split(' '),
       expiresAt: row.token_expires_at / 1000, resource: new URL(row.resource),
       extra: { userId: row.user_id },
     };

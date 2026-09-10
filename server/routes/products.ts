@@ -8,17 +8,17 @@
 // the entries JOIN, so PUT automatically updates past days' totals retroactively.
 
 import { Router } from 'express';
+import type { ErrorRequestHandler } from 'express';
 import multer from 'multer';
-import { normalizeBrandName, normalizeProductName } from '../../shared/normalize.js';
 import { authMiddleware } from '../auth.js';
 import { extractNutrition, InvalidExtractionError } from '../codex.js';
-import { db } from '../db.js';
 import { env } from '../env.js';
 import { isObject } from '../guards.js';
 import { log } from '../log.js';
 import { rowToProduct, searchOwnProducts } from '../reads.js';
 import { statements } from '../statements.js';
-import { parsePositiveInt, trimOrNull } from '../util.js';
+import { parsePositiveInt } from '../util.js';
+import { createProduct, deleteProduct, updateProduct, WriteError } from '../writes.js';
 import type {
   BarcodeLookupResponse,
   NewProductBody,
@@ -240,33 +240,7 @@ productsRouter.post('/', (req, res) => {
     res.status(400).json({ error: 'invalid_product' });
     return;
   }
-  const b = req.body;
-  const result = statements.products.insert.run(
-    normalizeProductName(b.name),
-    normalizeBrandName(b.brand),
-    b.unit,
-    trimOrNull(b.barcode),
-    b.per100.kcal,
-    b.per100.protein,
-    b.per100.carbs,
-    b.per100.fat,
-    b.is_temp ? 1 : 0,
-    req.userId!,
-    Date.now(),
-  ) as { lastInsertRowid: number | bigint };
-  const row = statements.products.selectById.get(req.userId!, Number(result.lastInsertRowid)) as
-    | ProductRow
-    | undefined;
-  if (row === undefined) {
-    res.status(500).json({ error: 'insert_failed' });
-    return;
-  }
-  log.info('product created', {
-    userId: req.userId,
-    productId: row.id,
-    isTemp: row.is_temp === 1,
-  });
-  res.status(201).json(rowToProduct(row));
+  res.status(201).json(createProduct(req.userId!, req.body));
 });
 
 productsRouter.put('/:id', (req, res) => {
@@ -279,30 +253,7 @@ productsRouter.put('/:id', (req, res) => {
     res.status(400).json({ error: 'invalid_product' });
     return;
   }
-  const b = req.body;
-  const result = statements.products.update.run(
-    normalizeProductName(b.name),
-    normalizeBrandName(b.brand),
-    b.unit,
-    trimOrNull(b.barcode),
-    b.per100.kcal,
-    b.per100.protein,
-    b.per100.carbs,
-    b.per100.fat,
-    req.userId!,
-    id,
-  ) as { changes: number };
-  if (result.changes === 0) {
-    res.status(404).json({ error: 'not_found' });
-    return;
-  }
-  const row = statements.products.selectById.get(req.userId!, id) as ProductRow | undefined;
-  if (row === undefined) {
-    res.status(404).json({ error: 'not_found' });
-    return;
-  }
-  log.info('product updated', { userId: req.userId, productId: row.id });
-  res.json(rowToProduct(row));
+  res.json(updateProduct(req.userId!, id, req.body));
 });
 
 // Destructive: removes the product AND every entry this user logged against it
@@ -316,17 +267,7 @@ productsRouter.delete('/:id', (req, res) => {
     res.status(400).json({ error: 'invalid_id' });
     return;
   }
-  const run = db.transaction((userId: number, productId: number) => {
-    statements.entries.deleteForProduct.run(userId, productId);
-    statements.entryGroups.deleteTooSmallForUser.run(userId, userId);
-    return statements.products.delete.run(userId, productId) as { changes: number };
-  });
-  const result = run(req.userId!, id);
-  if (result.changes === 0) {
-    res.status(404).json({ error: 'not_found' });
-    return;
-  }
-  log.info('product deleted', { userId: req.userId, productId: id });
+  deleteProduct(req.userId!, id);
   res.json({ ok: true });
 });
 
@@ -351,3 +292,13 @@ productsRouter.post('/from-image', upload.single('image'), async (req, res, next
     next(err);
   }
 });
+
+const handleWriteError: ErrorRequestHandler = (err: unknown, _req, res, next) => {
+  if (err instanceof WriteError) {
+    res.status(err.status).json({ error: err.message });
+    return;
+  }
+  next(err);
+};
+
+productsRouter.use(handleWriteError);

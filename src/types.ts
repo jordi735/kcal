@@ -18,6 +18,10 @@ export type {
   WeightSummaryPoint,
   McpSummaryResult,
   McpProductSearchResult,
+  McpEntryWriteResult,
+  McpEntryDeleteResult,
+  McpProductWriteResult,
+  McpProductDeleteResult,
 } from '../shared/types.js';
 
 import type { EntryWithMacros, Macros } from '../shared/types.js';

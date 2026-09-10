@@ -75,6 +75,7 @@ export type OAuthConsent = {
   client_name: string;
   redirect_host: string;
   email: string;
+  scopes: string[];
 };
 
 export type OAuthDecision = { redirect_url: string };
@@ -141,4 +142,29 @@ export type McpProductSearchResult = {
   user_id: number;
   query: string;
   products: Product[];
+};
+
+// MCP mutation results reuse app objects and report deletion effects.
+export type McpEntryWriteResult = {
+  user_id: number;
+  entry: EntryWithMacros;
+};
+
+export type McpEntryDeleteResult = {
+  user_id: number;
+  ok: true;
+  entry_id: number;
+  dissolved_group_id: number | null;
+};
+
+export type McpProductWriteResult = {
+  user_id: number;
+  product: Product;
+};
+
+export type McpProductDeleteResult = {
+  user_id: number;
+  ok: true;
+  product_id: number;
+  deleted_entry_count: number;
 };

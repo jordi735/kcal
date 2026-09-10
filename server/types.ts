@@ -28,6 +28,10 @@ export type {
   WeightSummaryPoint,
   McpSummaryResult,
   McpProductSearchResult,
+  McpEntryWriteResult,
+  McpEntryDeleteResult,
+  McpProductWriteResult,
+  McpProductDeleteResult,
 } from '../shared/types.js';
 
 import type { Macros } from '../shared/types.js';
@@ -40,6 +44,7 @@ export type OAuthRequestRow = {
   state: string | null;
   challenge: string;
   resource: string;
+  scopes: string;
   expires_at: number;
   user_id: number | null;
   code_hash: string | null;
@@ -50,6 +55,7 @@ export type OAuthGrantRow = {
   user_id: number;
   client_id: string;
   resource: string;
+  scopes: string;
   expires_at: number;
   revoked: number;
 };
@@ -58,6 +64,7 @@ export type OAuthTokenRow = OAuthGrantRow & {
   kind: 'access' | 'refresh';
   used: number;
   token_expires_at: number;
+  token_scopes: string;
 };
 
 // --- auth / sessions ---
@@ -123,6 +130,10 @@ export type NewProductBody = {
 
 export type UpdateProductBody = Omit<NewProductBody, 'is_temp'>;
 
+export type ProductPatch = Partial<Omit<UpdateProductBody, 'per100'>> & {
+  per100?: Partial<Macros>;
+};
+
 export type ScanTally = { date: string; count: number };
 
 // --- entries ---
@@ -161,6 +172,8 @@ export type NewEntryBody = {
   local_date: string;
   local_time: string;
 };
+
+export type EntryUpdate = { grams?: number; tagged?: boolean };
 
 export type EntryMembershipRow = {
   id: number;

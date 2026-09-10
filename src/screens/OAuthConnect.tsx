@@ -10,6 +10,7 @@ export function OAuthConnect({ request }: { request: string }) {
   const [consent, setConsent] = useState<OAuthConsent | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const canWrite = consent?.scopes.includes('kcal:write') === true;
 
   useEffect(() => {
     if (!signedIn) return;
@@ -49,10 +50,13 @@ export function OAuthConnect({ request }: { request: string }) {
       <BrandMark />
       <h1>Connect to KCAL</h1>
       {consent ? <>
-        <p><strong>{consent.client_name}</strong> wants read access to your KCAL account.</p>
+        <p><strong>{consent.client_name}</strong> wants {canWrite ? 'read and write' : 'read'} access to your KCAL account.</p>
         <p className={styles.account}>{consent.email}</p>
-        <p>Read your food logs, calorie and macro totals, goals, and weigh-ins.</p>
-        <p className={styles.detail}>Your data cannot be changed through this connection.</p>
+        <p>Read your food logs, saved foods, calorie and macro totals, goals, and weigh-ins.</p>
+        {canWrite ? <>
+          <p>Add, edit, and delete food logs and saved foods.</p>
+          <p className={styles.detail}>Editing saved food nutrition updates past totals. Deleting a saved food also deletes its food logs.</p>
+        </> : <p className={styles.detail}>Your data cannot be changed through this connection.</p>}
         <p className={styles.detail}>Return to {consent.redirect_host}</p>
         <div className={styles.actions}>
           <button className="btn-primary" disabled={busy} onClick={() => void decide(true)}>

@@ -44,10 +44,10 @@ export const statements = {
     // retrievable client secret; never expose this metadata through app/MCP reads.
     client: db.prepare('SELECT metadata FROM oauth_clients WHERE id = ?'), // (client_id)
     insertClient: db.prepare('INSERT INTO oauth_clients (id, metadata) VALUES (?, ?)'), // (id, JSON)
-    // (id_hash, browser_hash, client_id, redirect_uri, state, challenge, resource, expires_at)
+    // (id_hash, browser_hash, client_id, redirect_uri, state, challenge, resource, expires_at, scopes)
     insertRequest: db.prepare(`INSERT INTO oauth_requests
-      (id_hash, browser_hash, client_id, redirect_uri, state, challenge, resource, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
+      (id_hash, browser_hash, client_id, redirect_uri, state, challenge, resource, expires_at, scopes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
     // (id_hash, browser_hash, now) — an unapproved request belongs to a browser.
     pendingRequest: db.prepare(`SELECT * FROM oauth_requests
       WHERE id_hash = ? AND browser_hash = ? AND expires_at > ? AND code_hash IS NULL`),
@@ -56,13 +56,13 @@ export const statements = {
     deleteRequest: db.prepare('DELETE FROM oauth_requests WHERE id_hash = ?'), // (id_hash)
     // (client_id, code_hash, now)
     code: db.prepare('SELECT * FROM oauth_requests WHERE client_id = ? AND code_hash = ? AND expires_at > ?'),
-    // (id, user_id, client_id, resource, expires_at)
-    insertGrant: db.prepare(`INSERT INTO oauth_grants (id, user_id, client_id, resource, expires_at) VALUES (?, ?, ?, ?, ?)`),
-    // (hash, grant_id, kind, expires_at)
-    insertToken: db.prepare('INSERT INTO oauth_tokens (hash, grant_id, kind, expires_at) VALUES (?, ?, ?, ?)'),
+    // (id, user_id, client_id, resource, expires_at, scopes)
+    insertGrant: db.prepare(`INSERT INTO oauth_grants (id, user_id, client_id, resource, expires_at, scopes) VALUES (?, ?, ?, ?, ?, ?)`),
+    // (hash, grant_id, kind, expires_at, scopes)
+    insertToken: db.prepare('INSERT INTO oauth_tokens (hash, grant_id, kind, expires_at, scopes) VALUES (?, ?, ?, ?, ?)'),
     // (hash) — the credential resolves its own owner; callers cannot select one.
-    token: db.prepare(`SELECT t.kind, t.used, t.expires_at AS token_expires_at,
-      g.id, g.user_id, g.client_id, g.resource, g.expires_at, g.revoked
+    token: db.prepare(`SELECT t.kind, t.used, t.expires_at AS token_expires_at, t.scopes AS token_scopes,
+      g.id, g.user_id, g.client_id, g.resource, g.expires_at, g.revoked, g.scopes
       FROM oauth_tokens t JOIN oauth_grants g ON g.id = t.grant_id WHERE t.hash = ?`),
     useRefresh: db.prepare('UPDATE oauth_tokens SET used = 1 WHERE hash = ?'), // (hash)
     revokeGrant: db.prepare('UPDATE oauth_grants SET revoked = 1 WHERE client_id = ? AND id = ?'), // (client_id, grant_id)

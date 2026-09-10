@@ -3,6 +3,7 @@
 // Macros computed on read; never stored. Every query scoped by req.userId.
 
 import { Router } from 'express';
+import type { ErrorRequestHandler } from 'express';
 import { authMiddleware } from '../auth.js';
 import { db } from '../db.js';
 import { DATE_RE, TIME_RE, isObject, isPositiveFinite, isPositiveInt } from '../guards.js';
@@ -10,6 +11,7 @@ import { log } from '../log.js';
 import { statements } from '../statements.js';
 import { readDailyTotals, readDayEntries, rowToEntry } from '../reads.js';
 import { parsePositiveInt } from '../util.js';
+import { createEntry, deleteEntry, updateEntry, WriteError } from '../writes.js';
 import { normalizeEntryGroupName } from '../../shared/normalize.js';
 import type {
   EntryGroup,
@@ -282,35 +284,7 @@ entriesRouter.post('/', (req, res) => {
     res.status(400).json({ error: 'invalid_entry' });
     return;
   }
-  const { product_id, grams, local_date, local_time } = req.body;
-  const owned = statements.products.ownedByUser.get(req.userId!, product_id);
-  if (owned === undefined) {
-    res.status(404).json({ error: 'product_not_found' });
-    return;
-  }
-  const result = statements.entries.insert.run(
-    req.userId!,
-    product_id,
-    grams,
-    local_date,
-    local_time,
-    Date.now(),
-  ) as { lastInsertRowid: number | bigint };
-  const row = statements.entries.selectById.get(req.userId!, Number(result.lastInsertRowid)) as
-    | EntryJoinRow
-    | undefined;
-  if (row === undefined) {
-    res.status(500).json({ error: 'insert_failed' });
-    return;
-  }
-  log.info('entry added', {
-    userId: req.userId,
-    entryId: row.id,
-    productId: row.p_id,
-    grams: row.grams,
-    date: row.local_date,
-  });
-  res.json(rowToEntry(row));
+  res.json(createEntry(req.userId!, req.body));
 });
 
 entriesRouter.patch('/:id', (req, res) => {
@@ -323,33 +297,7 @@ entriesRouter.patch('/:id', (req, res) => {
     res.status(400).json({ error: 'invalid_entry' });
     return;
   }
-  const { grams, tagged } = req.body;
-  if (grams !== undefined) {
-    const r = statements.entries.updateGrams.run(grams, req.userId!, id) as { changes: number };
-    if (r.changes === 0) {
-      res.status(404).json({ error: 'not_found' });
-      return;
-    }
-  }
-  if (tagged !== undefined) {
-    const r = statements.entries.updateTagged.run(tagged ? 1 : 0, req.userId!, id) as { changes: number };
-    if (r.changes === 0) {
-      res.status(404).json({ error: 'not_found' });
-      return;
-    }
-  }
-  const row = statements.entries.selectById.get(req.userId!, id) as EntryJoinRow | undefined;
-  if (row === undefined) {
-    res.status(404).json({ error: 'not_found' });
-    return;
-  }
-  log.info('entry updated', {
-    userId: req.userId,
-    entryId: row.id,
-    grams: row.grams,
-    tagged: row.tagged,
-  });
-  res.json(rowToEntry(row));
+  res.json(updateEntry(req.userId!, id, req.body));
 });
 
 entriesRouter.delete('/:id', (req, res) => {
@@ -358,37 +306,16 @@ entriesRouter.delete('/:id', (req, res) => {
     res.status(400).json({ error: 'invalid_id' });
     return;
   }
-  const remove = db.transaction((userId: number, entryId: number) => {
-    const member = statements.entries.selectMembershipById.get(userId, entryId) as
-      | EntryMembershipRow
-      | undefined;
-    if (member === undefined) return null;
-    const result = statements.entries.delete.run(userId, entryId) as { changes: number };
-    if (result.changes === 0) return null;
+  const result = deleteEntry(req.userId!, id);
+  res.json({ ok: true, dissolved_group_id: result.dissolved_group_id });
+});
 
-    let dissolvedGroupId: number | null = null;
-    if (member.group_id !== null) {
-      const countRow = statements.entries.countForGroup.get(userId, member.group_id) as {
-        count: number;
-      };
-      if (countRow.count < 2) {
-        const dissolved = statements.entryGroups.delete.run(userId, member.group_id) as {
-          changes: number;
-        };
-        if (dissolved.changes === 1) dissolvedGroupId = member.group_id;
-      }
-    }
-    return { dissolvedGroupId };
-  });
-  const result = remove(req.userId!, id);
-  if (result === null) {
-    res.status(404).json({ error: 'not_found' });
+const handleWriteError: ErrorRequestHandler = (err: unknown, _req, res, next) => {
+  if (err instanceof WriteError) {
+    res.status(err.status).json({ error: err.message });
     return;
   }
-  log.info('entry deleted', {
-    userId: req.userId,
-    entryId: id,
-    dissolvedGroupId: result.dissolvedGroupId,
-  });
-  res.json({ ok: true, dissolved_group_id: result.dissolvedGroupId });
-});
+  next(err);
+};
+
+entriesRouter.use(handleWriteError);

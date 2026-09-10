@@ -1,7 +1,9 @@
 # Connect KCAL to ChatGPT or Codex
 
-KCAL exposes six read-only tools at `/mcp`. Connect using OAuth, sign in with
-KCAL's existing email code, and approve access to your own account.
+KCAL exposes six read tools and six optional write tools at `/mcp`. Connect using
+OAuth, sign in with KCAL's existing email code, and approve access to your own
+account. `kcal:read` permits reads; `kcal:read kcal:write` also permits creating,
+editing, and deleting food logs and library foods. Write-only access is unsupported.
 
 ## Server setup
 
@@ -65,7 +67,8 @@ adding the OAuth connection. Sign in and approve access in the browser. Use
 | `search_products` | `query` | Up to 50 saved foods from your own library, with product details and per-100 nutrition |
 
 The account comes from the OAuth token. Tools do not accept a user ID, list other
-accounts, execute SQL, or write data. Responses include the connected account's ID.
+accounts, or execute arbitrary SQL. Responses include the connected account's ID.
+Read-only connections discover only the six tools above and cannot invoke writes.
 
 Use `get_meals` to ask what you ate across several days. Both dates are required.
 Its response contains `user_id`, `start_date`, `end_date`, and `days` keyed by
@@ -111,13 +114,68 @@ Goals describe current settings. Zero totals can mean missing logs or logged
 zero-calorie foods. All tools advertise output schemas and return matching
 structured JSON and equivalent text.
 
+## Write tools
+
+Request both `kcal:read` and `kcal:write` during OAuth authorization. The consent
+screen lists write permissions before approval. Existing read-only connections
+stay read-only: reconnect with both scopes and approve the new request to enable
+writes. Reauthorization creates new credentials; it does not upgrade old tokens.
+
+| Tool | Arguments | Result (in addition to `user_id`) |
+| --- | --- | --- |
+| `create_entry` | `product_id`, `grams`, `local_date`, `local_time` | `entry` with computed macros |
+| `update_entry` | `entry_id`, optional `grams` and `tagged` (at least one) | Updated `entry` |
+| `delete_entry` | `entry_id` | `ok: true`, `entry_id`, nullable `dissolved_group_id` |
+| `create_product` | `name`, `unit`, complete `per100`; optional nullable `brand`, `barcode` | Saved `product` |
+| `update_product` | `product_id`, supplied changes to `name`, `brand`, `unit`, `barcode`, or individual `per100` values | Updated `product` |
+| `delete_product` | `product_id` | `ok: true`, `product_id`, `deleted_entry_count` |
+
+Find food IDs with `search_products`; find entry IDs with `get_day` or `get_meals`.
+All referenced entries and products must belong to the connected account. Creating
+a product does not log it: call `create_entry` with the returned product ID to log
+an amount. Newly created products are saved foods, never temporary foods. Brand
+and barcode default to `null`; product names and brands use the app's normalization.
+Barcoded products can appear in the app's shared catalog; unbarcoded foods are private.
+
+Entry creation requires an actual calendar date (`YYYY-MM-DD`), a valid local
+`HH:MM` time, and a positive finite amount no greater than `Number.MAX_SAFE_INTEGER`
+(9,007,199,254,740,991), keeping nutrition arithmetic within finite bounds.
+The existing `grams` field represents
+the amount in the product's `g` or `ml` unit. New entries are untagged and ungrouped.
+Entry edits accept only amount and tagged status, matching the app. Product edits
+preserve omitted fields and macros; explicit `null` clears brand or barcode. Empty
+updates are rejected. Nutrition is per 100 units: kcal must be between 0 and 2000,
+and protein/carbs/fat between 0 and 200, with all four required on product creation.
+
+**Product nutrition edits change historical totals. Deleting a product permanently
+deletes every food log referencing it across all dates.** Entry deletion preserves
+the library product. Either kind of deletion dissolves groups below two remaining
+members while preserving surviving entries. Other users' adopted copies are untouched.
+
+Create tools are non-idempotent: repeating a request creates another record. If a
+creation's response is lost, inspect the current logs or library before retrying.
+Updates and deletes are idempotent in their effects; deleting an already absent ID
+returns `not_found`. Controlled write failures return MCP tool errors without
+partial mutations. There are no bulk, group-management, weight, goal, or adoption
+write tools.
+
 ## Connection lifecycle
 
-OAuth uses authorization codes with S256 PKCE and the single `kcal:read` scope.
+OAuth uses authorization codes with S256 PKCE and the `kcal:read` and `kcal:write` scopes.
 Discovery is at `/.well-known/oauth-authorization-server` and
 `/.well-known/oauth-protected-resource/mcp`. Clients register explicitly with
 `none` or `client_secret_post`; other or omitted authentication methods are
 rejected. HTTP Basic client authentication is not supported.
+
+An omitted authorization scope defaults to `kcal:read`. Client registration scope
+metadata does not grant user permissions: an existing client may explicitly request
+both scopes through new consent. Requests, grants, and individual token scopes are
+stored in SQLite; the scope migration preserves existing credentials as read-only.
+Refreshing without a scope preserves the presented refresh token's permissions.
+Refreshing with `kcal:read` can narrow a write connection; escalation and write-only
+requests are rejected before consuming a valid refresh token. Narrowed refresh
+descendants cannot recover write access. Previously issued access tokens retain
+their own scopes until expiration or revocation.
 
 Client registrations persist in SQLite. Connection requests expire after ten
 minutes, authorization codes after five minutes, and access tokens after one

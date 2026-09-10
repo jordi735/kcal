@@ -2,6 +2,7 @@ import { expect, type Page } from '@playwright/test';
 import { auth, type OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { OAuthClientInformationMixed, OAuthClientMetadata, OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { randomBytes } from 'node:crypto';
 
@@ -18,10 +19,10 @@ export class BrowserOAuth implements OAuthClientProvider {
   authorizationUrl: URL | undefined;
   verifier = '';
   stateValue = randomBytes(16).toString('hex');
-  constructor(method: 'none' | 'client_secret_post' = 'none') {
+  constructor(method: 'none' | 'client_secret_post' = 'none', public requestedScope = 'kcal:read') {
     this.clientMetadata = {
       client_name: 'KCAL test connector', redirect_uris: [CALLBACK],
-      token_endpoint_auth_method: method, scope: 'kcal:read',
+      token_endpoint_auth_method: method, scope: requestedScope,
       grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'],
     };
   }
@@ -36,7 +37,7 @@ export class BrowserOAuth implements OAuthClientProvider {
 }
 
 export async function beginOAuth(page: Page, oauth = new BrowserOAuth()) {
-  expect(await auth(oauth, { serverUrl: RESOURCE })).toBe('REDIRECT');
+  expect(await auth(oauth, { serverUrl: RESOURCE, scope: oauth.requestedScope })).toBe('REDIRECT');
   await page.route(`${CALLBACK}?**`, (route) => route.fulfill({ contentType: 'text/html', body: 'Connected' }));
   await page.goto(oauth.authorizationUrl!.href);
   return oauth;
@@ -53,7 +54,7 @@ export async function consentCode(page: Page, oauth: BrowserOAuth) {
 
 export async function approveOAuth(page: Page, oauth: BrowserOAuth) {
   const code = await consentCode(page, oauth);
-  expect(await auth(oauth, { serverUrl: RESOURCE, authorizationCode: code })).toBe('AUTHORIZED');
+  expect(await auth(oauth, { serverUrl: RESOURCE, authorizationCode: code, scope: oauth.requestedScope })).toBe('AUTHORIZED');
   return code;
 }
 
@@ -61,7 +62,8 @@ export async function connectMcp(page: Page, oauth = new BrowserOAuth()) {
   await beginOAuth(page, oauth);
   const code = await approveOAuth(page, oauth);
   const mcp = new Client({ name: 'kcal-e2e', version: '1.0.0' });
-  await mcp.connect(new StreamableHTTPClientTransport(new URL(RESOURCE), { authProvider: oauth }));
+  // The SDK's optional Transport fields conflict under exactOptionalPropertyTypes.
+  await mcp.connect(new StreamableHTTPClientTransport(new URL(RESOURCE), { authProvider: oauth }) as Transport);
   // Cache advertised output schemas so the SDK validates subsequent tool results.
   await mcp.listTools();
   return { mcp, oauth, code };

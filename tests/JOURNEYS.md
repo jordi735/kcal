@@ -237,7 +237,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-186 · Weight form validation and Cancel prevent invalid writes; failed saves retain the complete draft for retry
 - J-187 · Weight API validates bodies and IDs, rejects date collisions, and isolates every user's records
 
-# 16. Read-only MCP and OAuth
+# 16. MCP and OAuth
 
 - J-188 · MCP discovers six account-scoped read-only tools with output schemas and rejects user discovery
 - J-189 · Food reads and summaries isolate connected accounts and match app totals across groups, year boundaries, product edits, and current goals
@@ -249,13 +249,23 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-195 · Consent binds the browser, protects decisions, supports denial, and preserves login context after session expiry
 - J-196 · OAuth rejects unsafe client metadata, mismatched PKCE/callbacks/resources, and expired or reused codes
 - J-197 · OAuth rotates refresh tokens, revokes replayed grants, enforces client-bound revocation, and rejects expired credentials
-- J-198 · OAuth registrations and hashed credentials survive backend restart and allow continued refresh
+- J-198 · OAuth registrations, hashed credentials, and write scopes survive backend restart and allow continued refresh
 - J-199 · Meal reads include every date in an inclusive range, preserve empty days, and support single-day, leap-day, and 31-day ranges
 - J-200 · Summaries distinguish missing days from zero-calorie logged days, average over logged days, and exclude impossible stored dates
 - J-201 · Summaries compare first and last in-range weigh-ins, include measurement dates, and handle empty, single-point, rising, falling, and unchanged weights
 - J-202 · Summaries support calendar boundaries and 366-day periods without truncating weight history to a page
 - J-203 · MCP product search matches owned saved foods by name and brand, preserves nutrition and units, and excludes temporary and cross-user products
 - J-204 · MCP product search caps broad queries at 50 alphabetically ordered results and supports narrowing the query
+- J-205 · MCP write scopes advertise mutation schemas and deny writes to read-only tokens
+- J-206 · MCP product creates and partial edits match REST and recalculate logged nutrition
+- J-207 · MCP entry create/update/delete matches REST and preserves or dissolves groups
+- J-208 · MCP writes reject foreign and missing products and entries without mutation
+- J-209 · MCP write validation rejects malformed and unsupported inputs without mutation
+- J-210 · MCP product deletion cascades through owned history and cleans groups while preserving adopted copies
+- J-211 · OAuth advertises both scopes and requires explicit read and write consent
+- J-212 · OAuth reconnects legacy clients for write without upgrading old or omitted-scope grants
+- J-213 · OAuth refresh preserves or narrows scope without restoring write permissions
+- J-214 · OAuth scope migration preserves legacy requests grants and tokens as read-only
 
 # Verification
 
