@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// Sheet.tsx:55 DISMISS_THRESHOLD_PX=80, :56 SLOP_PX=6, FADE_EXIT_MS=300.
+// Sheet.tsx uses DISMISS_THRESHOLD_PX=80 and SLOP_PX=6; useFadeClose.ts exports
+// the shared FADE_EXIT_MS=300 animation duration.
 // Two input paths wired (touch via addEventListener, pointer via JSX), but
 // the pointer path filters `pointerType='touch'` — so Playwright's page.mouse
 // (which synthesizes pointerType='mouse') cleanly drives the JSX path on any
@@ -24,7 +25,7 @@ async function dragSheet(page: Page, deltaY: number) {
   const box = prev;
   if (box === null) throw new Error('sheet has no bounding box');
   const x = box.x + box.width / 2;
-  // Start near the top of the sheet — above any inputs. beginGesture (line 152)
+  // Start near the top of the sheet — above any inputs. Sheet's beginGesture
   // bails out if the pointer target is inside input/textarea/select.
   const startY = box.y + 20;
   await page.mouse.move(x, startY);
@@ -58,8 +59,8 @@ test('[J-038] drag down under 80px snaps back; sheet stays open', async ({ page 
 
   await dragSheet(page, 40);
 
-  // Snap transition is 0.3s (line 240 adds .sheet--snapping, line 237
-  // removes on transitionend). 'Daily goals' never leaves the DOM AND
+  // Sheet's endGesture adds .sheet--snapping for the 0.3s snap transition and
+  // removes it on transitionend. 'Daily goals' never leaves the DOM AND
   // exactly one sheet remains mounted (no rogue unmount-then-remount).
   await expect(page.getByText('Daily goals')).toBeVisible();
   await expect(page.locator('.sheet')).toHaveCount(1);
@@ -70,7 +71,7 @@ test('[J-039] drag starting on an input is skipped; sheet stays open', async ({ 
   await page.getByRole('button', { name: 'Settings' }).tap();
   await expect(page.getByText('Daily goals')).toBeVisible();
 
-  // Sheet.tsx:177 — if the gesture starts inside input/textarea/select,
+  // Sheet.tsx — if the gesture starts inside input/textarea/select,
   // beginGesture returns false and the drag state never activates, so native
   // focus/selection keeps working. 90px downward pull = would otherwise
   // dismiss, but here it shouldn't.
@@ -90,9 +91,10 @@ test('[J-039] drag starting on an input is skipped; sheet stays open', async ({ 
 });
 
 test('[J-046] swipe-down on stacked sheet clears the whole modal stack', async ({ page }) => {
-  // App.tsx wires NewProductForm's onClose to back-nav (kind: 'add-picker'),
+  // AppModals.tsx wires NewProductForm's onClose to App's onAddEntry handler,
+  // which opens add-picker,
   // so without onDismiss the swipe would tear NewProductForm down only to
-  // re-mount AddPicker. With onDismiss=closeModal (App.tsx:552), gesture/
+  // re-mount AddPicker. With onDismiss=closeModal (AppModals.tsx), gesture/
   // backdrop dismiss bypasses the back-nav and the stack lands at
   // ModalState 'none' → 0 sheets in the DOM.
   await page.goto('/');
@@ -110,8 +112,8 @@ test('[J-046] swipe-down on stacked sheet clears the whole modal stack', async (
 });
 
 test('[J-142] backdrop tap dismisses the sheet (registerClose=requestDismiss)', async ({ page }) => {
-  // SheetOverlay's onClick (App.tsx:532) fires `activeSheetCloseRef.current?.()`,
-  // and Sheet.tsx:160 registers `requestDismiss` (NOT requestClose) — so even
+  // SheetOverlay's onClick (App.tsx) fires `activeSheetCloseRef.current?.()`,
+  // and Sheet.tsx registers `requestDismiss` (NOT requestClose) — so even
   // for a sheet whose onClose would back-nav, a backdrop tap fully tears down.
   // Settings has only onClose=closeModal, so this test verifies the
   // backdrop-routes-through-registered-callback wiring on the simpler case.
@@ -134,8 +136,8 @@ test('[J-142] backdrop tap dismisses the sheet (registerClose=requestDismiss)', 
 
 test('[J-143] Cancel on stacked NewProductForm back-navs to AddPicker (onClose path)', async ({ page }) => {
   // NewProductForm's Cancel button calls useSheetClose() → requestClose →
-  // beginExit('close') → finalize=onClose. App.tsx:551 wires onClose to
-  // setModal({ kind: 'add-picker' }), so Cancel is a back-nav, NOT a
+  // beginExit('close') → finalize=onClose. AppModals.tsx wires onClose to
+  // App's onAddEntry handler, so Cancel is a back-nav, NOT a
   // tear-down. Contrast with J-144 (backdrop) and J-046 (drag), which both
   // route through onDismiss=closeModal and land at ModalState 'none'.
   await page.goto('/');
@@ -155,9 +157,9 @@ test('[J-143] Cancel on stacked NewProductForm back-navs to AddPicker (onClose p
 
 test('[J-144] backdrop tap on stacked sheet clears the whole modal stack (onDismiss path)', async ({ page }) => {
   // Backdrop tap counterpart to J-046's drag. The same onDismiss=closeModal
-  // wiring at App.tsx:552 should land us at ModalState 'none', not back at
+  // wiring at AppModals.tsx should land us at ModalState 'none', not back at
   // AddPicker. If a regression swapped registerClose to requestClose
-  // (Sheet.tsx:160), this test would catch it: the stack would unwind to
+  // (Sheet.tsx), this test would catch it: the stack would unwind to
   // AddPicker instead of fully tearing down.
   await page.goto('/');
   await page.getByRole('button', { name: 'ADD FOOD' }).tap();
@@ -174,7 +176,7 @@ test('[J-144] backdrop tap on stacked sheet clears the whole modal stack (onDism
 });
 
 test('[J-145] drag exactly 80px dismisses (>= boundary)', async ({ page }) => {
-  // Sheet.tsx:227 reads `if (deltaY >= DISMISS_THRESHOLD_PX) requestDismiss()`.
+  // Sheet.tsx reads `if (deltaY >= DISMISS_THRESHOLD_PX) requestDismiss()`.
   // Mutation `>=` → `>` would let exactly 80px snap back instead. Pinning the
   // boundary at 80 catches that. J-146 pins the symmetric direction (79=snap).
   await page.goto('/');
@@ -202,8 +204,8 @@ test('[J-146] drag exactly 79px snaps back (just under boundary)', async ({ page
 });
 
 test('[J-147] upward drag is a no-op; sheet stays open and downward drag still dismisses', async ({ page }) => {
-  // Pulling up commits phase to 'scrolling' (Sheet.tsx:207, deltaY < -SLOP_PX),
-  // so endGesture returns early at line 222 (`drag.phase !== 'dragging'`).
+  // Pulling up commits phase to 'scrolling' (Sheet.tsx, deltaY < -SLOP_PX),
+  // so endGesture returns early when `drag.phase !== 'dragging'`.
   // The sheet must NOT dismiss, must stay mounted at translateY(0), and must
   // accept a fresh downward gesture afterwards. The follow-up downward drag
   // is the load-bearing assertion: a regression that strands `drag.active`
@@ -225,8 +227,8 @@ test('[J-147] upward drag is a no-op; sheet stays open and downward drag still d
 });
 
 test('[J-148] re-opening a sheet after a dismiss-drag works (no stale exitingRef)', async ({ page }) => {
-  // Sheet.tsx:128 sets `exitingRef.current = true` on beginExit and only the
-  // unmount cleanup (line 151) clears the timer; `exitingRef` itself is
+  // Sheet.tsx sets `exitingRef.current = true` on beginExit and only the
+  // unmount cleanup clears the timer; `exitingRef` itself is
   // local to the component instance, so a fresh mount starts clean. This
   // test fails if a regression hoisted `exitingRef` into a singleton
   // (e.g. via module scope or a shared context), which would make the

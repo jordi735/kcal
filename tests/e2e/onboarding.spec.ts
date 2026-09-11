@@ -28,7 +28,7 @@ test('[J-104] full first-time onboarding: signup → empty → first product →
   await expect(page.getByText('Kcal remaining')).toBeVisible();
   await expect(page.getByText('/ 2400')).toBeVisible();
 
-  // Open AddPicker via the empty pill (Home.tsx:92 — full-pill button) — this
+  // Open AddPicker via the empty pill (Home.tsx — full-pill button) — this
   // also exercises J-076's path implicitly. AddPicker should show idleEmpty.
   await page.getByRole('button').filter({ hasText: 'No food logged' }).tap();
   await expect(
@@ -46,7 +46,7 @@ test('[J-104] full first-time onboarding: signup → empty → first product →
   await fillNutField(page, 'Fat', '5');
   await page.getByRole('button', { name: /Save & Continue/ }).tap();
 
-  // App.tsx:395-406 — onProductSave transitions modal to grams-picker after
+  // App.tsx onProductSave transitions modal to grams-picker after
   // the POST /products resolves. AddPicker's search input is gone; "How much?"
   // (GramsPicker.tsx) is mounted. Catches a regression that re-opened
   // AddPicker instead of GramsPicker after save.
@@ -66,7 +66,7 @@ test('[J-104] full first-time onboarding: signup → empty → first product →
   await expect(row).toContainText('100g');
 
   // MacroSummary refresh: 2400 - 400 = 2000 remaining; "400 kcal" consumed.
-  // useMemo on `entries` in MacroSummary.tsx:19 must re-fire — a stale dep
+  // useMemo on `entries` in MacroSummary.tsx must re-fire — a stale dep
   // array would leave both numbers at 2400/0.
   await expect(page.getByText('Kcal remaining')).toBeVisible();
   await expect(page.getByText('Over budget')).toHaveCount(0);
@@ -79,7 +79,7 @@ test('[J-105] first log replaces idleEmpty with Recent section in AddPicker', as
   page,
   request,
 }) => {
-  // AddPicker.tsx:106-111 sets idleEmpty when BOTH /products/recent and
+  // AddPicker.tsx sets idleEmpty when BOTH /products/recent and
   // /products/all return []. After the first log, /products/recent returns
   // exactly one product, so the branch flips to Recent + recents.map(renderRow).
   // Mutation: dropping `recents.length > 0` from the conditional would still
@@ -112,7 +112,7 @@ test('[J-106] addedProductIds check icon appears next to today logged products i
   page,
   request,
 }) => {
-  // AddPicker.tsx:118-119 — `{added && <CheckIcon size={12} ...}`. App.tsx:215-218
+  // AddPicker.tsx — `{added && <CheckIcon size={12} ...}`. App.tsx addedProductIds
   // builds `addedProductIds` from `todayEntries.map((e) => e.product.id)`.
   // Any mutation that drops the Set construction, swaps `todayEntries` for a
   // different list, or breaks the `addedProductIds.has(p.id)` check would
@@ -171,9 +171,9 @@ test('[J-107] brand-new user has migration default goals visible in Settings', a
   request,
 }) => {
   // server/migrations/001_init.sql — kcal=2400, protein=180, carbs=240, fat=80.
-  // After signin, App.tsx:264 calls userToGoals(res.user) and seeds the goals
+  // After signin, App.tsx onVerifyCode maps the returned user to goals
   // state from the User row the server just minted. Settings then reads those
-  // goals from props (App.tsx:601). Mutation surface: server returning a User
+  // goals from props (AppModals.tsx). Mutation surface: server returning a User
   // without goal_* fields → undefined → Number(undefined) = NaN; or App reading
   // fallback goals instead of user goals (the fallback coincidentally matches in this
   // codebase, so the comparison is value-by-value to exercise the four
@@ -226,7 +226,7 @@ test('[J-108] first log persists across page reload (server actually received PO
   await expect(row.getByText('450', { exact: true })).toBeVisible();
 
   // The session token in localStorage survives reload, so the user stays
-  // signed in. App's useEffect (line 228-232) re-fetches entries for today.
+  // signed in. App's day-loading effect re-fetches entries for today.
   await page.reload();
 
   // Home shell must come back signed-in (session token persisted) — sanity.

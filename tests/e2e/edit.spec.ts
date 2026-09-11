@@ -5,9 +5,9 @@ import { fillNutField, seedProductAndLog } from './helpers';
 // Edit flows. Entry edit opens GramsPicker in mode='edit' (title 'Edit amount',
 // confirm button 'Save', delete TrashIcon aria-label 'Delete entry'). Product
 // edit opens NewProductForm in mode='edit' (title 'Save changes'). The
-// retroactive-macro invariant lives in App.tsx:413-426: product-edit save
+// retroactive-macro invariant lives in App.tsx onProductEditSave: product-edit save
 // refetches the day + week, so macros change without a page reload. Cancel in
-// edit-product routes back to GramsPicker (App.tsx:586-592), NOT home.
+// edit-product routes back to GramsPicker (App.tsx onEditProductClose), NOT home.
 
 const MACROS = { kcal: '100', protein: '10', carbs: '10', fat: '2' };
 
@@ -26,7 +26,7 @@ test('[J-016] edit grams updates the row without adding a new entry', async ({ p
   await page.getByText('Edit amount').waitFor({ state: 'visible' });
 
   await page.getByRole('spinbutton').fill('200');
-  // Confirm button in edit mode is 'Save' (GramsPicker.tsx:160).
+  // Confirm button in edit mode is 'Save' (GramsPicker.tsx).
   await page.getByRole('button', { name: 'Save', exact: true }).tap();
 
   // Editing an existing entry updates in place — still exactly one row.
@@ -43,7 +43,7 @@ test('[J-017] delete button in edit sheet removes the entry', async ({ page }) =
   await row.locator('button').nth(1).tap();
   await page.getByText('Edit amount').waitFor({ state: 'visible' });
 
-  // GramsPicker.tsx:262-269 — TrashIcon button with aria-label 'Delete entry'.
+  // GramsPicker.tsx — TrashIcon button with aria-label 'Delete entry'.
   // No confirmation dialog; one tap removes the row.
   await page.getByRole('button', { name: 'Delete entry' }).tap();
 
@@ -53,14 +53,14 @@ test('[J-017] delete button in edit sheet removes the entry', async ({ page }) =
 test('[J-013] editing a product retroactively updates the row on the same day', async ({ page }) => {
   // The crown jewel: per AGENTS.md, "Macros are computed, never stored."
   // entries only store grams + product_id; macro totals join products on every
-  // read. After a product edit, App.tsx:419-420 refetches the day + week,
+  // read. After a product edit, App.tsx onProductEditSave refetches the day + week,
   // re-deriving macros via the sumMacros useMemo without a page reload.
   const name = 'E2E Edit Product';
   await page.goto('/');
   await seedProductAndLog(page, name, MACROS, '100');
 
   const row = page.locator('.food-row').filter({ hasText: name });
-  // Anchored to the kcal column (FoodRow.tsx:65 renders rounded kcal as a
+  // Anchored to the kcal column (FoodRow.tsx renders rounded kcal as a
   // standalone integer node). `exact: true` forces the assertion past
   // substrings like "100g" or the time stamp — a flipped-comparator bug
   // that left kcal at 100 would still satisfy a loose toContainText("100").
@@ -95,7 +95,7 @@ test('[J-013] editing a product retroactively updates the row on the same day', 
 });
 
 test('[J-014] Add Temp Item flow renders a TMP badge on the row', async ({ page }) => {
-  // FoodRow.tsx:54-56 — is_temp products render a 'TMP' badge next to the
+  // FoodRow.tsx — is_temp products render a 'TMP' badge next to the
   // product name. The temp flow is AddPicker search → 'Add Temp' button →
   // NewProductForm (isTemp=true, save button reads 'Add to Day') → GramsPicker.
   const name = 'E2E Temp Thing';
@@ -105,14 +105,14 @@ test('[J-014] Add Temp Item flow renders a TMP badge on the row', async ({ page 
   await page.getByPlaceholder('Search products...').fill(name);
   await page.getByRole('button', { name: 'Add Temp' }).tap();
 
-  // NewProductForm temp title (NewProductForm.tsx:209) — sync before filling
+  // NewProductForm temp title (NewProductForm.tsx) — sync before filling
   // macros so inputs aren't hit mid-animation.
   await page.getByText('Add Temp Item').waitFor({ state: 'visible' });
   await fillNutField(page, 'Kcal', '50');
   await fillNutField(page, 'Protein', '5');
   await fillNutField(page, 'Carbs', '5');
   await fillNutField(page, 'Fat', '1');
-  // Temp-mode confirm is 'Add to Day' (capital D) per NewProductForm.tsx:352 —
+  // Temp-mode confirm is 'Add to Day' (capital D) per NewProductForm.tsx —
   // distinct from GramsPicker's 'Add to day' (lowercase d). `exact: true`
   // would collide because Playwright's name-match is already case-insensitive
   // by default; rely on the fact that only one of the two sheets is mounted.
@@ -127,7 +127,7 @@ test('[J-014] Add Temp Item flow renders a TMP badge on the row', async ({ page 
 });
 
 test('[J-066] Atwater mismatch warning appears when kcal disagrees with macros by >5%', async ({ page }) => {
-  // NewProductForm.tsx:154-166 — soft Atwater check: kcal ≈ 4·P + 4·C + 9·F.
+  // NewProductForm.tsx — soft Atwater check: kcal ≈ 4·P + 4·C + 9·F.
   // Threshold is 5% of the larger of (actual, expected). A boundary mutation
   // (e.g. >0.05 → >0.50) would silence the warning entirely; an off-by-one
   // on the coefficients (4,4,9 → 4,9,4) would shift the implied kcal text.
@@ -158,8 +158,8 @@ test('[J-066] Atwater mismatch warning appears when kcal disagrees with macros b
 });
 
 test('[J-067] edit-mode kcal>2000 cap is rejected; form stays open', async ({ page }) => {
-  // products.ts:299-302 — PUT /products/:id runs the same isProductBaseBody
-  // check as POST. App.tsx:421-425 leaves the modal open on error so the
+  // products.ts — PUT /products/:id runs the same isProductBaseBody
+  // check as POST. App.tsx onProductEditSave leaves the modal open on error so the
   // user can correct without losing their changes. Mutation: dropping the
   // `if (!isProductBaseBody...) return 400` would let kcal=2001 through and
   // close the sheet (test fails on the still-visible Save-changes assertion).
@@ -189,10 +189,9 @@ test('[J-067] edit-mode kcal>2000 cap is rejected; form stays open', async ({ pa
 });
 
 test('[J-068] PUT /products/:id with unknown id returns 404 not_found', async ({ request }) => {
-  // products.ts:316-319 — `update` runs scoped by created_by; an id that
-  // doesn't exist (or belongs to another user) returns changes=0, which the
-  // route translates to 404. 9_999_999 is far above any test seeding could
-  // reach.
+  // server/writes.ts updateProduct reads the product within the caller's
+  // scope before updating. A missing or foreign id raises WriteError, mapped
+  // to 404 by the shared REST middleware. The id is above the seeded range.
   const token = tokenFrom('tests/e2e/.auth/user.json');
   const res = await request.put('/products/9999999', {
     headers: { Authorization: `Bearer ${token}` },
@@ -209,7 +208,7 @@ test('[J-068] PUT /products/:id with unknown id returns 404 not_found', async ({
 });
 
 test('[J-069] PUT /products/:id with malformed id returns 400 invalid_id', async ({ request }) => {
-  // products.ts:294-298 → parsePositiveInt returns null for zero, negatives,
+  // products.ts → parsePositiveInt returns null for zero, negatives,
   // and non-numerics; all three funnel through the same guard. Cover the
   // three flavors in one test to lock the contract.
   const token = tokenFrom('tests/e2e/.auth/user.json');
@@ -231,8 +230,8 @@ test('[J-069] PUT /products/:id with malformed id returns 400 invalid_id', async
 });
 
 test('[J-070] PATCH /entries/:id with unknown id returns 404 not_found', async ({ request }) => {
-  // entries.ts:181-185 — updateGrams returns changes=0 for an id outside the
-  // user's scope; the route maps that to 404. Same pattern for tagged at :188.
+  // server/writes.ts updateEntry checks owned membership before either an
+  // amount or tagged update. Missing or foreign ids raise the same 404.
   const token = tokenFrom('tests/e2e/.auth/user.json');
   const res = await request.patch('/entries/9999999', {
     headers: { Authorization: `Bearer ${token}` },
@@ -243,7 +242,7 @@ test('[J-070] PATCH /entries/:id with unknown id returns 404 not_found', async (
 });
 
 test('[J-071] PATCH /entries/:id with malformed id returns 400 invalid_id', async ({ request }) => {
-  // entries.ts:170-173 → parsePositiveInt rejects 0, negatives, non-numerics.
+  // entries.ts → parsePositiveInt rejects 0, negatives, non-numerics.
   const token = tokenFrom('tests/e2e/.auth/user.json');
   for (const bad of ['0', '-1', 'abc']) {
     const res = await request.patch(`/entries/${bad}`, {
@@ -256,7 +255,7 @@ test('[J-071] PATCH /entries/:id with malformed id returns 400 invalid_id', asyn
 });
 
 test('[J-072] PATCH /entries/:id with empty body returns 400 invalid_entry', async ({ request }) => {
-  // entries.ts:63-69 — isUpdateEntryBody requires at least one of `grams`
+  // entries.ts — isUpdateEntryBody requires at least one of `grams`
   // or `tagged`. Empty {} is rejected so a stray no-op PATCH can't masquerade
   // as a successful update.
   const token = tokenFrom('tests/e2e/.auth/user.json');
@@ -270,8 +269,8 @@ test('[J-072] PATCH /entries/:id with empty body returns 400 invalid_entry', asy
 
 test('[J-073] PATCH /entries/:id rejects non-positive grams with 400 invalid_entry', async ({ request }) => {
   // The shared isEntryAmount guard excludes amounts below 1, NaN and Infinity. Three
-  // bad values exercise three branches: zero (the boundary), a negative,
-  // and a string ("abc" coerces to NaN at the type-guard check). All must
+  // bad values exercise three cases: zero, a negative, and a string rejected
+  // by the type guard without coercion. All must
   // funnel to 400 `invalid_entry` BEFORE the router touches any statement.
   const token = tokenFrom('tests/e2e/.auth/user.json');
   const cases: Array<unknown> = [0, -10, 'abc'];
@@ -286,8 +285,8 @@ test('[J-073] PATCH /entries/:id rejects non-positive grams with 400 invalid_ent
 });
 
 test('[J-074] cancel in product-edit form returns to GramsPicker without issuing a PUT', async ({ page }) => {
-  // App.tsx:586-592: edit-product onClose flips back to grams-picker (NOT
-  // home). The Cancel button (NewProductForm.tsx:217-219) calls useSheetClose
+  // App.tsx onEditProductClose: edit-product onClose flips back to grams-picker (NOT
+  // home). The Cancel button (NewProductForm.tsx) calls useSheetClose
   // → onClose. A regression that wired Cancel to onDismiss instead would land
   // the user on the home screen and silently lose the edit context.
   const name = 'E2E Edit Cancel';

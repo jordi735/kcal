@@ -109,7 +109,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 # 6. Daily goals & macro auto-compute
 
 - J-018 · Daily kcal goal persists and updates MacroSummary
-- J-019 · `+` button increments protein without touching kcal (no cross-derive — Settings.tsx:115-117)
+- J-019 · `+` button increments protein without touching kcal (no cross-derive — Settings protein control)
 - J-020 · `-` button clamps a macro at 0
 - J-021 · Mismatch banner shows when kcal disagrees with macros by > 50; banner content quotes both derived total and typed kcal
 - J-022 · Cancel does not persist Settings changes (kcal nor macros)
@@ -120,7 +120,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-138 · Kcal `+/-` buttons step by 50 (macros step by 5; mutation guard for the GoalField `step` parameter)
 - J-139 · `PUT /settings` rejects invalid_goals across every `isGoalsBody` branch (missing field, non-int, negative, over MAX_KCAL=20000, over MAX_MACRO_GRAMS=2000)
 - J-140 · Save persists all four goals (kcal/protein/carbs/fat); a hard reload + reopen reads each input back at its saved value
-- J-141 · Settings Account section displays the signed-in user's email (rules out the `'you@example.com'` fallback in Settings.tsx:219)
+- J-141 · Settings Account section displays the signed-in user's email (rules out the `'you@example.com'` fallback in Settings Account section)
 - J-167 · Goals saved on another device appear after reload through authoritative boot revalidation from `GET /settings`
 
 - J-225 · Goal boot revalidation and saves update cached goals without repeating day/week reads
@@ -141,8 +141,8 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-129 · Long-press on an already-selected row deselects it (input symmetry — `toggleSelect` runs whether triggered by tap or by `onContextMenu`)
 - J-130 · Dot tap in selection mode toggles `tagged`, not `select` (the dot button bypasses `selectionMode` logic; tagging stays operational while a row is selected)
 - J-131 · Long-press on the dot does NOT enter selection mode (`onContextMenu` is wired only on the main body button — sibling dispatches don't bubble to the body's handler)
-- J-132 · Tap in selection mode adds to selection only — `onEdit` does not fire and GramsPicker does not mount (negative-path of the `if (selectionMode)` branch in `FoodRow.tsx:42`)
-- J-133 · Multi-tag mixed state issues exactly one PATCH (already-tagged entry skipped per `App.tsx:340 if (entry.tagged === tagged) continue`); pinned via a `page.on('request')` counter
+- J-132 · Tap in selection mode adds to selection only — `onEdit` does not fire and GramsPicker does not mount (negative-path of the `if (selectionMode)` branch in `FoodRow` click handler)
+- J-133 · Multi-tag mixed state issues exactly one PATCH (already-tagged entry skipped per `App.onMarkTagged` skip-when-equal guard); pinned via a `page.on('request')` counter
 
 # 7a. Named entry groups
 
@@ -169,7 +169,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-151 · Dot tap does not change MacroSummary kcal totals (`tagged` is purely a UI marker; macros come from grams × per100)
 - J-152 · Tagged flag survives a grams edit (grams-only PATCH must not clear `tagged`)
 - J-153 · Two rows tag/untag independently (per-row state isolation; no shared mutation)
-- J-154 · Dot tap issues exactly one PATCH per toggle (network counter; `App.tsx:340` skip-when-equal pin)
+- J-154 · Dot tap issues exactly one PATCH per toggle (network counter; `App.onMarkTagged` skip-when-equal guard)
 
 # 9. Cross-user catalog (barcode adopt)
 

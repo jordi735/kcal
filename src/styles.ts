@@ -1,11 +1,9 @@
-// Tiny inline-style helpers. Concentrates CSS-variable casting in one place
-// so callers don't litter `as any` across TSX.
+// Shared inline-style helper for dynamic CSS custom properties.
 
 import type { JSX } from 'preact';
 
-// Pass `{'--fill-pct': '40%', '--bar-color': 'var(--macro-p)'}` — React/Preact
-// CSSProperties doesn't type custom properties, so one cast here spares every
-// callsite from writing its own `as any` pair.
+// Pass `{'--fill-pct': '40%', '--bar-color': 'var(--macro-p)'}`. Preact accepts
+// these properties directly; return the same object for use in a style prop.
 export function cssVars(vars: Record<string, string | number>): JSX.CSSProperties {
-  return vars as unknown as JSX.CSSProperties;
+  return vars;
 }

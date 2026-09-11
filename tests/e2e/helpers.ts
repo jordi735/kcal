@@ -5,7 +5,7 @@ import { startSignIn, submitSignInCode } from './auth-helpers';
 // existingTotals starts at 0 on today's date. Required by any spec that asserts
 // absolute kcal/macro projections in GramsPicker — those rows render
 // `existing + entry`, so a polluted day breaks hardcoded numbers (see
-// GramsPicker.tsx:51,88). The unique timestamp+random suffix avoids collisions
+// GramsPicker.tsx). The unique timestamp+random suffix avoids collisions
 // when the same prefix is used across many tests in one run. `emailPrefix`
 // is purely a debug breadcrumb in the users table — pick something distinctive
 // so triage of /tmp/kcal-e2e.db can attribute rows back to the source spec.
@@ -21,7 +21,7 @@ export async function signInFresh(
   const email = `${emailPrefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
   await startSignIn(page, email, 'tap');
   await submitSignInCode(page, request, email);
-  // Login.tsx:114 auto-submits at 6 digits; wait for the home shell to land.
+  // Login.tsx auto-submits at 6 digits; wait for the home shell to land.
   await expect(page.getByRole('button', { name: 'ADD FOOD' })).toBeVisible();
 }
 
@@ -38,7 +38,7 @@ export async function fillNutField(page: Page, label: string, value: string) {
     .fill(value);
 }
 
-// FoodRow.tsx:45-48 handles long-press via onContextMenu. Dispatching the
+// FoodRow.tsx handles long-press via onContextMenu. Dispatching the
 // native event directly sidesteps every touch/mouse/timer question — no
 // pointer dance, no waitForTimeout, and it works identically on the Pixel 7
 // mobile profile and a desktop viewport.

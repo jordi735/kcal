@@ -4,9 +4,9 @@ import { seedProductAndLog } from './helpers';
 
 // AddPicker search — server-side LIKE on (name, brand) + scope toggle (My
 // Library vs Global) + idle Recent/All sections + clear-X reset. Implementation:
-//   - AddPicker.tsx:71-97 — debounced /products/search with optional &global=1
-//   - server/routes/products.ts:107-136 — /products/search handler + scope gate
-//   - server/statements.ts:69-114 — `searchOwn` (own only) vs blended `search`
+//   - AddPicker.tsx — debounced /products/search with optional &global=1
+//   - server/routes/products.ts — /products/search handler + scope gate
+//   - server/statements.ts — `searchOwn` (own only) vs blended `search`
 //
 // Coverage in this spec:
 //   J-118 — Clear-X resets q to '' and restores idle Recent/All
@@ -38,7 +38,7 @@ test('[J-118] Clear-X resets the search query and restores the idle Recent/All v
   const picker = page.locator('.sheet').filter({ has: search });
   const clearBtn = picker.getByRole('button', { name: 'Clear', exact: true });
 
-  // Idle: AddPicker.tsx:162 conditionally renders clearBtn only when `q` is
+  // Idle: AddPicker.tsx conditionally renders clearBtn only when `q` is
   // truthy. Empty q → button NOT in the DOM. Mutation: dropping the `q && ...`
   // gate would render the button at idle — caught here.
   await expect(clearBtn).toHaveCount(0);
@@ -49,7 +49,7 @@ test('[J-118] Clear-X resets the search query and restores the idle Recent/All v
   await expect(page.getByText('not in your library yet.')).toBeVisible();
   await expect(clearBtn).toBeVisible();
 
-  // Tap clear: AddPicker.tsx:164 → setQ(''). showingSearch flips false; the
+  // Tap clear: AddPicker.tsx → setQ(''). showingSearch flips false; the
   // search effect's empty-trim early-return clears `results`, idle re-renders.
   // Mutation: dropping setQ('') would leave both clearBtn AND emptySearch
   // mounted indefinitely — both negative-paths below catch it.
@@ -66,7 +66,7 @@ test('[J-118] Clear-X resets the search query and restores the idle Recent/All v
 test('[J-119] Default scope is My Library; tapping Global re-queries with ?global=1', async ({
   page,
 }) => {
-  // AddPicker.tsx:46 — `global` state defaults to false. AddPicker.tsx:87
+  // AddPicker.tsx — `global` state defaults to false. AddPicker.tsx
   // appends `&global=1` only when global is true. Mutation surface: flipping
   // the default, removing `global` from the [debouncedQ, global] dep array,
   // or swapping the ternary would all be caught by the URL parity checks.
@@ -99,8 +99,8 @@ test('[J-120] My Library scope hides barcoded cross-user rows; Global surfaces t
   page,
   request,
 }) => {
-  // statements.ts:69-77 (searchOwn) filters strictly by created_by; statements
-  // .ts:87-114 (blended search) opens up to barcoded cross-user rows via
+  // statements.ts searchOwn filters strictly by created_by; its blended
+  // search opens up to barcoded cross-user rows via
   // `created_by = ? OR barcode IS NOT NULL`. The scope toggle is the only path
   // between them. Seed a barcoded row OWNED BY USER B and verify both sides
   // of the gate as user A.
@@ -141,7 +141,7 @@ test('[J-120] My Library scope hides barcoded cross-user rows; Global surfaces t
 test('[J-121] Search section header pluralizes "result" / "results" on count', async ({
   page,
 }) => {
-  // AddPicker.tsx:204 — `${results.length} result${results.length === 1 ? '' : 's'}`.
+  // AddPicker.tsx — `${results.length} result${results.length === 1 ? '' : 's'}`.
   // Mutation: dropping or flipping the ternary would render "1 results" or
   // "2 result". The exact:true negative-path locator below catches it.
   const namePrefix = `E2E Plural ${Date.now()}`;
@@ -179,7 +179,7 @@ test('[J-122] Idle list dedup: a logged product appears under Recent only, never
   page,
   request,
 }) => {
-  // AddPicker.tsx:104-105 — `allMinusRecents = (allProducts ?? []).filter((p)
+  // AddPicker.tsx — `allMinusRecents = (allProducts ?? []).filter((p)
   // => !recentIds.has(p.id))`. Without that filter, every logged product
   // would appear twice (in Recent AND in All), confusing the user. Seed two
   // products: one logged via UI (→ Recent) and one unlogged via API (→ All
@@ -229,7 +229,7 @@ test('[J-122] Idle list dedup: a logged product appears under Recent only, never
 });
 
 test('[J-123] Search matches against brand, not just name', async ({ page, request }) => {
-  // statements.ts:74 + 94 — both `searchOwn` and the blended `search` include
+  // statements.ts — both `searchOwn` and the blended `search` include
   // `(name LIKE ? OR (brand IS NOT NULL AND brand LIKE ?))`. Mutation:
   // dropping the brand branch would render zero results when searching by
   // brand alone. API seed since the journey is server-side LIKE behavior,
@@ -266,7 +266,7 @@ test('[J-124] addedProductIds check icon also renders in search-results rows (pa
   page,
   request,
 }) => {
-  // AddPicker.tsx:113-132 — renderRow is shared between the idle (Recent /
+  // AddPicker.tsx — renderRow is shared between the idle (Recent /
   // All) branch and the search-results branch. J-106 covers the idle Recent
   // path; this covers the search-results path. A mutation that branched
   // renderRow per-section and dropped `addedProductIds` on the search side
@@ -316,7 +316,7 @@ test('[J-124] addedProductIds check icon also renders in search-results rows (pa
 test('[J-125] GET /products/search short-circuits empty / whitespace q to []', async ({
   request,
 }) => {
-  // products.ts:107-113 — the route trims `q` and returns [] before ever
+  // products.ts — the route trims `q` and returns [] before ever
   // touching SQL when it's empty. Mutation: dropping the early-return would
   // feed pattern='%%' into LIKE and surface every product the user has —
   // both a perf concern (full-table scan) and, on the global branch, a
@@ -344,7 +344,7 @@ test('[J-125] GET /products/search short-circuits empty / whitespace q to []', a
 test('[J-126] GET /products/search global flag is strict-equality "1" (not truthy)', async ({
   request,
 }) => {
-  // products.ts:117-118 — `global = typeof rawGlobal === 'string' && rawGlobal === '1'`.
+  // products.ts — `global = typeof rawGlobal === 'string' && rawGlobal === '1'`.
   // Mutation: replacing `=== '1'` with `Boolean(rawGlobal)` or `!== ''` would
   // make every non-empty value enable the cross-user blend, breaking the
   // client's ability to opt out via `?global=0`. Seed a barcoded row as user B
@@ -404,7 +404,7 @@ test('[J-126] GET /products/search global flag is strict-equality "1" (not truth
 test("[J-127] Blended search results sort the caller's own row before another user's (is_mine DESC)", async ({
   request,
 }) => {
-  // statements.ts:112 — `ORDER BY is_mine DESC, name COLLATE NOCASE ASC`.
+  // statements.ts — `ORDER BY is_mine DESC, name COLLATE NOCASE ASC`.
   // Pick names so alphabetical alone would put user B's row first
   // (`A ...` < `Z ...`); only the is_mine DESC clause can flip the order so
   // user A's `Z ...` comes first. Mutation: dropping is_mine DESC → results
@@ -467,7 +467,7 @@ test("[J-127] Blended search results sort the caller's own row before another us
   expect(indexB).toBeGreaterThanOrEqual(0);
   expect(indexA).toBeLessThan(indexB);
 
-  // Anchor the is_mine projection too — products.ts:127 maps via
+  // Anchor the is_mine projection too — products.ts maps via
   // searchRowToProduct, so the field is present on both rows. A mutation
   // that hard-coded is_mine=true (or dropped the projection) would still
   // produce the right ORDER but flunk one of the equality checks.

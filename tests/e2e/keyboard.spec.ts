@@ -9,7 +9,7 @@ const MACROS = { kcal: '100', protein: '10', carbs: '10', fat: '2' };
 
 test.describe('keyboard Enter submits', () => {
   test.describe('Login email field', () => {
-    // Login.tsx:140-141 — Enter on email input calls submitEmail().
+    // Login.tsx — Enter on email input calls submitEmail().
     // Isolated storageState: this is the only way to see the email-step UI;
     // the shared session is already signed in and skips Login entirely.
     test.use({ storageState: { cookies: [], origins: [] } });
@@ -39,7 +39,7 @@ test.describe('keyboard Enter submits', () => {
     });
 
     test('[J-096] Enter on invalid email is a no-op', async ({ page }) => {
-      // Login.tsx:42 — submitEmail returns early when !emailValid. A regression
+      // Login.tsx — submitEmail returns early when !emailValid. A regression
       // dropping that guard (e.g. flipping `!emailValid || submitting` to
       // `!emailValid && submitting`) would advance to the code step and fire
       // POST /auth/request-code with junk. This pins all three guard exits.
@@ -85,7 +85,7 @@ test.describe('keyboard Enter submits', () => {
     await page.getByText('How much?').waitFor({ state: 'visible' });
 
     await page.getByRole('spinbutton').fill('200');
-    // GramsPicker.tsx:235 — Enter preventDefaults, blurs, then calls onConfirm.
+    // GramsPicker.tsx — Enter preventDefaults, blurs, then calls onConfirm.
     await page.getByRole('spinbutton').press('Enter');
 
     // Sheet dismissed — proves the Enter path drove onConfirm → onClose, not
@@ -124,7 +124,7 @@ test.describe('keyboard Enter submits', () => {
   test('[J-095] Enter on empty GramsPicker input is a no-op', async ({ page }) => {
     // Pre-fix: clearing the input then pressing Enter would silently log a
     // 1g entry — Number('') === 0, Math.max(1, 0) === 1, onConfirm(1) fires.
-    // Post-fix (GramsPicker.tsx:237): the Enter handler returns early when
+    // Post-fix (GramsPicker.tsx): the Enter handler returns early when
     // text is empty. The sheet stays open and no entry is mutated.
     //
     // Mutation resistance: dropping the early-return would close the sheet
@@ -167,7 +167,7 @@ test.describe('keyboard Enter submits', () => {
     await search.fill('random query no-hit');
     await expect(search).toBeFocused();
 
-    // AddPicker.tsx:158 — Enter calls e.currentTarget.blur() and nothing else.
+    // AddPicker.tsx — Enter calls e.currentTarget.blur() and nothing else.
     // A regression wiring it to "create new from query" or "pick top result"
     // would silently break UX. Assert blur happened AND no follow-on UI fired.
     await search.press('Enter');

@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import { tokenFrom } from './auth-helpers';
 import { fillNutField } from './helpers';
 
-// Modal-hijack guard via App.tsx:163 `flowGenRef`. Three async handlers
+// Modal-hijack guard via App.tsx `flowGenRef`. The async handlers
 // (`onPick`, `onBarcodeDetect`, `onProductSave`) capture the generation
 // counter before awaiting and bail in BOTH branches (post-await setModal,
 // post-await reportError) if the modal transitioned during the await.
@@ -10,7 +10,8 @@ import { fillNutField } from './helpers';
 // a flow they cancelled, or fire a stale error toast for one they aborted.
 //
 // onBarcodeDetect's gate is the only one not covered here — driving it
-// requires camera input, which TEST_MODE doesn't stub. See log.txt MISSING.
+// requires camera input, which TEST_MODE doesn't stub. Device parity checks
+// are recorded in docs/refactoring.md.
 
 // `await waitForResponse(...)` is the throttle's natural completion signal —
 // much tighter than waitForTimeout and not flake-prone. After it resolves we
@@ -101,7 +102,7 @@ test('[J-047] dismiss mid-save: post-resolution setModal is suppressed', async (
 test('[J-113] no dismissal: slow product save still opens GramsPicker (positive control)', async ({
   page,
 }) => {
-  // Pins the comparator direction at App.tsx:399 (`if (myGen !== ...) return`).
+  // Pins onProductSave's generation comparison in App.tsx.
   // Without this anchor a mutation flipping `!==` to `===` would silently bail
   // on the happy path too — and J-047 would still pass (false security).
   await page.goto('/');
@@ -137,8 +138,8 @@ test('[J-113] no dismissal: slow product save still opens GramsPicker (positive 
 test('[J-114] dismiss mid-save + server 500: error toast is suppressed', async ({
   page,
 }) => {
-  // Pins App.tsx:402 catch-branch gate. Throttle to give the dismiss window,
-  // then 500 with a known body — App.tsx:507 renders transientError verbatim
+  // Pins onProductSave's catch-branch gate in App.tsx. Throttle to give the
+  // dismiss window, then return 500. TransientErrorToast renders the error verbatim
   // so we can assert that exact string never lands on screen.
   await page.goto('/');
 
@@ -234,7 +235,7 @@ test.describe('cross-user adopt race', () => {
     request,
   }) => {
     // Cross-user search → tap result → onPick auto-POSTs /products/adopt/:id.
-    // App.tsx:308 gates the post-await setModal({grams-picker, ...}).
+    // App.tsx onPick gates the post-await transition to grams-picker.
     const name = `E2E Race Adopt ${Date.now()}`;
     const barcode = `760${Date.now()}`;
     await seedBarcodedAsUserA(request, name, barcode);
@@ -251,7 +252,7 @@ test.describe('cross-user adopt race', () => {
     });
 
     await page.getByRole('button', { name: 'ADD FOOD' }).tap();
-    // Cross-user search needs the Global scope toggle (AddPicker.tsx:185) so
+    // Cross-user search needs the Global scope toggle (AddPicker.tsx) so
     // the request carries ?global=1 and statements.ts surfaces user A's row.
     await page.getByRole('button', { name: 'Global', exact: true }).tap();
     await page.getByPlaceholder('Search products...').fill(name);
@@ -281,7 +282,7 @@ test.describe('cross-user adopt race', () => {
     page,
     request,
   }) => {
-    // Pins App.tsx:311 catch-branch gate for onPick. Same throttle+fulfill
+    // Pins App.tsx catch-branch gate for onPick. Same throttle+fulfill
     // pattern as J-114 but on the adopt endpoint.
     const name = `E2E Race Adopt Err ${Date.now()}`;
     const barcode = `761${Date.now()}`;

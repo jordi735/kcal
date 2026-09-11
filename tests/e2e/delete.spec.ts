@@ -10,12 +10,12 @@ import { longPress, seedProductAndLog } from './helpers';
 //                     tap fires onDelete. There is NO timer revert: the only
 //                     way to disarm is to close & reopen the form.
 //
-// Server contract (products.ts:334-351, entries.ts:208-221):
+// REST routes validate ids; server/writes.ts owns deletion and ownership checks:
 //   - 400 invalid_id for zero / negative / non-numeric :id
 //   - 404 not_found when nothing the caller owns matches the id
 //   - Product delete is transactional: deleteForProduct(user_id, product_id)
 //     runs first to satisfy the ON DELETE RESTRICT FK on entries.product_id
-//     (migrations/001_init.sql:38-46). UI proof in J-060.
+//     (server/migrations/001_init.sql). UI proof in J-060.
 
 const MACROS = { kcal: '100', protein: '10', carbs: '10', fat: '2' };
 
@@ -51,7 +51,7 @@ test('[J-057] multi-delete leaves unselected rows untouched', async ({ page }) =
 test('[J-058] product delete: first tap arms; second tap deletes', async ({
   page,
 }) => {
-  // Two-tap arming pattern at NewProductForm.tsx:190-202. The first tap MUST
+  // Two-tap arming pattern at NewProductForm.tsx. The first tap MUST
   // NOT delete: this test keeps the assertions falsifiable by checking three
   // independent things after tap 1 — (a) the button's aria-label has flipped
   // to "Confirm delete", (b) the original "Delete product" label is gone (so
@@ -91,8 +91,8 @@ test('[J-058] product delete: first tap arms; second tap deletes', async ({
 test('[J-059] product delete arm state does not persist across close-and-reopen', async ({
   page,
 }) => {
-  // The arm state is local React useState inside NewProductFormInner
-  // (line 113). Closing the form unmounts that component; reopening must
+  // The arm state is local Preact useState inside NewProductFormInner.
+  // Closing the form unmounts that component; reopening must
   // start FRESH (unarmed). A bug that hoisted the state into App.tsx or
   // localStorage would let the second tap fire instantly on the next open
   // — this test would catch that immediately.
@@ -107,7 +107,7 @@ test('[J-059] product delete arm state does not persist across close-and-reopen'
   await page.getByRole('button', { name: 'Save changes' }).waitFor({ state: 'visible' });
 
   // Arm it, then bail without confirming. The Cancel button on
-  // NewProductForm.tsx:217-219 routes us back to GramsPicker via App.tsx:586.
+  // NewProductForm.tsx routes us back to GramsPicker via App.tsx onEditProductClose.
   await page.getByRole('button', { name: 'Delete product', exact: true }).tap();
   await expect(
     page.getByRole('button', { name: 'Confirm delete', exact: true }),
@@ -133,8 +133,9 @@ test('[J-060] product delete cascades every entry the user logged for it', async
   page,
 }) => {
   // Per AGENTS.md, "Macros are computed, never stored" — the FK is ON DELETE
-  // RESTRICT (migrations/001_init.sql:38-46), so the route MUST run
-  // entries.deleteForProduct first inside a transaction. UI proof: log the
+  // RESTRICT (server/migrations/001_init.sql), so server/writes.ts deleteProduct
+  // runs entries.deleteForProduct before deleting the product in one transaction.
+  // UI proof: log the
   // SAME product twice on the same day (creating two entry rows), then delete
   // the product. Both rows must vanish in a single operation. A bug that
   // forgot the transaction wrapper would either 409 (FK violation propagated
@@ -175,7 +176,7 @@ test('[J-060] product delete cascades every entry the user logged for it', async
 test('[J-061] SelectionBar delete button aria-label scales with the count', async ({
   page,
 }) => {
-  // Mutation-resists the count templating in SelectionBar.tsx:77
+  // Mutation-resists the count templating in SelectionBar.tsx
   // (`Delete ${n} selected`). J-027 in selection.spec.ts already covers
   // n=2; this test pushes to n=3 to catch a hard-coded "2 selected" or an
   // off-by-one in the n derivation. Asserts both the dynamic label and that
@@ -213,7 +214,7 @@ test('[J-062] DELETE /entries/:id with malformed id returns 400 invalid_id', asy
   page,
   request,
 }) => {
-  // entries.ts:209-212 → parsePositiveInt returns null for "0", "-1", "abc";
+  // entries.ts → parsePositiveInt returns null for "0", "-1", "abc";
   // route returns 400 invalid_id. Cover all three flavors in one test — they
   // all funnel through the same guard, so a regression in any kills the
   // contract for the others too.
@@ -236,10 +237,9 @@ test('[J-063] DELETE /entries/:id with unknown id returns 404 not_found', async 
   page,
   request,
 }) => {
-  // entries.ts:214-217 — when entries.delete.run reports changes=0, the row
-  // either does not exist or belongs to another user (the WHERE clause is
-  // user_id = ? AND id = ?). Either way the contract is 404 not_found, not
-  // a 200 silent no-op or a leaky 403.
+  // server/writes.ts deleteEntry checks owned membership before deleting.
+  // Missing and foreign ids both produce 404 not_found, preserving the
+  // caller-scoped contract without revealing another user's entries.
   await page.goto('/');
   const token = await page.evaluate(() =>
     localStorage.getItem('kcal_session_token'),
@@ -257,7 +257,7 @@ test('[J-064] DELETE /products/:id with malformed id returns 400 invalid_id', as
   page,
   request,
 }) => {
-  // Same parsePositiveInt guard at products.ts:335-338. Mirror of J-062 on
+  // Same parsePositiveInt guard at products.ts. Mirror of J-062 on
   // the products router — both must agree on the contract.
   await page.goto('/');
   const token = await page.evaluate(() =>
@@ -278,8 +278,8 @@ test('[J-065] DELETE /products/:id with unknown id returns 404 not_found', async
   page,
   request,
 }) => {
-  // products.ts:344-348 — transaction returns changes=0 when no row matches
-  // (created_by, id). 404 not_found is the contract; do not leak whether the
+  // server/writes.ts deleteProduct checks ownership before deleting any logs.
+  // 404 not_found is the contract when no row matches (created_by, id); do not reveal whether the
   // id exists for someone else (which would be an enumeration vector).
   await page.goto('/');
   const token = await page.evaluate(() =>

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { signInFresh } from './helpers';
 
-// App.tsx boot revalidation: the cached `kcal_user` blob in localStorage is a
+// useGoalRevalidation: the cached `kcal_user` blob in localStorage is a
 // hot-start optimisation; goals must be re-fetched from GET /settings on every
 // app open so updates from another device aren't masked by the local cache.
 //
@@ -23,7 +23,7 @@ test('[J-167] goals updated on another device appear after page reload (boot rev
   const token = await page.evaluate(() => localStorage.getItem('kcal_session_token'));
   expect(token).not.toBeNull();
 
-  // Default goals from statements.ts:53 — kcal=2400. MacroSummary.tsx:36 renders
+  // Default goals from statements.ts — kcal=2400. MacroSummary.tsx renders
   // the kcal target as "/ {goals.kcal}", so anchor on that exact pattern.
   await expect(page.getByText(/^\/ 2400$/)).toBeVisible();
 
@@ -48,7 +48,7 @@ test('[J-167] goals updated on another device appear after page reload (boot rev
   expect(cachedBefore.goal_kcal).toBe(2400);
 
   // Reload — this triggers the `useEffect(..., [user?.id])` boot revalidation
-  // path under test. App.tsx renders cached goals first (still 2400), then
+  // path under test. useSessionGoals supplies cached goals first (still 2400), then
   // the GET resolves and setGoals(fresh) swaps in the server values.
   await page.reload();
 
@@ -58,7 +58,7 @@ test('[J-167] goals updated on another device appear after page reload (boot rev
   await expect(page.getByText(/^\/ 1234$/)).toBeVisible();
 
   // The cached user blob in localStorage was synchronised alongside `goals`
-  // state (App.tsx setUser branch inside the success handler). Pinning every
+  // state (useGoalRevalidation's setUser success branch). Pinning every
   // field guards against a regression that updated `goals` but forgot to
   // mirror it back into the cache — the next boot would then revert to stale.
   const cachedAfter = await page.evaluate(

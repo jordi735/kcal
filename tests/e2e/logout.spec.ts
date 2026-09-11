@@ -9,21 +9,21 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 test('[J-097] 401 auto-logout: corrupt bearer redirects to Login', async ({ page, request }) => {
   await signInFresh(page, request, 'logout');
-  // Gate on "No food logged" — Home.tsx:91 only shows this once the
-  // App.tsx:228 useEffect's loadEntries call has returned. Without the gate,
+  // Gate on "No food logged" — Home.tsx only shows this once the
+  // App.tsx useEffect's loadEntries call has returned. Without the gate,
   // those initial fetches (which use the still-valid token) race the corrupt
   // step below and the auto-logout path fires from the wrong trigger.
   await expect(page.getByText('No food logged')).toBeVisible();
 
-  // api.ts:50 — every fetch wrapper bounces 401 to clearStoredSession() +
+  // api.ts — every fetch wrapper bounces 401 to clearStoredSession() +
   // window.location.assign('/'). Corrupting the stored bearer makes the next
-  // request hit authMiddleware's invalid_session branch (server/auth.ts:127).
+  // request hit authMiddleware's invalid_session branch (server/auth.ts).
   await page.evaluate(() => {
     window.localStorage.setItem('kcal_session_token', 'corrupt-not-a-real-token');
   });
 
   // ADD FOOD opens AddPicker, which fires GET /products/recent + /products/all
-  // (AddPicker.tsx:52,60). Either 401 trips the auto-logout path. The tap()
+  // (AddPicker.tsx). Either 401 trips the auto-logout path. The tap()
   // itself completes synchronously (setModal is sync state); the navigation
   // happens later when the 401 response arrives, so there's no tap-vs-nav race.
   await page.getByRole('button', { name: 'ADD FOOD' }).tap();
@@ -40,7 +40,7 @@ test('[J-098] 401 auto-logout clears both kcal_session_token and kcal_user', asy
   await signInFresh(page, request, 'logout');
   await expect(page.getByText('No food logged')).toBeVisible();
 
-  // Pre-condition: App.tsx writes both keys on successful verify-code, so
+  // Pre-condition: api.ts verifyLoginCode writes both session keys, so
   // signing in implies both are populated. Reading via page.evaluate proves
   // the storage actually has them — without this, the post-condition could
   // pass vacuously if the keys had never been written.
@@ -58,7 +58,7 @@ test('[J-098] 401 auto-logout clears both kcal_session_token and kcal_user', asy
   await page.getByRole('button', { name: 'ADD FOOD' }).tap();
   await expect(page.getByPlaceholder('you@example.com')).toBeVisible();
 
-  // api.ts:6-9 clearStoredSession removes BOTH SESSION_TOKEN_KEY and USER_KEY.
+  // api.ts clearStoredSession removes BOTH SESSION_TOKEN_KEY and USER_KEY.
   // Mutation guard: dropping the USER_KEY removeItem would leave the cached
   // user record (email + goals) behind — readable by anyone with devtools
   // even after sign-out. Both keys must end null.
@@ -75,16 +75,16 @@ test('[J-099] Resend button shows "Resend in {n}s" and stays disabled during coo
   const email = `resend-cd-${Date.now()}@test.local`;
   await page.getByPlaceholder('you@example.com').fill(email);
   await page.getByRole('button', { name: 'Send sign-in code' }).tap();
-  // Login.tsx:50 sets resendCooldown=RESEND_COOLDOWN_S (=30) on the
+  // Login.tsx sets resendCooldown=RESEND_COOLDOWN_S (=30) on the
   // request-code success branch. The button label flips to "Resend in {n}s".
 
   // Anchored regex tolerates any decremented value (30, 29, …) without
-  // hard-coding 30 — the 1s ticker (Login.tsx:37) may have fired by the time
+  // hard-coding 30 — the 1s ticker (Login.tsx) may have fired by the time
   // the assertion runs. Mutation guard: dropping the cooldown init would
   // leave the label as "Resend code" → regex fails the ^ anchor.
   const resend = page.getByRole('button', { name: /^Resend in \d+s$/ });
   await expect(resend).toBeVisible();
-  // Login.tsx:205 — disabled={resendCooldown > 0 || submitting || verifying}.
+  // Login.tsx — disabled={resendCooldown > 0 || submitting || verifying}.
   // submitting=false post-await, verifying=false (we never typed a code),
   // so resendCooldown>0 is the only thing keeping it disabled here.
   await expect(resend).toBeDisabled();
@@ -93,7 +93,7 @@ test('[J-099] Resend button shows "Resend in {n}s" and stays disabled during coo
 test('[J-100] Resend during cooldown does not POST /auth/request-code', async ({ page }) => {
   // Two layers of defense protect against double-emit: (1) the disabled
   // attribute on the button, (2) the JS guard `if (resendCooldown > 0) return`
-  // at Login.tsx:60. J-099 covers visual-disabled. This test pins the JS
+  // at Login.tsx. J-099 covers visual-disabled. This test pins the JS
   // guard specifically — force:true bypasses Playwright's disabled-actionable
   // check, so the synthetic click DOES reach React's onClick handler. If the
   // guard were dropped, the request count would jump to 2.
@@ -131,7 +131,7 @@ test('[J-101] "Use a different email" returns to email step and preserves the em
   const codeInput = page.getByLabel('6-digit sign-in code');
   await expect(codeInput).toBeVisible();
 
-  // Login.tsx:103-109 — useDifferentEmail resets step, code, error, info, and
+  // Login.tsx — useDifferentEmail resets step, code, error, info, and
   // resendCooldown, but deliberately does NOT clear the email. The button
   // text is "Use a different email" (CSS uppercases the rendering only;
   // accessible name is the underlying text content).
@@ -153,9 +153,9 @@ test('[J-101] "Use a different email" returns to email step and preserves the em
 });
 
 test('[J-102] POST /auth/logout without bearer returns 401 unauthorized', async ({ request }) => {
-  // server/routes/auth.ts:81 mounts /auth/logout BEHIND authMiddleware. A
+  // server/routes/auth.ts mounts /auth/logout BEHIND authMiddleware. A
   // request with no Authorization header trips the missing_bearer branch
-  // (server/auth.ts:120). Same opaque shape J-056 pins for /entries — but
+  // (server/auth.ts). Same opaque shape J-056 pins for /entries — but
   // worth a route-specific assertion because losing authMiddleware on the
   // logout endpoint would not be caught by the /entries-only test.
   const r = await request.post('/auth/logout');
@@ -174,7 +174,7 @@ test('[J-103] Manual sign-out also clears kcal_user from localStorage', async ({
   expect(before.token).toBeTruthy();
   expect(before.user).toBeTruthy();
 
-  // App.tsx:494-503 onLogout calls clearStoredSession() (api.ts:6-9) then
+  // App.tsx onLogout calls clearStoredSession() (api.ts) then
   // setUser(null). J-002 in auth.spec.ts proves the SERVER session is
   // revoked; this test pins the LOCAL side specifically — both keys must
   // end null. Mutation guard: dropping USER_KEY removeItem would leave the

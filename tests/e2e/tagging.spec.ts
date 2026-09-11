@@ -5,7 +5,7 @@ import { seedProductAndLog } from './helpers';
 // FoodRow's dot button toggles the entry's `tagged` boolean (migration
 // 002_add_entries_tagged.sql). aria-pressed reflects the state and the
 // aria-label flips between 'Mark as eaten' and 'Mark as not eaten' per
-// src/components/FoodRow.tsx:35-36. The flow is:
+// src/components/FoodRow.tsx. The flow is:
 //   FoodRow.onClick → Home.onToggleTagged → App.onMarkTagged([en], !en.tagged)
 //   → useEntries.update(id, { tagged }) → PATCH /entries/:id → setState
 // UI mirrors the SERVER response (not optimistic) — the server is the source
@@ -76,7 +76,7 @@ test('[J-033] aria-label flips with tagged state', async ({ page }) => {
 });
 
 test('[J-149] PATCH /entries/:id rejects non-boolean tagged with 400 invalid_entry', async ({ request }) => {
-  // entries.ts:63-69 isUpdateEntryBody — the `'tagged' in v` branch requires
+  // entries.ts isUpdateEntryBody — the `'tagged' in v` branch requires
   // typeof v.tagged === 'boolean'. The peer test J-073 covers the grams half;
   // this test pins the tagged half so a `typeof !== 'boolean'` removal lands
   // on a red test. Three flavors: stringly-true (the most common UI bug
@@ -96,7 +96,7 @@ test('[J-149] PATCH /entries/:id rejects non-boolean tagged with 400 invalid_ent
 test.describe('cross-user tagging contract', () => {
   // User B drives via storageState user2.json; user A's entry id is harvested
   // via direct API as user A. statements.entries.updateTagged is user-scoped
-  // (entries.ts:188 takes req.userId!) — a mutation that drops the userId
+  // (entries.ts takes req.userId!) — a mutation that drops the userId
   // would let user B silently flip user A's tagged flag.
   test.use({ storageState: 'tests/e2e/.auth/user2.json' });
 
@@ -260,7 +260,7 @@ test('[J-153] two rows tag/untag independently', async ({ page }) => {
 });
 
 test('[J-154] dot tap issues exactly one PATCH per toggle (not two)', async ({ page }) => {
-  // App.tsx:288-295 — onMarkTagged loops the list and skips entries whose
+  // App.tsx — onMarkTagged loops the list and skips entries whose
   // tagged already matches the target (`if (entry.tagged === tagged)
   // continue`). For a single-element array driven by the dot, the skip
   // shouldn't fire on the first tap (state changes); it MUST fire on a

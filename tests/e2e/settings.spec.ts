@@ -2,12 +2,12 @@ import { expect, test, type Page } from '@playwright/test';
 import { tokenFrom } from './auth-helpers';
 
 // Settings.tsx renders 4 GoalField number inputs in order:
-// Protein, Carbs, Fat, Kcal (Kcal is last — see src/screens/Settings.tsx:163-172).
-// Macro and kcal fields are decoupled (Settings.tsx:115-117): bumping a macro
-// never overwrites the kcal field. The mismatch banner (Settings.tsx:202-206)
+// Protein, Carbs, Fat, Kcal (Kcal is last — see src/screens/Settings.tsx).
+// Macro and kcal fields are decoupled (Settings.tsx): bumping a macro
+// never overwrites the kcal field. The mismatch banner (Settings.tsx)
 // is the single source of drift signal between typed kcal and the macro-derived
 // total. MAX_KCAL=20000 and MAX_MACRO_GRAMS=2000 are server-only caps
-// (server/routes/settings.ts:15-16); the UI does not enforce them.
+// (server/routes/settings.ts); the UI does not enforce them.
 
 // Each GoalField row has exactly 2 buttons — minus first, plus last.
 // Climb from the input three levels: input → valueBox → fieldRight → field row.
@@ -29,17 +29,17 @@ test('[J-018] change daily kcal goal persists and updates MacroSummary', async (
   await page.getByRole('spinbutton').last().fill('1800');
   await page.getByRole('button', { name: 'Save', exact: true }).tap();
 
-  // Sheet must close on success — Settings.tsx:137 calls close() inside the
+  // Sheet must close on success — Settings.tsx calls close() inside the
   // try/finally. Mutation: a save handler that swallowed the error and never
   // closed the sheet would fail this assertion.
   await expect(page.getByText('Daily goals')).toHaveCount(0);
 
-  // MacroSummary.tsx:36 — `<span>/ {goals.kcal}</span>`. Anchor-match the goal
+  // MacroSummary.tsx — `<span>/ {goals.kcal}</span>`. Anchor-match the goal
   // exactly so a stray "1800" in some other component doesn't false-positive.
   await expect(page.getByText(/^\/ 1800$/)).toBeVisible();
 
   // Reload to confirm server-persistence path round-trips through localStorage
-  // (App.tsx:482-491 stores the saved goals back into the User record).
+  // (useSessionGoals.ts applyGoals stores the saved goals back into the User record).
   await page.reload();
   await expect(page.getByText(/^\/ 1800$/)).toBeVisible();
 });
@@ -59,7 +59,7 @@ test.describe('advanced', () => {
     await bumpButtons(page, 0).plus.tap();
 
     // The macro→kcal cross-derive in Settings.tsx was deliberately removed
-    // (Settings.tsx:115-117). Editing a macro never overwrites kcal; drift
+    // (Settings.tsx). Editing a macro never overwrites kcal; drift
     // surfaces via the mismatch banner only. Both halves are asserted —
     // a regression that re-wires kcal=4P+4C+9F on every bump would fail
     // the kcalIn assertion.
@@ -102,8 +102,8 @@ test.describe('advanced', () => {
   });
 
   test('[J-138] kcal +/- buttons step by 50 (macros step by 5)', async ({ page }) => {
-    // GoalField defaults step=5 (Settings.tsx:38); kcal renders with step=50
-    // (Settings.tsx:172). Mutation: flipping kcal's step to 5 (or wiring the
+    // GoalField defaults step=5 (Settings.tsx); kcal renders with step=50
+    // (Settings.tsx). Mutation: flipping kcal's step to 5 (or wiring the
     // macro fields to 50) would silently break the daily-budget UX. Asserting
     // both directions catches off-by-one between bumps.
     await page.goto('/');
@@ -128,7 +128,7 @@ test.describe('advanced', () => {
     const proteinIn = page.getByRole('spinbutton').nth(0);
     await proteinIn.fill('3');
 
-    // Each minus tap = bump(Math.max(0, value - 5)) per Settings.tsx:60. After
+    // Each minus tap = bump(Math.max(0, value - 5)) per Settings.tsx. After
     // the first tap protein is 0; subsequent taps stay at 0. Mutation guard:
     // dropping `Math.max(0, …)` would let value drift to -22 over five taps.
     for (let i = 0; i < 5; i++) {
@@ -143,14 +143,14 @@ test.describe('advanced', () => {
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
 
-    // Macro fills no longer touch kcal (Settings.tsx:115-117). Derived total
+    // Macro fills no longer touch kcal (Settings.tsx). Derived total
     // = 4*50 + 4*50 + 9*10 = 490; kcal pinned at 3000 → gap = 2510 > 50.
     await page.getByRole('spinbutton').nth(0).fill('50');
     await page.getByRole('spinbutton').nth(1).fill('50');
     await page.getByRole('spinbutton').nth(2).fill('10');
     await page.getByRole('spinbutton').nth(3).fill('3000');
 
-    // Banner exists AND quotes BOTH sides of the mismatch (Settings.tsx:204).
+    // Banner exists AND quotes BOTH sides of the mismatch (Settings.tsx).
     // Independent assertions — a mutation that swapped derivedKcal/kcal in
     // the message would survive a label-only check.
     const banner = page.getByText(/^Heads up — /);
@@ -159,13 +159,13 @@ test.describe('advanced', () => {
     await expect(banner).toContainText('not 3000'); // user-typed kcal
 
     // The macro-card header surfaces the derived total independently
-    // (Settings.tsx:178). Pins the 4P+4C+9F formula — flipping a coefficient
+    // (Settings.tsx). Pins the 4P+4C+9F formula — flipping a coefficient
     // (e.g. F*4 instead of F*9) would produce a different number here.
     await expect(page.getByText('490 kcal from macros', { exact: true })).toBeVisible();
   });
 
   test('[J-137] mismatch banner boundary: gap of 50 stays clean, gap of 51 fires', async ({ page }) => {
-    // Settings.tsx:120 — `Math.abs(derivedKcal - kcal) > 50`. Mutation guards:
+    // Settings.tsx — `Math.abs(derivedKcal - kcal) > 50`. Mutation guards:
     // (a) `> 50` → `>= 50` would fire at gap=50;
     // (b) `> 50` → `> 49` would also fire at gap=50.
     // Both mutations are caught by asserting absent at 50 AND present at 51.
@@ -215,10 +215,10 @@ test.describe('advanced', () => {
   });
 
   test("[J-141] Settings Account section displays the user's signed-in email", async ({ page }) => {
-    // Settings.tsx:218-220 renders `userEmail` (passed from App.tsx:605) under
+    // Settings.tsx renders `userEmail` (passed from AppModals.tsx) under
     // a "Signed in as" label. Shared storageState user is e2e@test.local
-    // (auth.setup.ts:8). Mutation guard: a regression passing `null` here would
-    // render the 'you@example.com' fallback (Settings.tsx:219).
+    // (auth.setup.ts). Mutation guard: a regression passing `null` here would
+    // render the 'you@example.com' fallback (Settings.tsx).
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings' }).tap();
     await expect(page.getByText('Daily goals')).toBeVisible();
@@ -284,7 +284,7 @@ test.describe('advanced', () => {
 
     // Reload + reopen → every input reads back the saved value. The kcal bar
     // also re-renders /1888 from cold cache, proving the User record in
-    // localStorage was synced (App.tsx:482-491).
+    // localStorage was synced (useSessionGoals.ts applyGoals).
     await page.reload();
     await expect(page.getByText(/^\/ 1888$/)).toBeVisible();
     await page.getByRole('button', { name: 'Settings' }).tap();
@@ -296,7 +296,7 @@ test.describe('advanced', () => {
   });
 
   test('[J-139] PUT /settings rejects invalid_goals across every isGoalsBody branch', async ({ request }) => {
-    // server/routes/settings.ts:22-30 — isGoalsBody requires every field to be
+    // server/routes/settings.ts — isGoalsBody requires every field to be
     // an integer in [0, MAX]. MAX_KCAL=20000, MAX_MACRO_GRAMS=2000. A bad body
     // returns 400 `{ error: 'invalid_goals' }`. The matrix below exercises
     // every branch of isGoalInt / isGoalsBody at least once.

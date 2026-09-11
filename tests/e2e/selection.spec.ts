@@ -117,7 +117,7 @@ test('[J-027] multi-delete removes both selected rows AND clears the selection',
 
   await expect(page.locator('.food-row').filter({ hasText: `E2E Sel A ${s}` })).toHaveCount(0);
   await expect(page.locator('.food-row').filter({ hasText: `E2E Sel B ${s}` })).toHaveCount(0);
-  // Home.tsx:69 calls setSelectedIds(new Set()) AFTER onDeleteEntries. If
+  // Home.tsx calls setSelectedIds(new Set()) AFTER onDeleteEntries. If
   // the clear were dropped, the bar would stick (with selectedIds pointing
   // at IDs that no longer exist; n=0 but selectionMode=true). Pin the clear.
   await expect(clearBtn(page)).toHaveCount(0);
@@ -133,7 +133,7 @@ test('[J-128] multi-tag with all rows untagged tags both', async ({ page }) => {
 
   await expect(dot(page, `E2E Sel A ${s}`)).toHaveAttribute('aria-pressed', 'true');
   await expect(dot(page, `E2E Sel B ${s}`)).toHaveAttribute('aria-pressed', 'true');
-  // Home.tsx:74 clears selection AFTER onMarkTagged — pin the clear.
+  // Home.tsx clears selection AFTER onMarkTagged — pin the clear.
   await expect(clearBtn(page)).toHaveCount(0);
 });
 
@@ -150,7 +150,7 @@ test('[J-029] multi-tag with all rows tagged flips to untagged', async ({ page }
   // Select both. allTagged=true → button label is "Untag", "Tag" never shows.
   await longPress(mainButton(page, `E2E Sel A ${s}`));
   await mainButton(page, `E2E Sel B ${s}`).tap();
-  // Negative-path: only "Untag" mounts — proves SelectionBar.tsx:61 allTagged
+  // Negative-path: only "Untag" mounts — proves SelectionBar.tsx allTagged
   // resolved to true (not "Tag" via an && → || flip on n > 0 && every).
   await expect(page.getByRole('button', { name: 'Tag 2 selected', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Untag 2 selected', exact: true })).toBeVisible();
@@ -205,7 +205,7 @@ test('[J-030] switching day clears the selection', async ({ page }) => {
 
   await page.getByRole('button', { name: otherText, exact: true }).first().tap();
 
-  // Home.tsx:46-48 — useEffect on selectedDate change calls setSelectedIds(new Set()).
+  // Home.tsx — useEffect on selectedDate change calls setSelectedIds(new Set()).
   await expect(clearBtn(page)).toHaveCount(0);
 });
 
@@ -222,7 +222,7 @@ test('[J-129] long-press on already-selected row deselects (input symmetry)', as
   await expect(page.getByText('1 selected', { exact: true })).toBeVisible();
 
   // Second long-press on the SAME row: toggleSelect runs again and the
-  // entry is removed from the Set (Home.tsx:59 `if (next.has(...)) next.delete`).
+  // entry is removed from the Set (Home.tsx `if (next.has(...)) next.delete`).
   // selectionMode flips to false → SelectionBar unmounts after the slide-down.
   // A mutation that swaps `if (next.has(...))` to `if (!next.has(...))`
   // would only ever add, leaving the bar stuck at "1 selected".
@@ -238,7 +238,7 @@ test('[J-130] dot tap in selection mode toggles tagged, not select', async ({ pa
   await expect(page.getByText('1 selected', { exact: true })).toBeVisible();
 
   // Tap A's dot WHILE A is selected. The dot's onClick = onToggleTagged
-  // (FoodRow.tsx:34) and is NOT gated by selectionMode — so it should flip
+  // (FoodRow.tsx) and is NOT gated by selectionMode — so it should flip
   // tagged regardless of the selection state, AND must not affect the
   // selection. A regression that gates the dot on selectionMode (or routes
   // it through toggleSelect) would either no-op the tag OR drop the
@@ -253,8 +253,8 @@ test('[J-131] long-press on the dot does NOT enter selection mode', async ({ pag
   const s = 'ZC';
   await seedPair(page, s);
 
-  // The dot is a sibling of the main body button (FoodRow.tsx:31-39 vs
-  // 40-68). onContextMenu is wired only on the main body, so a contextmenu
+  // FoodRow.tsx renders the dot as a sibling of the main body button.
+  // onContextMenu is wired only on the main body, so a contextmenu
   // event dispatched on the dot doesn't bubble to a handler — selection
   // mode stays off. A regression that wires onLongPress onto the row root
   // (or the dot) would erroneously activate selection here.
@@ -271,7 +271,7 @@ test('[J-132] tap in selection mode adds to selection only — no GramsPicker', 
   await longPress(mainButton(page, `E2E Sel A ${s}`));
   await expect(page.getByText('1 selected', { exact: true })).toBeVisible();
 
-  // Tapping B in selection mode hits the if-branch in FoodRow.tsx:42:
+  // Tapping B in selection mode hits the if-branch in FoodRow.tsx:
   //   if (selectionMode) onToggleSelect(entry); else onEdit(entry);
   // so onEdit must NOT fire and GramsPicker must NOT mount. A regression
   // that drops the `if` (or flips the comparator) would open the editor
@@ -292,7 +292,7 @@ test('[J-133] multi-tag mixed state issues exactly one PATCH (already-tagged ski
   await expect(dot(page, `E2E Sel A ${s}`)).toHaveAttribute('aria-pressed', 'true');
 
   // Now count every PATCH /entries/<numeric-id> issued from here on out.
-  // App.tsx:290 has `if (entry.tagged === tagged) continue;` — the
+  // App.tsx has `if (entry.tagged === tagged) continue;` — the
   // already-tagged A must be skipped, leaving exactly one PATCH (for B).
   // A mutation that drops the continue would emit two PATCHes.
   const patchUrls: string[] = [];

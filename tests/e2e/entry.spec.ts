@@ -37,7 +37,7 @@ test('[J-010] create new product, save & continue, log to day', async ({ page })
   const row = page.locator('.food-row').filter({ hasText: 'E2E Oats' });
   await expect(row.getByText('600', { exact: true })).toBeVisible();
   // Grams string also rendered — proves the entry's `grams` field round-tripped
-  // through the POST /entries response (FoodRow.tsx:59 renders {grams}{unit}).
+  // through the POST /entries response (FoodRow.tsx renders {grams}{unit}).
   await expect(row).toContainText('150g');
 });
 
@@ -139,7 +139,7 @@ test('[J-168] future-day entries stay in insertion order across reload', async (
 test('[J-085] re-logging an existing product pre-fills grams from recent history', async ({
   page,
 }) => {
-  // GramsPicker.tsx:131-137 — when mode is 'add' and the user hasn't typed,
+  // GramsPicker.tsx — when mode is 'add' and the user hasn't typed,
   // the spinbutton resets from the default 100 to history[0] (the most
   // recently logged grams) once /entries/recent-grams returns. This is the
   // "log it the way I did last time" UX shortcut.
@@ -160,7 +160,7 @@ test('[J-085] re-logging an existing product pre-fills grams from recent history
   await picker.getByText(name).first().tap();
   await page.getByText('How much?').waitFor({ state: 'visible' });
 
-  // toHaveValue auto-retries until the recent-grams effect (lines 131-137)
+  // toHaveValue auto-retries until GramsPicker's recent-grams effect
   // overwrites the 100 default with 175. A bug that left the default in
   // place would time out here.
   await expect(page.getByRole('spinbutton')).toHaveValue('175');
@@ -169,7 +169,7 @@ test('[J-085] re-logging an existing product pre-fills grams from recent history
 test('[J-086] Save & Continue is disabled until name and all four macros are filled', async ({
   page,
 }) => {
-  // NewProductForm.tsx:127-132 — `valid` requires name.trim().length > 0
+  // NewProductForm.tsx — `valid` requires name.trim().length > 0
   // AND every per-100 macro to be a number. Mutation: dropping any one of
   // the four `kcal !== '' && protein !== '' && carbs !== '' && fat !== ''`
   // checks would let the form submit with an empty field, and the server's
@@ -191,7 +191,7 @@ test('[J-086] Save & Continue is disabled until name and all four macros are fil
   await fillNutField(page, 'Fat', '2');
   await expect(submit).toBeEnabled();
 
-  // NutField wires onFocus={() => onChange('')} (NewProductForm.tsx:58) so
+  // NutField wires onFocus={() => onChange('')} (NewProductForm.tsx) so
   // refocusing kcal alone clears just that field. Button must flip back to
   // disabled — proves kcal !== '' is load-bearing in the `valid` expression.
   await page
@@ -206,8 +206,8 @@ test('[J-086] Save & Continue is disabled until name and all four macros are fil
 test('[J-079] POST /entries with malformed body returns 400 invalid_entry', async ({
   request,
 }) => {
-  // entries.ts:53-61 → isNewEntryBody chains four guards: product_id positive
-  // int, grams positive finite, local_date matches DATE_RE, local_time matches
+  // entries.ts → isNewEntryBody chains four guards: product_id positive
+  // int, grams accepted by isEntryAmount, local_date matches DATE_RE, local_time matches
   // TIME_RE. Each malformed body below fails exactly one branch, so all four
   // guard mutations are caught.
   const token = tokenFrom('tests/e2e/.auth/user.json');
@@ -241,9 +241,9 @@ test('[J-079] POST /entries with malformed body returns 400 invalid_entry', asyn
 test('[J-080] POST /entries with non-existent product_id returns 404 product_not_found', async ({
   request,
 }) => {
-  // entries.ts:139-143 — body validates, then statements.products.ownedByUser
-  // returns undefined (the product_id doesn't exist), so the route returns
-  // 404. 9_999_999 is far above any test seeding could reach.
+  // The entries route validates the body, then server/writes.ts createEntry
+  // looks up the caller-owned product with statements.products.selectById.
+  // A missing product raises product_not_found, mapped to 404 by middleware.
   const token = tokenFrom('tests/e2e/.auth/user.json');
   const today = new Date().toISOString().slice(0, 10);
   const res = await request.post('/entries', {
@@ -318,7 +318,7 @@ test('[J-081] user B cannot log an entry against user A’s product (per-user is
 test('[J-082] GET /entries with malformed or missing date returns 400 invalid_date', async ({
   request,
 }) => {
-  // entries.ts:84-90 — `date` query param must be a string AND match DATE_RE.
+  // entries.ts — `date` query param must be a string AND match DATE_RE.
   // A missing param coerces to '' which fails the regex. Cover both branches.
   const token = tokenFrom('tests/e2e/.auth/user.json');
   for (const path of ['/entries', '/entries?date=', '/entries?date=2026/01/01', '/entries?date=abc']) {
@@ -333,7 +333,7 @@ test('[J-082] GET /entries with malformed or missing date returns 400 invalid_da
 test('[J-083] GET /entries/week with malformed or missing start returns 400 invalid_date', async ({
   request,
 }) => {
-  // entries.ts:109-115 — same DATE_RE guard as the day endpoint, applied to
+  // entries.ts — same DATE_RE guard as the day endpoint, applied to
   // `start`. Missing/malformed both funnel through the same 400 invalid_date.
   const token = tokenFrom('tests/e2e/.auth/user.json');
   for (const path of ['/entries/week', '/entries/week?start=', '/entries/week?start=2026/01/01', '/entries/week?start=xx']) {
@@ -348,11 +348,10 @@ test('[J-083] GET /entries/week with malformed or missing start returns 400 inva
 test('[J-084] GET /entries/recent-grams with malformed product_id returns 400 invalid_product_id', async ({
   request,
 }) => {
-  // entries.ts:98-104 — parsePositiveInt rejects 0, negatives, non-numerics,
+  // entries.ts — parsePositiveInt rejects 0, negatives, non-numerics,
   // AND missing param (typeof !== 'string'). Every branch funnels to 400
-  // invalid_product_id. The route is declared BEFORE /:id (entries.ts:96-97
-  // comment) so the literal path wins — verifies that ordering by exercising
-  // the actual recent-grams handler, not the patch/delete /:id branches.
+  // invalid_product_id. This exercises the GET /entries/recent-grams handler
+  // in server/routes/entries.ts directly.
   const token = tokenFrom('tests/e2e/.auth/user.json');
   for (const path of [
     '/entries/recent-grams',

@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { fillNutField, seedProductAndLog, signInFresh } from './helpers';
 
 // Per-test fresh user — every assertion below checks a `current/goal` macro
-// projection where `current = existingTotals + entry` (GramsPicker.tsx:51,88).
+// projection where `current = existingTotals + entry` (GramsPicker.tsx).
 // The shared `auth.setup.ts` user accumulates entries from prior specs (adopt,
 // delete, edit, entry…) on today's date, so existingTotals is non-zero by the
 // time grams.spec.ts runs and breaks every hardcoded number. Fresh user →
@@ -28,7 +28,7 @@ function addSheet(page: Page) {
 // The bump buttons are unlabelled icon-only buttons inside the .gramsBox div
 // — siblings of the .gramsRow that wraps the input. Walking up two levels
 // from the spinbutton lands on .gramsBox; the first/last children of that
-// box are minus/plus respectively (GramsPicker.tsx:213-249).
+// box are minus/plus respectively (GramsPicker.tsx).
 //
 // `getByRole('spinbutton')` plus role-anchor scoping is the only way to
 // disambiguate without raw class selectors — there are several other icon-
@@ -84,8 +84,8 @@ async function expectMacroRow(
 test('[J-087] default grams in add mode is 100 for a brand-new product', async ({ page, request }) => {
   await signInFresh(page, request, 'grams');
 
-  // GramsPicker.tsx:109 — `useState(initialGrams ?? 100)`. For a brand-new
-  // product the recent-grams API returns []; the effect at lines 131-137
+  // GramsPicker.tsx — `useState(initialGrams ?? 100)`. For a brand-new
+  // product the recent-grams API returns []; GramsPicker's history effect
   // bails out on `history.length === 0` and the initial 100 sticks.
   // Mutation: changing the default constant from 100 to e.g. 0 or 50 would
   // surface here instantly without changing any other test's assertions.
@@ -107,7 +107,7 @@ test('[J-088] plus button bumps grams +10 and the live kcal projection scales li
 }) => {
   await signInFresh(page, request, 'grams');
 
-  // GramsPicker.tsx:157 — `bump(10)` calls selectGrams(Math.max(1, grams+10))
+  // GramsPicker.tsx — `bump(10)` calls selectGrams(Math.max(1, grams+10))
   // → 110 from a 100 base. selectGrams syncs both `grams` (state, drives the
   // projection) and `text` (drives the input value). Mutation: dropping the
   // setText() in selectGrams would leave the input at "100" while the
@@ -129,7 +129,7 @@ test('[J-088] plus button bumps grams +10 and the live kcal projection scales li
 test('[J-089] minus button decreases grams by 10 and the projection scales', async ({ page, request }) => {
   await signInFresh(page, request, 'grams');
 
-  // GramsPicker.tsx:157 (bump(-10)) → selectGrams(Math.max(1, 100 - 10)) = 90.
+  // GramsPicker.tsx (bump(-10)) → selectGrams(Math.max(1, 100 - 10)) = 90.
   // Symmetric to J-088 but exercising the `delta < 0` branch. A bug that
   // dropped the sign of `delta` in `bump` would push grams to 110 here — the
   // assertion would fail because the spinbutton would read "110".
@@ -146,7 +146,7 @@ test('[J-089] minus button decreases grams by 10 and the projection scales', asy
 test('[J-090] minus button clamps grams at 1 (Math.max floor)', async ({ page, request }) => {
   await signInFresh(page, request, 'grams');
 
-  // GramsPicker.tsx:157 — `Math.max(1, grams + delta)`. From 5g, bump(-10)
+  // GramsPicker.tsx — `Math.max(1, grams + delta)`. From 5g, bump(-10)
   // would yield -5 without the floor; the floor pins it at 1. Mutation:
   // `Math.max(1, ...)` → `Math.max(0, ...)` would let grams reach 0, and
   // `computeMacros` would render projection 0 / 2400. Mutation:
@@ -176,7 +176,7 @@ test('[J-090] minus button clamps grams at 1 (Math.max floor)', async ({ page, r
 test('[J-091] quick-value pill tap sets grams and updates the live projection', async ({ page, request }) => {
   await signInFresh(page, request, 'grams');
 
-  // GramsPicker.tsx:253-260 — each pill button onClick calls selectGrams(v).
+  // GramsPicker.tsx — each pill button onClick calls selectGrams(v).
   // For a brand-new product, history is [], so quickValues = DEFAULT_QUICK_
   // VALUES = [50, 100, 150, 200, 250]. Tap '150': grams → 150, text → "150",
   // projection scales. Mutation: dropping setUserChangedGrams in selectGrams
@@ -198,7 +198,7 @@ test('[J-091] quick-value pill tap sets grams and updates the live projection', 
 test('[J-092] recent-grams replaces the DEFAULT [50,100,150,200,250] quick row', async ({ page, request }) => {
   await signInFresh(page, request, 'grams');
 
-  // GramsPicker.tsx:139-142 — `quickValues = history.length > 0 ? history :
+  // GramsPicker.tsx — `quickValues = history.length > 0 ? history :
   // DEFAULT`. Seed once at 175g (a value not in DEFAULT_QUICK_VALUES so a
   // false-positive can't happen by coincidence), then re-open via search.
   // The quick row should show only the historical 175 button, NOT the five
@@ -243,9 +243,9 @@ test('[J-093] add-mode GramsPicker shows the pencil but hides the trash (delete-
 }) => {
   await signInFresh(page, request, 'grams');
 
-  // App.tsx:576 passes `onEditProduct` UNCONDITIONALLY — both add and edit
+  // AppModals.tsx passes `onEditProduct` UNCONDITIONALLY — both add and edit
   // modes get the pencil so the user can fix a product's macros before (or
-  // during) logging. `onDelete` (App.tsx:571) is conditional on edit mode
+  // during) logging. `onDelete` (AppModals.tsx) is conditional on edit mode
   // (it deletes the entry, not the product), so the trash icon is gated.
   // The journey here is differential: the same sheet renders one of two
   // toolsets depending on whether an entry already exists.
@@ -271,7 +271,7 @@ test('[J-093] add-mode GramsPicker shows the pencil but hides the trash (delete-
     addSheet(page).getByRole('button', { name: 'Delete entry', exact: true }),
   ).toHaveCount(0);
   // Belt-and-suspenders: the confirm button reads 'Add to day' (add mode),
-  // not 'Save' (edit mode). GramsPicker.tsx:160.
+  // not 'Save' (edit mode). GramsPicker.tsx.
   await expect(addSheet(page).getByRole('button', { name: /Add to day/ })).toBeVisible();
   await expect(addSheet(page).getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
 });
@@ -279,7 +279,7 @@ test('[J-093] add-mode GramsPicker shows the pencil but hides the trash (delete-
 test('[J-094] protein/carbs/fat projections render with one-decimal formatting', async ({ page, request }) => {
   await signInFresh(page, request, 'grams');
 
-  // GramsPicker.tsx:29 + :198-209 — fmtOneDecimal returns `.toFixed(1)` so
+  // GramsPicker.tsx — fmtOneDecimal returns `.toFixed(1)` so
   // even whole-number projections surface as "N.0". Kcal uses fmtInt and
   // surfaces "N" (no decimal). Mutation: swapping fmtOneDecimal → fmtInt
   // for the three macro rows drops the ".M" suffix entirely; the regex

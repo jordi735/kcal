@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-// Sign-out invalidates the server session (server/routes/auth.ts:83 calls
+// Sign-out invalidates the server session (server/routes/auth.ts calls
 // deleteSession). If we ran this against the shared auth.setup.ts session,
 // the storageState used by every other spec would be killed. Override
 // storageState here so we sign in a separate, throw-away session that we
@@ -19,7 +19,7 @@ test('[J-002] sign out clears the server session and returns to Login', async ({
   expect(res.ok()).toBeTruthy();
   const { code } = await res.json();
   await page.getByLabel('6-digit sign-in code').fill(code);
-  // Login.tsx:114 auto-submits at 6 digits — wait for the home shell.
+  // Login.tsx auto-submits at 6 digits — wait for the home shell.
   await expect(page.getByRole('button', { name: 'ADD FOOD' })).toBeVisible();
 
   // Capture the bearer BEFORE sign-out so we can prove the server actually
@@ -70,9 +70,9 @@ test('[J-003] wrong code shows error and keeps user on the code step', async ({ 
   const codeInput = page.getByLabel('6-digit sign-in code');
   await codeInput.fill(wrongFor(code));
 
-  // Login.tsx:93 converts the server's `invalid_or_expired_code` into this text.
+  // Login.tsx converts the server's `invalid_or_expired_code` into this text.
   await expect(page.getByText('Invalid or expired code.')).toBeVisible();
-  // Login.tsx:95 clears the input on error so the user can retype without
+  // Login.tsx clears the input on error so the user can retype without
   // a select-all dance — that UX invariant is part of the journey.
   await expect(codeInput).toHaveValue('');
   // Negative-path: the home shell never rendered. The user is still on
@@ -90,9 +90,9 @@ test('[J-004] five wrong codes lock the input and reset to the email step', asyn
   const wrong = wrongFor(code);
   const codeInput = page.getByLabel('6-digit sign-in code');
 
-  // MAX_CODE_ATTEMPTS=5 (server/auth.ts:29). 5th wrong attempt deletes the
+  // MAX_CODE_ATTEMPTS=5 (server/auth.ts). 5th wrong attempt deletes the
   // code entry and returns 'exhausted' → 'too_many_attempts' → Login resets
-  // to step='email' and shows the lockout message (Login.tsx:86-89). On
+  // to step='email' and shows the lockout message (Login.tsx). On
   // attempts 1-4 the server returns 'invalid_or_expired_code' and Login just
   // clears the input for retry — we wait on that clear before refilling.
   // On attempt 5 the code input unmounts, so skip the clear-wait.
@@ -119,7 +119,7 @@ test('[J-005] requesting a new code invalidates the previous one', async ({ page
 
   const { code: codeA } = await (await request.get(`/auth/test/last-code/${email}`)).json();
 
-  // Re-issue via a raw POST — issueLoginCode (server/auth.ts:46-55) atomically
+  // Re-issue via a raw POST — issueLoginCode (server/auth.ts) atomically
   // overwrites the in-memory map, so code A is now gone from the server's view.
   const second = await request.post('/auth/request-code', { data: { email } });
   expect(second.ok()).toBeTruthy();
@@ -133,7 +133,7 @@ test('[J-005] requesting a new code invalidates the previous one', async ({ page
 });
 
 test('[J-006] unknown email reaches the code screen (no enumeration leak)', async ({ page, request }) => {
-  // server/routes/auth.ts:41 upserts the users row on request-code, so there
+  // server/routes/auth.ts upserts the users row on request-code, so there
   // is no "email not found" surface — every request succeeds identically.
   // This pins that property on TWO surfaces: the UI lands on the code step
   // for a fresh email, and the JSON response shape is byte-identical to a
@@ -161,7 +161,7 @@ test('[J-006] unknown email reaches the code screen (no enumeration leak)', asyn
 
 test('[J-007] malformed email keeps the Send sign-in code button disabled', async ({ page }) => {
   await page.goto('/');
-  // Login.tsx:147 disables the button via `!emailValid || submitting`.
+  // Login.tsx disables the button via `!emailValid || submitting`.
   // emailValid = /\S+@\S+\.\S+/.test(email). Initial state: empty → disabled.
   const sendBtn = page.getByRole('button', { name: 'Send sign-in code' });
   await expect(sendBtn).toBeDisabled();
@@ -204,7 +204,7 @@ test('[J-052] code auto-submits at exactly 6 digits, never at 5', async ({ page,
 
   const codeInput = page.getByLabel('6-digit sign-in code');
 
-  // 5 of 6 digits → Login.tsx:79 short-circuits, no API call. Mutation
+  // 5 of 6 digits → Login.tsx short-circuits, no API call. Mutation
   // guard: if the comparator were `>= 5`, this fill would emit a verify
   // POST and bump verifyCount.
   await codeInput.fill(code.slice(0, 5));
@@ -224,7 +224,7 @@ test('[J-053] code input strips non-digits before counting to 6', async ({ page,
   await page.getByRole('button', { name: 'Send sign-in code' }).tap();
   const { code } = await (await request.get(`/auth/test/last-code/${email}`)).json();
 
-  // Same network counter as J-052 — if Login.tsx:112's strip were removed,
+  // Same network counter as J-052 — if Login.tsx's strip were removed,
   // the 6-char "12345a" fill below would submit verbatim and the server
   // would reject it with LOGIN_CODE_RE.
   let verifyCount = 0;
@@ -244,8 +244,8 @@ test('[J-053] code input strips non-digits before counting to 6', async ({ page,
 });
 
 test('[J-054] /auth/request-code normalizes email to lowercase', async ({ request }) => {
-  // server/routes/auth.ts:40 calls .trim().toLowerCase() before upsert and
-  // issueLoginCode. server/routes/auth.ts:96 mirrors that on the test peek.
+  // server/routes/auth.ts calls .trim().toLowerCase() before upsert and
+  // issueLoginCode. server/routes/auth.ts mirrors that on the test peek.
   // So issuing with mixed case and peeking with lowercase must return the
   // same code — the server treats them as one account. Mutation guard: if
   // the toLowerCase() were removed on either side, the peek would 404 with
@@ -263,7 +263,7 @@ test('[J-054] /auth/request-code normalizes email to lowercase', async ({ reques
 });
 
 test('[J-055] /auth/verify-code rejects malformed code body with 400 invalid_or_expired_code', async ({ request }) => {
-  // server/routes/auth.ts:25-33's body validator requires LOGIN_CODE_RE
+  // server/routes/auth.ts's body validator requires LOGIN_CODE_RE
   // (/^\d{6}$/) on the code field AND EMAIL_RE on the email field. Each
   // case below trips a different branch and must surface the same opaque
   // error code — never leak which field was malformed.
@@ -284,7 +284,7 @@ test('[J-055] /auth/verify-code rejects malformed code body with 400 invalid_or_
 });
 
 test('[J-056] authMiddleware rejects missing/invalid bearer with 401 unauthorized', async ({ request }) => {
-  // server/auth.ts:117-133 has four rejection branches. All four MUST
+  // server/auth.ts has four rejection branches. All four MUST
   // surface as the same opaque 401 — `{ error: 'unauthorized' }` — never
   // leak the internal reason ('missing_bearer' / 'empty_token' /
   // 'invalid_session') to the client.

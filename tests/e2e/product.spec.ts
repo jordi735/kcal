@@ -13,9 +13,9 @@ test('[J-109] unit toggle to ml flips "Per 100ml" label and persists unit:"ml"',
   page,
   request,
 }) => {
-  // NewProductForm.tsx:302 renders the macro card label as `Per 100${unit}`,
-  // and NewProductForm.tsx:289-298 maps the toggle buttons to setUnit('g'|'ml').
-  // Mutation that hard-codes the POST body unit (App.tsx:395-406) would let
+  // NewProductForm.tsx renders the macro card label as `Per 100${unit}`,
+  // and NewProductForm.tsx maps the toggle buttons to setUnit('g'|'ml').
+  // Mutation that hard-codes the POST body unit (App.tsx onProductSave) would let
   // the form *display* "Per 100ml" but persist 'g'; the GET round-trip at the
   // bottom catches that. Mutation that swaps the JSX template literal to
   // `Per 100g` (a hardcode) is caught by the toggle assertions above.
@@ -52,18 +52,18 @@ test('[J-109] unit toggle to ml flips "Per 100ml" label and persists unit:"ml"',
   await page.getByRole('spinbutton').fill('100');
   await page.getByRole('button', { name: /Add to day/ }).tap();
 
-  // FoodRow.tsx:59 renders `${grams}${unit}`. A regression that ignored the
+  // FoodRow.tsx renders `${grams}${unit}`. A regression that ignored the
   // unit toggle in the POST body would land here as "100g".
   const row = page.locator('.food-row').filter({ hasText: name });
   await expect(row).toContainText('100ml');
   await expect(row.getByText('100g')).toHaveCount(0);
 
   // Server round-trip: GET /products/all goes through rowToProduct
-  // (products.ts:69) which projects unit verbatim. This is the load-bearing
+  // (server/reads.ts) which projects unit verbatim. This is the load-bearing
   // assertion — the FoodRow string above could be satisfied by a UI bug
   // that displayed unit from the form's local state without persisting it.
   // Comparison is case-insensitive because normalizeProductName
-  // (shared/normalize.ts:14) sentence-cases the stored name (`E2E ...` →
+  // (shared/normalize.ts) sentence-cases the stored name (`E2E ...` →
   // `E2e ...`); identity here is established by the unique Date.now() suffix,
   // not by case.
   const token = tokenFrom('tests/e2e/.auth/user.json');
@@ -80,9 +80,9 @@ test('[J-109] unit toggle to ml flips "Per 100ml" label and persists unit:"ml"',
 test('[J-110] brand persists through create and renders in row + AddPicker', async ({
   page,
 }) => {
-  // NewProductForm.tsx:254-261 — the Brand field is a ClearableField, sent in
-  // the POST body as `brand.trim() || null` (line 174). Two consumers render
-  // it: FoodRow.tsx:60 case-preserved with a "·" separator; AddPicker.tsx:123
+  // NewProductForm.tsx — the Brand field is a ClearableField, sent in
+  // the POST body as `brand.trim() || null` in submit. Two consumers render
+  // it: FoodRow.tsx case-preserved with a "·" separator; AddPicker.tsx
   // uppercased via .toUpperCase(). Picking a brand value with explicit mixed
   // case ("Atlas Farms") makes the two assertions catch independent bugs:
   //   - if FoodRow normalised case, the row check fails.
@@ -113,13 +113,13 @@ test('[J-110] brand persists through create and renders in row + AddPicker', asy
   await page.getByRole('spinbutton').fill('100');
   await page.getByRole('button', { name: /Add to day/ }).tap();
 
-  // Row carries the brand case-preserved (FoodRow.tsx:60).
+  // Row carries the brand case-preserved (FoodRow.tsx).
   const row = page.locator('.food-row').filter({ hasText: name });
   await expect(row).toContainText(brand);
 
   // Reopen AddPicker, scope to our product by name, verify the brand pill
   // renders UPPERCASED. Mixed-case input → uppercase output proves the
-  // .toUpperCase() at AddPicker.tsx:123 is still in play; if a regression
+  // .toUpperCase() at AddPicker.tsx is still in play; if a regression
   // stripped it, "Atlas Farms" (mixed case) would not match exact "ATLAS FARMS".
   await page.getByRole('button', { name: 'ADD FOOD' }).tap();
   await page.getByPlaceholder('Search products...').fill(name);
@@ -135,7 +135,7 @@ test('[J-110] brand persists through create and renders in row + AddPicker', asy
 test('[J-111] POST /products rejects per100 macro out-of-range across all four fields', async ({
   request,
 }) => {
-  // products.ts:233-242 isPer100 enforces:
+  // products.ts isPer100 enforces:
   //   kcal in [0, 2000], protein/carbs/fat each in [0, 200].
   // J-011 already exercises the kcal cap end-to-end via the UI; this spec
   // pins the FULL contract at the route level: each macro × {cap, floor}
@@ -176,7 +176,7 @@ test('[J-111] POST /products rejects per100 macro out-of-range across all four f
 test('[J-112] POST /products rejects each isNewProductBody structural branch', async ({
   request,
 }) => {
-  // products.ts:244-257 → isProductBaseBody (six branches) +
+  // products.ts → isProductBaseBody (six branches) +
   // isNewProductBody (one extra: is_temp must be boolean). One case per
   // branch, each tripping exactly that branch:
   //   - name whitespace-only (trim().length === 0)

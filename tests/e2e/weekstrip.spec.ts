@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// WeekStrip.tsx:22-23 — AXIS_LOCK_PX=8, COMMIT_THRESHOLD_PX=50. The .wrap
+// WeekStrip.tsx — AXIS_LOCK_PX=8, COMMIT_THRESHOLD_PX=50. The .wrap
 // div hosts onPointerDown/Move/Up; Playwright's page.mouse (pointerType=
 // 'mouse') drives it — no 'touch' filter to bypass. animatingRef suppresses
 // a second swipe during the 300ms snap — we anchor on the global class
@@ -58,7 +58,7 @@ test('[J-040] swipe left past threshold commits to next week', async ({ page }) 
 
   await swipeTrack(page, -60); // > COMMIT_THRESHOLD_PX=50 in the "next" direction
 
-  // commitTrack (line 200) runs the 300ms snap animation, then transitionend
+  // WeekStrip's commitTrack runs the 300ms snap animation, then transitionend
   // fires shiftWeek(1), updating weekStart and re-rendering with a new caption.
   await expect(caption).not.toHaveText(before ?? '');
 });
@@ -70,7 +70,7 @@ test('[J-041] swipe shorter than threshold snaps back; same week', async ({ page
 
   await swipeTrack(page, -30); // < COMMIT_THRESHOLD_PX=50 — should snap back
 
-  // snapTrackBack (line 188) animates track back to TRACK_CENTER and removes
+  // WeekStrip's snapTrackBack animates track back to TRACK_CENTER and removes
   // the snap class on transitionend. Anchoring on snap-class-absent proves
   // the snap-back animation completed without firing the commit branch.
   await expect(trackLocator(page)).not.toHaveClass(snapClassRe);
@@ -82,7 +82,7 @@ test('[J-042] next arrow button advances to next week', async ({ page }) => {
   const caption = captionLocator(page);
   const before = await caption.textContent();
 
-  // WeekStrip.tsx:319 — the arrow button calls shiftWeek(1) synchronously,
+  // WeekStrip.tsx — the arrow button calls shiftWeek(1) synchronously,
   // no animation wait needed beyond the next render.
   await page.locator('[class*="nextBtn"]').tap();
 
@@ -94,7 +94,7 @@ test('[J-159] swipe right past threshold commits to previous week', async ({ pag
   const caption = captionLocator(page);
   const before = await caption.textContent();
 
-  // Positive dx → "prev" direction: WeekStrip.tsx:269 maps `dx < 0 ? 1 : -1`
+  // Positive dx → "prev" direction: WeekStrip.tsx maps `dx < 0 ? 1 : -1`
   // to commitTrack(-1), shifting weekStart by -7 days.
   await swipeTrack(page, +60);
   await expect(caption).not.toHaveText(before ?? '');
@@ -124,7 +124,7 @@ test('[J-161] swipe exactly 50px commits (>= threshold boundary)', async ({ page
   const caption = captionLocator(page);
   const before = await caption.textContent();
 
-  // WeekStrip.tsx:267 — `Math.abs(dx) >= COMMIT_THRESHOLD_PX`. Off-by-one
+  // WeekStrip.tsx — `Math.abs(dx) >= COMMIT_THRESHOLD_PX`. Off-by-one
   // mutation `>` would fail this test (dx=-50 → 50 >= 50 commits, but
   // 50 > 50 doesn't).
   await swipeTrack(page, -50);
@@ -150,8 +150,8 @@ test('[J-163] vertical drag is a no-op (axis lock to "y")', async ({ page }) => 
   const before = await caption.textContent();
 
   // First move has |dx|=0, |dy|=10 → lock = (0 > 10) ? 'x' : 'y' = 'y'.
-  // Subsequent onPointerMove returns early (line 250 only fires for 'x'),
-  // and onPointerEnd hits `if (lock !== 'x') return` (line 266) before
+  // Subsequent onPointerMove only moves the track for an 'x' lock,
+  // and onPointerEnd hits `if (lock !== 'x') return` before
   // ever reaching the threshold check — no snapTrackBack, no commit.
   await dragTrackVertical(page, 100);
   await expect(caption).toHaveText(before ?? '');
@@ -202,7 +202,7 @@ test('[J-164] tapping a day pill selects that date but keeps the same week', asy
 
 test('[J-165] caption shows zero-padded W## week number after the month label', async ({ page }) => {
   await page.goto('/');
-  // WeekStrip.tsx:283-285 — `${monthLabel} · W${String(weekNum).padStart(2, '0')}`.
+  // WeekStrip.tsx — `${monthLabel} · W${String(weekNum).padStart(2, '0')}`.
   // The trailing ` · W\d{2}$` is invariant across all 3 monthLabel branches
   // and any year. Catches a ` · ` separator drop, a W→V slip, or a missing
   // week-number digit.
@@ -217,7 +217,7 @@ test('[J-166] second swipe during snap animation is suppressed by animatingRef',
   // Two next-swipes back-to-back. The first triggers commitTrack, sets
   // animatingRef.current=true, and starts the 300ms transition. The second
   // begins ~10ms later (page.mouse.move/down is sub-frame): onPointerDown
-  // (line 222-223) sees animatingRef === true and returns early — the
+  // sees animatingRef === true and returns early — the
   // entire second swipe is a no-op (drag.active never set, no second
   // commit queued).
   await swipeTrack(page, -60);

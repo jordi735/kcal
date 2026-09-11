@@ -8,14 +8,13 @@ import { fillNutField } from './helpers';
 // product.brand). Wire-contract negative paths for the route bodies live in
 // product.spec.ts (J-111 / J-112) — this spec stays at the UI / render layer.
 //
-// J-003 (wrong code) and J-007 (bad email disables submit) used to live here
-// as duplicates; the canonical, mutation-resistant versions are in
-// auth.spec.ts:62 and auth.spec.ts:162 respectively.
+// J-003 (wrong code) and J-007 (bad email disables submit) are covered by
+// auth.spec.ts.
 
 test('[J-011] server rejects product kcal > 2000 cap — form stays open, no row added', async ({
   page,
 }) => {
-  // products.ts:237 caps kcal at 2000. NewProductForm's `valid` (line 127)
+  // products.ts isPer100 caps kcal at 2000. NewProductForm's `valid`
   // only checks fields-are-filled, so the request goes through and the
   // server returns 400 invalid_product. App.tsx catches the error, leaves
   // the sheet mounted for retry, and the entry is never created.
@@ -65,7 +64,7 @@ test('[J-011] server rejects product kcal > 2000 cap — form stays open, no row
 test('[J-155] kcal at the 2000 cap is accepted (boundary; positive control for J-011)', async ({
   page,
 }) => {
-  // products.ts:237 — `kcal <= 2000`. A mutation flipping `<=` to `<` would
+  // products.ts — `kcal <= 2000`. A mutation flipping `<=` to `<` would
   // also reject 2000 itself; J-011 (5000) and J-111 (2001) would both keep
   // passing in that bug because 5000 and 2001 both exceed any tighter cap.
   // This pins the comparator direction at exactly 2000 — the largest
@@ -103,7 +102,7 @@ test('[J-155] kcal at the 2000 cap is accepted (boundary; positive control for J
 test('[J-156] whitespace-only name keeps Save & Continue disabled (`.trim()` mutation guard)', async ({
   page,
 }) => {
-  // NewProductForm.tsx:128 — `name.trim().length > 0` is the gate. A bug
+  // NewProductForm.tsx — `name.trim().length > 0` is the gate. A bug
   // dropping `.trim()` would treat '   ' (three spaces) as length 3 and
   // enable submit, which would hit the server and 400 with
   // `name whitespace-only` (J-112's first case). This test pins the gate
@@ -139,8 +138,8 @@ test('[J-012] XSS in product name renders as literal text everywhere', async ({ 
   // Tripwire across the whole test — any unexpected dialog (alert, confirm,
   // prompt) fails immediately. `<img src=x onerror=...>` is the canonical
   // XSS payload because the onerror handler fires on parse if rendered as
-  // HTML — even when the URL is invalid. A bug switching either FoodRow.tsx:53
-  // (`{product.name}`) or AddPicker.tsx:120 (same shape) to
+  // HTML — even when the URL is invalid. A bug switching either FoodRow.tsx
+  // (`{product.name}`) or AddPicker.tsx (same shape) to
   // dangerouslySetInnerHTML would surface here.
   page.on('dialog', async (dialog) => {
     await dialog.dismiss();
@@ -171,8 +170,8 @@ test('[J-012] XSS in product name renders as literal text everywhere', async ({ 
 
   // Surface 2: AddPicker re-render — re-open the picker; the just-logged
   // product appears under "Recent". The same name string MUST also render
-  // as literal text in this second context (AddPicker.tsx:120, different
-  // template than FoodRow.tsx:53). A regression that escapes correctly in
+  // as literal text in this second context (AddPicker.tsx, different
+  // template than FoodRow.tsx). A regression that escapes correctly in
   // FoodRow but accidentally uses dangerouslySetInnerHTML in AddPicker
   // would fail here while J-012's surface-1 check passed.
   await page.getByRole('button', { name: 'ADD FOOD' }).tap();
@@ -185,13 +184,13 @@ test('[J-012] XSS in product name renders as literal text everywhere', async ({ 
 test('[J-157] XSS in brand field renders as literal text — no dialog fires', async ({
   page,
 }) => {
-  // FoodRow.tsx:60 renders `· {product.brand}`. A regression switching
+  // FoodRow.tsx renders `· {product.brand}`. A regression switching
   // that to dangerouslySetInnerHTML would let an attacker XSS via a brand
   // string. Same dialog tripwire + literal-text assertion as J-012, but
   // for the brand surface — separate template, separate render path,
   // separate test.
   //
-  // Note: shared/normalize.ts:24 applies title-case to brand on insert
+  // Note: shared/normalize.ts applies title-case to brand on insert
   // (`<img src=x onerror=alert(2)>` becomes `<img Src=x Onerror=alert(2)>`
   // because the regex capitalizes `\S` after `^|\s`). HTML tag attributes
   // are case-insensitive, so `<img Src` still triggers XSS in a browser
@@ -239,7 +238,7 @@ test('[J-157] XSS in brand field renders as literal text — no dialog fires', a
 test('[J-158] barcode field caps user typing at 64 characters (`maxLength` mutation guard)', async ({
   page,
 }) => {
-  // NewProductForm.tsx:270 sets maxLength={64} on the barcode ClearableField.
+  // NewProductForm.tsx sets maxLength={64} on the barcode ClearableField.
   // The browser enforces this on real keystrokes (Playwright's
   // `pressSequentially` mimics that path — `fill()` would bypass maxLength
   // because it sets the value via the property setter). The server enforces
