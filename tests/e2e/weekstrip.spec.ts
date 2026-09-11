@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { signInFresh } from './helpers';
 
 // WeekStrip.tsx — AXIS_LOCK_PX=8, COMMIT_THRESHOLD_PX=50. The .wrap
 // div hosts onPointerDown/Move/Up; Playwright's page.mouse (pointerType=
@@ -209,62 +210,69 @@ test('[J-165] caption shows zero-padded W## week number after the month label', 
   await expect(captionLocator(page)).toHaveText(/ · W\d{2}$/);
 });
 
-test('[J-166] second swipe during snap animation is suppressed by animatingRef', async ({ page }) => {
-  await page.goto('/');
-  const caption = captionLocator(page);
-  const before = await caption.textContent();
+test.describe('animation lock', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
 
-  // Pause the actual first CSS transition when it starts. Awaited mouse
-  // events can span more than 300ms under load, so a back-to-back swipe alone
-  // cannot prove the second gesture began while the animation was active.
-  const track = trackLocator(page);
-  const snap = await track.evaluateHandle((element) => {
-    const state = { animation: null as Animation | null };
-    const onRun = (event: Event) => {
-      if (!(event instanceof TransitionEvent) || event.target !== element || event.propertyName !== 'transform') return;
-      const animation = element.getAnimations().find(
-        (candidate) => candidate instanceof CSSTransition && candidate.transitionProperty === 'transform',
-      );
-      if (animation === undefined) return;
-      element.removeEventListener('transitionrun', onRun);
-      animation.pause();
-      animation.currentTime = 100;
-      state.animation = animation;
-    };
-    element.addEventListener('transitionrun', onRun);
-    return state;
+  test('[J-166] second swipe during snap animation is suppressed by animatingRef', async ({ page, request }) => {
+    // Keep delayed progress-dot transitions from unrelated shared history out
+    // of this test of the track's own animation lock.
+    await signInFresh(page, request, 'week-snap-lock');
+    await expect(page.getByText('No food logged', { exact: true })).toBeVisible();
+    const caption = captionLocator(page);
+    const before = await caption.textContent();
+
+    // Pause the actual first CSS transition when it starts. Awaited mouse
+    // events can span more than 300ms under load, so a back-to-back swipe alone
+    // cannot prove the second gesture began while the animation was active.
+    const track = trackLocator(page);
+    const snap = await track.evaluateHandle((element) => {
+      const state = { animation: null as Animation | null };
+      const onRun = (event: Event) => {
+        if (!(event instanceof TransitionEvent) || event.target !== element || event.propertyName !== 'transform') return;
+        const animation = element.getAnimations().find(
+          (candidate) => candidate instanceof CSSTransition && candidate.transitionProperty === 'transform',
+        );
+        if (animation === undefined) return;
+        element.removeEventListener('transitionrun', onRun);
+        animation.pause();
+        animation.currentTime = 100;
+        state.animation = animation;
+      };
+      element.addEventListener('transitionrun', onRun);
+      return state;
+    });
+    try {
+      await swipeTrack(page, -60);
+      await expect.poll(() => snap.evaluate(({ animation }) => animation?.playState)).toBe('paused');
+      await expect(track).toHaveClass(snapClassRe);
+      await expect(caption).toHaveText(before ?? '');
+
+      await swipeTrack(page, -60);
+
+      // Removing the guard cancels/replaces this transition on pointerdown.
+      // Check its identity and state, not only the final week: replacing a
+      // pending commit can still finish one week ahead and hide that regression.
+      expect(await track.evaluate((element, { animation }) => ({
+        active: animation !== null && element.getAnimations().includes(animation),
+        playState: animation?.playState,
+        currentTime: animation?.currentTime,
+      }), snap)).toEqual({ active: true, playState: 'paused', currentTime: 100 });
+      await expect(caption).toHaveText(before ?? '');
+      await snap.evaluate(({ animation }) => animation!.finish());
+
+      // Completing the real transition dispatches transitionend, commits the
+      // week, and lets the layout effect clear its animation state normally.
+      await expect(caption).not.toHaveText(before ?? '');
+      await expect(track).not.toHaveClass(snapClassRe);
+    } finally {
+      await snap.dispose();
+    }
+
+    // If exactly ONE commit fired, weekStart is at before+7 — tap PREV once
+    // and the caption returns to `before`. If the lock leaked and TWO commits
+    // fired, weekStart is at before+14 — PREV leaves the caption one week
+    // ahead and the assertion fails.
+    await page.locator('[class*="prevBtn"]').tap();
+    await expect(caption).toHaveText(before ?? '');
   });
-  try {
-    await swipeTrack(page, -60);
-    await expect.poll(() => snap.evaluate(({ animation }) => animation?.playState)).toBe('paused');
-    await expect(track).toHaveClass(snapClassRe);
-    await expect(caption).toHaveText(before ?? '');
-
-    await swipeTrack(page, -60);
-
-    // Removing the guard cancels/replaces this transition on pointerdown.
-    // Check its identity and state, not only the final week: replacing a
-    // pending commit can still finish one week ahead and hide that regression.
-    expect(await track.evaluate((element, { animation }) => ({
-      active: animation !== null && element.getAnimations().includes(animation),
-      playState: animation?.playState,
-      currentTime: animation?.currentTime,
-    }), snap)).toEqual({ active: true, playState: 'paused', currentTime: 100 });
-    await expect(caption).toHaveText(before ?? '');
-    await snap.evaluate(({ animation }) => animation!.finish());
-
-    // Completing the real transition dispatches transitionend, commits the
-    // week, and lets the layout effect clear its animation state normally.
-    await expect(caption).not.toHaveText(before ?? '');
-    await expect(track).not.toHaveClass(snapClassRe);
-  } finally {
-    await snap.dispose();
-  }
-
-  // If exactly ONE commit fired, weekStart is at before+7 — tap PREV once
-  // and the caption returns to `before`. If the lock leaked and TWO commits
-  // fired, weekStart is at before+14 — PREV leaves the caption one week
-  // ahead and the assertion fails.
-  await page.locator('[class*="prevBtn"]').tap();
-  await expect(caption).toHaveText(before ?? '');
 });
