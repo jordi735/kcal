@@ -1,6 +1,6 @@
 // Weight history and its small add/edit flow, kept inside one dismissible Sheet.
 
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   isWeightAmount, MAX_WEIGHT_KG, MAX_WEIGHT_NOTE_LENGTH, MIN_WEIGHT_KG, WEIGHT_STEP_KG,
 } from '../../shared/constraints';
@@ -14,6 +14,8 @@ import styles from './WeightTracker.module.css';
 
 type WeightTrackerProps = {
   onClose: () => void;
+  refreshVersion: number;
+  onRefreshError: () => void;
 };
 
 type View =
@@ -38,36 +40,68 @@ function formatDate(localDate: string): string {
   return `${day} ${monthName} ${year}`;
 }
 
-export function WeightTracker({ onClose }: WeightTrackerProps) {
+export function WeightTracker({ onClose, ...refreshProps }: WeightTrackerProps) {
   return (
     <Sheet onClose={onClose} style={cssVars({ '--sheet-height': '92%' })}>
-      <WeightTrackerInner />
+      <WeightTrackerInner {...refreshProps} />
     </Sheet>
   );
 }
 
-function WeightTrackerInner() {
+function WeightTrackerInner({
+  refreshVersion,
+  onRefreshError,
+}: Omit<WeightTrackerProps, 'onClose'>) {
   const close = useSheetClose();
   const [entries, setEntries] = useState<WeightEntry[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [reloadVersion, setReloadVersion] = useState(0);
   const [view, setView] = useState<View>({ kind: 'history' });
+  const hasLoaded = useRef(false);
+  const previousRefreshVersion = useRef(refreshVersion);
+  const readGeneration = useRef(0);
+  const pendingRead = useRef<number | null>(null);
+  const refreshError = useRef(onRefreshError);
+  refreshError.current = onRefreshError;
 
   useEffect(() => {
     let cancelled = false;
-    setEntries(null);
+    const generation = ++readGeneration.current;
+    pendingRead.current = generation;
+    const isRefresh = hasLoaded.current || previousRefreshVersion.current !== refreshVersion;
+    previousRefreshVersion.current = refreshVersion;
+    const reportRefreshError = refreshError.current;
     setLoadError(false);
     void api<WeightEntry[]>('/weights')
       .then((list) => {
-        if (!cancelled) setEntries(sortEntries(list));
+        if (!cancelled && generation === readGeneration.current) {
+          hasLoaded.current = true;
+          setEntries(sortEntries(list));
+        }
       })
       .catch(() => {
-        if (!cancelled) setLoadError(true);
+        if (!cancelled && generation === readGeneration.current) {
+          if (!hasLoaded.current) setLoadError(true);
+          if (isRefresh) reportRefreshError();
+        }
+      })
+      .finally(() => {
+        if (pendingRead.current === generation) pendingRead.current = null;
       });
     return () => {
       cancelled = true;
+      if (pendingRead.current === generation) pendingRead.current = null;
     };
-  }, [reloadVersion]);
+  }, [reloadVersion, refreshVersion]);
+
+  // Invalidate immediately when a write succeeds, before the next effect runs.
+  // The repeated read then includes the saved/deleted record on the server.
+  const retryOverlappingRead = () => {
+    if (pendingRead.current === null) return;
+    ++readGeneration.current;
+    pendingRead.current = null;
+    setReloadVersion((version) => version + 1);
+  };
 
   const openAdd = () => {
     if (entries === null) return;
@@ -89,6 +123,8 @@ function WeightTrackerInner() {
         body: input,
       },
     );
+    retryOverlappingRead();
+    hasLoaded.current = true;
     setEntries((current) =>
       sortEntries([...(current ?? []).filter((entry) => entry.id !== saved.id), saved]),
     );
@@ -97,6 +133,7 @@ function WeightTrackerInner() {
 
   const remove = async (entry: WeightEntry): Promise<void> => {
     await api<{ ok: true }>(`/weights/${entry.id}`, { method: 'DELETE' });
+    retryOverlappingRead();
     setEntries((current) => (current ?? []).filter((item) => item.id !== entry.id));
     setView({ kind: 'history' });
   };

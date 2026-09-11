@@ -18,6 +18,7 @@ import { AppModals } from './components/AppModals';
 import { SheetOverlay } from './components/SheetOverlay';
 import { TransientErrorToast } from './components/TransientErrorToast';
 import { useEntries } from './hooks/useEntries';
+import { useAppRefresh } from './hooks/useAppRefresh';
 import { useTransientError } from './hooks/useTransientError';
 import { useGoalRevalidation, useSessionGoals } from './hooks/useSessionGoals';
 import { barcodeFillReturnState, isSheetModal, mergeLabelDraft, type ModalState } from './modalState';
@@ -30,13 +31,14 @@ export function App() {
 }
 
 function Tracker() {
-  const { user, setUser, goals, setGoals, applyGoals } = useSessionGoals();
+  const { user, setUser, goals, setGoals, applyGoals, goalSaveVersion } = useSessionGoals();
   const {
     entriesByDate,
     weekTotals,
     loadedDates,
     load: loadEntries,
     loadWeek,
+    invalidateReads,
     add: addEntry,
     update: updateEntry,
     remove: removeEntry,
@@ -58,6 +60,7 @@ function Tracker() {
     setModalState(next);
   }, []);
   const { transientError, errorExiting, reportError } = useTransientError();
+  const { refreshVersion, onRefreshError } = useAppRefresh(user?.id, reportError);
   const activeSheetCloseRef = useRef<(() => void) | null>(null);
   const registerSheetClose = useCallback((fn: (() => void) | null) => {
     activeSheetCloseRef.current = fn;
@@ -87,9 +90,12 @@ function Tracker() {
   // replaces that object and must not emit a duplicate round of entry reads.
   useEffect(() => {
     if (user === null) return;
-    void loadEntries(selectedKey);
-    if (selectedKey !== todayKey) void loadEntries(todayKey);
-  }, [user?.id, selectedKey, todayKey, loadEntries]);
+    let cancelled = false;
+    const onError = () => { if (!cancelled) onRefreshError(); };
+    void loadEntries(selectedKey).catch(onError);
+    if (selectedKey !== todayKey) void loadEntries(todayKey).catch(onError);
+    return () => { cancelled = true; };
+  }, [user?.id, selectedKey, todayKey, loadEntries, refreshVersion, onRefreshError]);
 
   // Load week totals for the visible week and both neighbors, so the
   // week-strip carousel can show real progress dots on swipe-in weeks. As with
@@ -100,12 +106,15 @@ function Tracker() {
     prev.setDate(weekStart.getDate() - 7);
     const next = new Date(weekStart);
     next.setDate(weekStart.getDate() + 7);
-    void loadWeek(toLocalDateString(weekStart));
-    void loadWeek(toLocalDateString(prev));
-    void loadWeek(toLocalDateString(next));
-  }, [user?.id, weekStart, loadWeek]);
+    let cancelled = false;
+    const onError = () => { if (!cancelled) onRefreshError(); };
+    void loadWeek(toLocalDateString(weekStart)).catch(onError);
+    void loadWeek(toLocalDateString(prev)).catch(onError);
+    void loadWeek(toLocalDateString(next)).catch(onError);
+    return () => { cancelled = true; };
+  }, [user?.id, weekStart, loadWeek, refreshVersion, onRefreshError]);
 
-  useGoalRevalidation(user, setUser, setGoals);
+  useGoalRevalidation(user, setUser, setGoals, refreshVersion, goalSaveVersion, onRefreshError);
 
   // Verify the 6-digit code and persist the session.
   const onVerifyCode = async (email: string, code: string): Promise<void> => {
@@ -335,6 +344,7 @@ function Tracker() {
     const { is_temp: _unused, ...putBody } = draft;
     try {
       await api<Product>(`/products/${productId}`, { method: 'PUT', body: putBody });
+      invalidateReads();
       await loadEntries(selectedKey);
       await loadWeek(toLocalDateString(weekStart));
       setModal({ kind: 'none' });
@@ -352,6 +362,7 @@ function Tracker() {
     const productId = modal.product.id;
     try {
       await api<{ ok: true }>(`/products/${productId}`, { method: 'DELETE' });
+      invalidateReads();
       setModal({ kind: 'none' });
       await loadEntries(selectedKey);
       if (selectedKey !== todayKey) await loadEntries(todayKey);
@@ -443,6 +454,8 @@ function Tracker() {
 
       <AppModals
         modal={modal}
+        refreshVersion={refreshVersion}
+        onRefreshError={onRefreshError}
         goals={goals}
         entriesForSelected={entriesForSelected}
         addedProductIds={addedProductIds}

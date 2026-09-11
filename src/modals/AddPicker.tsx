@@ -1,6 +1,6 @@
 // AddPicker — server-side search + recents + actions (scan barcode / create new product).
 
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Product } from '../types';
 import { api } from '../api';
 import { cssVars } from '../styles';
@@ -16,6 +16,8 @@ type AddPickerProps = {
   onScanBarcode: () => void;
   onClose: () => void;
   addedProductIds: ReadonlySet<number>;
+  refreshVersion: number;
+  onRefreshError: () => void;
 };
 
 export function AddPicker(props: AddPickerProps) {
@@ -34,6 +36,8 @@ function AddPickerInner({
   onAddTemp,
   onScanBarcode,
   addedProductIds,
+  refreshVersion,
+  onRefreshError,
 }: InnerProps) {
   const close = useSheetClose();
   const [q, setQ] = useState('');
@@ -44,15 +48,29 @@ function AddPickerInner({
   // false = own library only (default). true = blended with the cross-user
   // barcoded catalog. Toggling retriggers the debounced-search effect.
   const [global, setGlobal] = useState(false);
+  const refreshError = useRef(onRefreshError);
+  refreshError.current = onRefreshError;
+  const libraryVersion = useRef(refreshVersion);
+  const searchRequest = useRef<{
+    query: string;
+    global: boolean;
+    refreshVersion: number;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    const isRefresh = libraryVersion.current !== refreshVersion;
+    libraryVersion.current = refreshVersion;
+    const reportRefreshError = refreshError.current;
     (async () => {
       try {
         const data = await api<Product[]>('/products/recent');
         if (!cancelled) setRecents(data);
       } catch {
-        if (!cancelled) setRecents([]);
+        if (!cancelled) {
+          setRecents((current) => current ?? []);
+          if (isRefresh) reportRefreshError();
+        }
       }
     })();
     (async () => {
@@ -60,13 +78,16 @@ function AddPickerInner({
         const data = await api<Product[]>('/products/all');
         if (!cancelled) setAllProducts(data);
       } catch {
-        if (!cancelled) setAllProducts([]);
+        if (!cancelled) {
+          setAllProducts((current) => current ?? []);
+          if (isRefresh) reportRefreshError();
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshVersion]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q), 250);
@@ -75,12 +96,17 @@ function AddPickerInner({
 
   useEffect(() => {
     const trimmed = debouncedQ.trim();
+    const previous = searchRequest.current;
+    const keepResults = previous?.query === trimmed && previous.global === global;
+    const isRefresh = previous !== null && previous.refreshVersion !== refreshVersion;
+    const reportRefreshError = refreshError.current;
+    searchRequest.current = { query: trimmed, global, refreshVersion };
     if (trimmed === '') {
       setResults(null);
       return;
     }
     let cancelled = false;
-    setResults(null);
+    if (!keepResults) setResults(null);
     (async () => {
       try {
         const data = await api<Product[]>(
@@ -88,13 +114,16 @@ function AddPickerInner({
         );
         if (!cancelled) setResults(data);
       } catch {
-        if (!cancelled) setResults([]);
+        if (!cancelled) {
+          setResults((current) => keepResults ? current ?? [] : []);
+          if (isRefresh) reportRefreshError();
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [debouncedQ, global]);
+  }, [debouncedQ, global, refreshVersion]);
 
   const trimmed = q.trim();
   const showingSearch = trimmed.length > 0;

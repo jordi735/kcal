@@ -53,6 +53,9 @@ export async function api<T>(path: string, opts?: ApiOpts): Promise<T> {
     method: opts?.method ?? 'GET',
     headers,
   };
+  // Foreground revalidation must reach the server, including when another
+  // device or MCP changed data without a write through this browser.
+  if (init.method === 'GET') init.cache = 'no-store';
 
   if (opts?.body !== undefined) {
     if (opts.body instanceof FormData) {

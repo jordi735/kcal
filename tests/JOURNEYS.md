@@ -292,6 +292,21 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-223 · MCP and REST enforce the UI amount minimum, allow fractional amounts above it, and preserve legacy reads and tag-only edits
 - J-224 · MCP blocks temporary-food reuse while preserving UI temporary-food creation and existing temporary log edits and deletion
 
+# 17. Foreground data refresh
+
+- J-236 · Resuming the same app incorporates MCP entry and group changes, product nutrition edits, goals, and totals for previously viewed days
+- J-237 · Lifecycle event bursts coalesce; hidden and initial events do not fetch, while later visibility, focus, and restored-page events refresh again
+- J-238 · A failed foreground read retains the displayed day, reports one connection error, and recovers fresh data when the app receives an online event
+- J-239 · Resuming after midnight refreshes the new today while preserving the selected day and unfinished product fields
+- J-240 · An open product picker refreshes search results and its library while retaining the query and search scope
+- J-241 · An open weight history refreshes external changes while an unfinished edit retains its date, weight, note, and checkboxes
+- J-242 · Older foreground day and week responses cannot overwrite a newer refresh
+- J-243 · A foreground refresh that includes an entry whose save response is pending never duplicates that entry when the save completes
+- J-246 · Foreground goals refresh preserves an unfinished settings draft, and a delayed read cannot revert successfully saved goals or their cached user values
+- J-247 · A newer foreground goals read supersedes an older response
+- J-248 · A successful local entry write survives older in-flight day and week responses and retries affected reads
+- J-249 · Deleting an entry during a refresh cannot resurrect its row or week progress
+
 # Verification
 
 Run from the repo root:

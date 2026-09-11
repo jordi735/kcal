@@ -43,6 +43,8 @@ type AppModalsProps = {
   goals: Goals;
   entriesForSelected: EntryWithMacros[];
   addedProductIds: ReadonlySet<number>;
+  refreshVersion: number;
+  onRefreshError: () => void;
   userEmail: string;
   registerSheetClose: (close: (() => void) | null) => void;
   notifySheetExit: () => void;
@@ -56,6 +58,8 @@ export function AppModals({
   goals,
   entriesForSelected,
   addedProductIds,
+  refreshVersion,
+  onRefreshError,
   userEmail,
   registerSheetClose,
   notifySheetExit,
@@ -72,6 +76,8 @@ export function AppModals({
             onScanBarcode={handlers.onScanBarcode}
             onClose={handlers.closeModal}
             addedProductIds={addedProductIds}
+            refreshVersion={refreshVersion}
+            onRefreshError={onRefreshError}
           />
         )}
 
@@ -132,7 +138,11 @@ export function AppModals({
         )}
 
         {modal.kind === 'weights' && (
-          <WeightTracker onClose={handlers.closeModal} />
+          <WeightTracker
+            onClose={handlers.closeModal}
+            refreshVersion={refreshVersion}
+            onRefreshError={onRefreshError}
+          />
         )}
 
         {modal.kind === 'entry-group-create' && (
