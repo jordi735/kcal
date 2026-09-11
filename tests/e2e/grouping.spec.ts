@@ -120,6 +120,10 @@ async function createGroupFromRows(
   await page.getByLabel('Group name', { exact: true }).fill(groupName);
   await page.getByRole('button', { name: 'Group items', exact: true }).tap();
   await expect(groupRow(page, groupName)).toBeVisible();
+  // Group metadata can render before Home's selection-reset effect and the
+  // outgoing selection bar finish. Wait before interacting with the parent.
+  await expect(page.locator('.sheet')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Clear selection', exact: true })).toHaveCount(0);
 }
 
 test('[J-169] selected entries become one collapsed persistent group without changing totals', async ({
