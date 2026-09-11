@@ -161,3 +161,69 @@ transport handling. REST errors and test authentication/MCP support are shared.
 - Real-device camera permission/detection/release and live AI inference remain
   unverified. Browser cancellation, draft preservation, and pure result-merging
   checks pass; they do not replace those manual checks.
+
+## Follow-up cleanup campaign
+
+The second campaign starts at clean revision `84bbe41`. The first campaign's
+record above remains historical; test typechecking and the narrow operation
+result-type cleanup previously deferred there are now in scope. Framework,
+dependency, database, deployment, and public API changes remain outside scope.
+
+Confirmed opportunities are unused global font/animation definitions, an
+obsolete CSS custom-property cast, stale source-line comments, duplicate food-row
+wiring and product-form nutrition construction, repeated weight/product limits,
+and shared operations described through MCP-specific result types. All prepared
+statements have consumers; no further dead SQL or dependency was confirmed.
+
+| Pass | Current behavior to preserve | Structural improvement | Validation |
+| --- | --- | --- | --- |
+| 1 | Existing strict compiler settings and Playwright runtime | Dedicated test TypeScript project and command | `npm run typecheck:tests` |
+| 2 | Geist/JetBrains Mono families, active weights and animations | Remove nine unused families and three unreferenced keyframes | Build; login/home/product-form screenshots and computed fonts |
+| 3 | Same inline style object and test assertions | Remove obsolete cast; replace stale source-line references with handler/module names | Frontend typecheck; executable test AST and journey catalog checks |
+| 4 | Identical grouped/ungrouped row interactions and keys | One local food-row rendering helper | Selection, tagging, grouping and grouped-child edit journeys |
+| 5 | All-or-nothing nutrition drafts, unchanged metadata and warnings | One render-local nutrition snapshot | Required fields, Atwater, product flows and scanner parity |
+| 6 | Weight range/precision, note/date parsing and checkbox defaults | Shared weight constants and numeric predicate | Weight UI/API boundary and persistence journeys; both app typechecks |
+| 7 | REST guards, strict MCP schemas, permissive AI coercion | Shared product limits without shared validators | Product boundaries, discovery JSON, deterministic AI coercion comparison |
+| 8 | Same group/summary results and public MCP types | Neutral shared operation-result types composed into existing MCP exports | All typechecks; MCP summary/group and schema parity |
+
+### Contracts and checks before application changes
+
+- Extend weight journeys with exact 0.1/1000 boundaries, excess precision,
+  blank input, and note limits. The UI measures the raw note; REST measures its
+  trimmed value. Keep the existing one-decimal tolerance and shape-only dates.
+- Extend scanner parity to cover complete and incomplete nutrition drafts and
+  raw draft metadata versus trimmed submission metadata. An incomplete nutrition
+  object stays absent from the scanner draft; do not preserve extra fields as a
+  side effect of consolidation.
+- Capture MCP SDK discovery under read-only and read/write scopes before and
+  after backend edits and require identical JSON.
+- Use a temporary source-derived AI coercion probe with the installed TypeScript
+  compiler. Compare successful values and exact controlled errors for bounds,
+  coercible values, missing macros, and metadata defaults. Do not invoke live AI,
+  expose test-only APIs, or add a test framework.
+- Preserve FoodRow's props and surrounding mount/group structure. Keep product
+  form parsing, submission guards, Atwater arithmetic and metadata trimming local.
+
+Run added assertions against unchanged application code before the affected
+refactors. Use existing journeys when expanding the same behavior, and catalog
+new IDs only when adding a distinct journey. Each pass remains independently
+reviewable and separately committed. Run focused E2E checks sequentially; finish
+with all three typechecks, full `npm test`, journey duplicate/backlink checks,
+and `git diff --check`. Record actual outcomes below without fixed suite counts.
+
+### Deferred upload work
+
+Image-upload and quota handling stay in the product router. A separate
+preparatory task should characterize real multipart/auth behavior with a
+deterministic extractor and UTC clock: missing/non-image/oversize uploads,
+successful extraction, controlled/general failures, per-user exhaustion,
+failed-inference quota consumption, UTC rollover and process reset. TEST_MODE
+does not replace extraction, so ordinary test uploads must not call live AI.
+
+Stricter date validation, durable quotas, adoption concurrency changes,
+font-hosting changes, generic form/CRUD abstractions and size-only file splits
+are also deferred.
+
+### Follow-up implementation record
+
+Pending implementation and validation.

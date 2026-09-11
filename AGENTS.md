@@ -24,6 +24,8 @@ These instructions apply to the entire repository.
 - The root TypeScript project uses bundler resolution and Preact JSX for `src/`,
   `shared/`, and `vite.config.ts`. `server/tsconfig.json` separately checks
   `server/` and `shared/` with NodeNext resolution.
+  `tsconfig.tests.json` checks Playwright tests and configuration with the root
+  project's strict compiler settings.
 
 Development uses two processes: Vite on `:5173` and Express on `:3000`; Vite
 proxies the prefixes in `shared/apiPrefixes.ts`. Production uses one Express
@@ -41,6 +43,8 @@ Run commands from the repository root.
 - `npm run typecheck` checks the frontend/shared project.
 - `npm run typecheck:server` checks the backend/shared project. Run both checks
   after changing `shared/`.
+- `npm run typecheck:tests` checks Playwright tests and configuration, including
+  application modules imported by tests.
 - `npm run build` runs the frontend/shared typecheck and creates `dist/`; it does
   not typecheck `server/`, so run `npm run typecheck:server` separately.
 - `npm test` runs the full Playwright suite. `test:ui`, `test:headed`, and

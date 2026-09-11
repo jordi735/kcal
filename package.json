@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "typecheck:server": "tsc --noEmit -p server/tsconfig.json",
+    "typecheck:tests": "tsc --noEmit -p tsconfig.tests.json",
     "server:dev": "tsx watch --env-file=.env server/index.ts",
     "server:start": "tsx --env-file=.env server/index.ts",
     "start": "npm run build && npm run server:start",
