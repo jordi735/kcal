@@ -124,12 +124,11 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
     fat: setFat,
   };
 
-  const valid =
-    name.trim().length > 0 &&
-    kcal !== '' &&
-    protein !== '' &&
-    carbs !== '' &&
-    fat !== '';
+  const per100: Macros | null =
+    kcal !== '' && protein !== '' && carbs !== '' && fat !== ''
+      ? { kcal: Number(kcal), protein: Number(protein), carbs: Number(carbs), fat: Number(fat) }
+      : null;
+  const valid = name.trim().length > 0 && per100 !== null;
 
   // Snapshot the live form state for scan round-trips. The parent reopens this
   // form with the returned draft as `initial`, so anything omitted here resets.
@@ -139,14 +138,7 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
     if (name.trim()) draft.name = name;
     if (brand.trim()) draft.brand = brand;
     if (barcode.trim()) draft.barcode = barcode;
-    if (kcal !== '' && protein !== '' && carbs !== '' && fat !== '') {
-      draft.per100 = {
-        kcal: Number(kcal),
-        protein: Number(protein),
-        carbs: Number(carbs),
-        fat: Number(fat),
-      };
-    }
+    if (per100 !== null) draft.per100 = per100;
     if (isTemp) draft.is_temp = true;
     return draft;
   };
@@ -154,19 +146,20 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
   // Soft Atwater check: kcal should roughly equal 4·protein + 4·carbs + 9·fat.
   // Tolerates 5% (alcohol and fiber-heavy products can legitimately diverge).
   const atwaterExpected =
-    kcal !== '' && protein !== '' && carbs !== '' && fat !== ''
-      ? 4 * Number(protein) + 4 * Number(carbs) + 9 * Number(fat)
+    per100 !== null
+      ? 4 * per100.protein + 4 * per100.carbs + 9 * per100.fat
       : null;
   const atwaterMismatch =
+    per100 !== null &&
     atwaterExpected !== null &&
     (() => {
-      const actual = Number(kcal);
+      const actual = per100.kcal;
       const denom = Math.max(actual, atwaterExpected);
       return denom > 0 && Math.abs(actual - atwaterExpected) / denom > 0.05;
     })();
 
   const submit = async () => {
-    if (!valid || submitting) return;
+    if (!valid || submitting || per100 === null) return;
     setSubmitting(true);
     try {
       await onSave({
@@ -174,12 +167,7 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
         brand: brand.trim() ? brand.trim() : null,
         unit,
         barcode: barcode.trim() ? barcode.trim() : null,
-        per100: {
-          kcal: Number(kcal),
-          protein: Number(protein),
-          carbs: Number(carbs),
-          fat: Number(fat),
-        },
+        per100,
         is_temp: isTemp,
       });
     } finally {
