@@ -133,7 +133,7 @@ For each spec file (whether created or reviewed), check:
 
 3. **No `waitForTimeout` or arbitrary sleeps.** Every wait must anchor on a locator state, a heading visibility, a `toHaveCount`, or a `page.waitForResponse`. Time-based waits are the #1 source of flake. The drag/swipe helpers in `Sheet`/`WeekStrip` synthesize pointer events via `page.mouse` — those are an acceptable exception because they have no asynchronous boundary to wait on.
 
-4. **Selector quality.** Prefer `getByRole`, `getByPlaceholder`, scoped `.locator(".sheet").filter(...)`. The only sanctioned class anchors are `.food-row` and `.sheet`. Reject raw class selectors like `.btn-primary`, `#kcal-input`, or `nth-child(...)`. Positional `getByRole(...).nth(N)` is acceptable when AGENTS.md documents it (Settings macro fields).
+4. **Selector quality.** Prefer `getByRole`, `getByPlaceholder`, scoped `.locator(".sheet").filter(...)`. Stable class anchors include `.food-row`, `.sheet`, and `.entry-group`; scope group parents through `.entry-group`. Reject generated CSS-module selectors and layout selectors like `.btn-primary`, `#kcal-input`, or `nth-child(...)`. Positional `getByRole(...).nth(N)` is acceptable when AGENTS.md documents it (Settings macro fields).
 
 5. **`exact: true` on `getByRole({ name })` for aria-label assertions.** Substring matching collides with FoodRow accessible names. Default to `exact: true` for any aria-label-driven role lookup.
 
@@ -164,7 +164,7 @@ For each spec file (whether created or reviewed), check:
 - Modify only: spec files (`*.spec.ts`, INCLUDING creating new ones in `tests/e2e/`) and `tests/JOURNEYS.md`. NEVER modify source under `src/`, `server/`, `shared/`, or `public/`.
 - NEVER modify `tests/e2e/helpers.ts`, `tests/e2e/auth.setup.ts`, `tests/e2e/auth.setup2.ts`, or `tests/e2e/global-setup.ts` from a regular pass — those are infrastructure. Log issues under MISSING instead.
 - When creating a new spec, follow the existing style closely (imports, helper invocations, `tap()` / `fill()` patterns, locator scoping, comment density). Read `entry.spec.ts` and one feature-adjacent spec before writing.
-- Run only the spec under work with `npx playwright test <spec-file>` after changes — not the full suite. The runner boots a real prod build, so each pass takes 30s–2min. If a previous server is already on `:3001`, Playwright reuses it.
+- Run only the spec under work with `npx playwright test <spec-file>` after changes — not the full suite. The runner builds the frontend and starts a fresh Express process on `:3001`; it never reuses an existing server. Run invocations serially because startup resets the same test database before Express opens it.
 - A passing test is the default outcome, but a failing test that correctly encodes a journey is also a valid result — see step 8 in the REVIEW phase. Never weaken an assertion to match buggy behavior; classify as `BUG_FOUND` and keep it.
 - Be brutal: "passing" and "adequate" are not the bar. If tests pass but would survive obvious mutations, skip negative-path assertions, leave a journey untracked, or have an aria-label substring collision, the spec is NOT ready for PASS — strengthen it.
 - **Bias toward writing the test, not logging MISSING.** When you observe an uncovered gesture threshold, validation cap, error response, or edge case in the source, your default action is to ADD a test. MISSING is reserved for gaps you cannot close in this pass (camera, clock hatch, missing infrastructure). Every other gap gets a test.

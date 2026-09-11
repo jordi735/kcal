@@ -3,14 +3,14 @@
 // Macros computed on read; never stored. Every query scoped by req.userId.
 
 import { Router } from 'express';
-import type { ErrorRequestHandler } from 'express';
 import { authMiddleware } from '../auth.js';
 import { DATE_RE, TIME_RE, isObject, isPositiveInt } from '../guards.js';
 import { statements } from '../statements.js';
 import { readDailyTotals, readDayEntries } from '../reads.js';
 import { parsePositiveInt } from '../util.js';
+import { handleWriteError } from '../middleware/write-error.js';
 import {
-  createEntry, deleteEntry, updateEntry, WriteError,
+  createEntry, deleteEntry, updateEntry,
   createEntryGroup, updateEntryGroup, setEntryGroupTagged, ungroupEntries,
 } from '../writes.js';
 import { isEntryAmount, parseEntryGroupName } from '../../shared/constraints.js';
@@ -186,13 +186,5 @@ entriesRouter.delete('/:id', (req, res) => {
   const result = deleteEntry(req.userId!, id);
   res.json({ ok: true, dissolved_group_id: result.dissolved_group_id });
 });
-
-const handleWriteError: ErrorRequestHandler = (err: unknown, _req, res, next) => {
-  if (err instanceof WriteError) {
-    res.status(err.status).json({ error: err.message });
-    return;
-  }
-  next(err);
-};
 
 entriesRouter.use(handleWriteError);

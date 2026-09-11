@@ -1,149 +1,28 @@
 // App shell — owns top-level state, routes between screens/modals.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import {
-  sumMacros,
-  type BarcodeLookupResponse,
-  type EntryGroup,
-  type EntryWithMacros,
-  type ExtractedLabel,
-  type Goals,
-  type Product,
-  type User,
+import type {
+  BarcodeLookupResponse,
+  EntryGroup,
+  EntryWithMacros,
+  ExtractedLabel,
+  Goals,
+  Product,
 } from './types';
 import { getMonday, toLocalDateString, toLocalTimeString } from './dates';
-import { mockGoals } from './mocks';
 import { Login } from './screens/Login';
 import { OAuthConnect } from './screens/OAuthConnect';
-import { Settings } from './screens/Settings';
 import { Home } from './screens/Home';
-import { AddPicker } from './modals/AddPicker';
-import { BarcodeScanner } from './modals/BarcodeScanner';
-import { AILabelScanner } from './modals/AILabelScanner';
-import { NewProductForm, type ProductDraft } from './modals/NewProductForm';
-import { GramsPicker } from './modals/GramsPicker';
-import { EntryGroupForm } from './modals/EntryGroupForm';
-import { WeightTracker } from './modals/WeightTracker';
-import { SheetCloseRegisterProvider } from './components/Sheet';
+import type { ProductDraft } from './modals/NewProductForm';
+import { AppModals } from './components/AppModals';
+import { SheetOverlay } from './components/SheetOverlay';
+import { TransientErrorToast } from './components/TransientErrorToast';
 import { useEntries } from './hooks/useEntries';
-import { FADE_EXIT_MS } from './hooks/useFadeClose';
-import { api, ApiError, clearStoredSession, oauthRequestId, requestLoginCode, verifyLoginCode, SESSION_TOKEN_KEY, USER_KEY } from './api';
-import styles from './App.module.css';
-
-// Shared backdrop for sheet-style modals — stays mounted across sheet-to-sheet
-// transitions so the dim layer never flashes between them. `exiting` is
-// driven by the active Sheet via SheetExitNotifyContext so the overlay
-// fades in parallel with the sheet's slide-off (300 ms) instead of waiting
-// until the sheet unmounts to start its own fade (which would stack to
-// 600 ms of teardown).
-function SheetOverlay({
-  visible,
-  exiting,
-  onClick,
-}: {
-  visible: boolean;
-  exiting: boolean;
-  onClick: () => void;
-}) {
-  const [render, setRender] = useState(visible);
-
-  useEffect(() => {
-    if (visible) {
-      setRender(true);
-      return;
-    }
-    if (!render) return;
-    // Sheet already signaled exit → fade has been running in parallel; the
-    // sheet is gone, unmount the overlay immediately (don't sit at
-    // opacity 0 for another FADE_EXIT_MS).
-    if (exiting) {
-      setRender(false);
-      return;
-    }
-    const t = window.setTimeout(() => setRender(false), FADE_EXIT_MS);
-    return () => window.clearTimeout(t);
-  }, [visible, render, exiting]);
-
-  if (!render) return null;
-  const fading = exiting || !visible;
-  return <div className={`overlay${fading ? ' exiting' : ''}`} onClick={onClick} />;
-}
-
-function readStoredUser(): User | null {
-  const raw = localStorage.getItem(USER_KEY);
-  if (raw === null) return null;
-  try {
-    return JSON.parse(raw) as User;
-  } catch {
-    return null;
-  }
-}
-
-function readStoredToken(): string | null {
-  const raw = localStorage.getItem(SESSION_TOKEN_KEY);
-  if (raw === null || raw === '') return null;
-  return raw;
-}
-
-type ModalState =
-  | { kind: 'none' }
-  | { kind: 'add-picker' }
-  | { kind: 'barcode-scanner' }
-  | {
-      kind: 'barcode-scanner-fill';
-      returnTo: 'new' | 'edit';
-      draftSoFar: Partial<ProductDraft>;
-      editProduct?: Product;
-      editEntry?: EntryWithMacros | undefined;
-    }
-  | { kind: 'ai-label-scanner'; draftSoFar: Partial<ProductDraft> }
-  | { kind: 'new-product'; initial: Partial<ProductDraft> | undefined }
-  | { kind: 'grams-picker'; product: Product; entry: EntryWithMacros | undefined }
-  | {
-      kind: 'edit-product';
-      product: Product;
-      entry: EntryWithMacros | undefined;
-      initialOverride?: Partial<ProductDraft>;
-    }
-  | { kind: 'settings' }
-  | { kind: 'weights' }
-  | { kind: 'entry-group-create'; entryIds: number[] }
-  | { kind: 'entry-group-edit'; group: EntryGroup };
-
-// Modals that render inside <Sheet> and share the hoisted SheetOverlay.
-const SHEET_KINDS: ReadonlySet<ModalState['kind']> = new Set([
-  'add-picker',
-  'new-product',
-  'grams-picker',
-  'edit-product',
-  'settings',
-  'weights',
-  'entry-group-create',
-  'entry-group-edit',
-]);
-
-function isSheetModal(kind: ModalState['kind']): boolean {
-  return SHEET_KINDS.has(kind);
-}
-
-function productToDraft(p: Product): Partial<ProductDraft> {
-  return {
-    name: p.name,
-    brand: p.brand,
-    unit: p.unit,
-    barcode: p.barcode,
-    per100: p.per100,
-  };
-}
-
-function userToGoals(u: User): Goals {
-  return {
-    kcal: u.goal_kcal,
-    protein: u.goal_protein,
-    carbs: u.goal_carbs,
-    fat: u.goal_fat,
-  };
-}
+import { useTransientError } from './hooks/useTransientError';
+import { useGoalRevalidation, useSessionGoals } from './hooks/useSessionGoals';
+import { barcodeFillReturnState, isSheetModal, mergeLabelDraft, type ModalState } from './modalState';
+import { userToGoals } from './session';
+import { api, ApiError, clearStoredSession, oauthRequestId, requestLoginCode, verifyLoginCode } from './api';
 
 export function App() {
   const request = oauthRequestId();
@@ -151,11 +30,7 @@ export function App() {
 }
 
 function Tracker() {
-  const initialToken = readStoredToken();
-  const initialUser = readStoredUser();
-  const bootedLoggedIn = initialToken !== null && initialUser !== null;
-
-  const [user, setUser] = useState<User | null>(bootedLoggedIn ? initialUser : null);
+  const { user, setUser, goals, setGoals, applyGoals } = useSessionGoals();
   const {
     entriesByDate,
     weekTotals,
@@ -170,9 +45,6 @@ function Tracker() {
     toggleGroupTagged,
     ungroup,
   } = useEntries();
-  const [goals, setGoals] = useState<Goals>(() =>
-    initialUser !== null ? userToGoals(initialUser) : mockGoals,
-  );
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
   const [modal, setModalState] = useState<ModalState>({ kind: 'none' });
@@ -185,47 +57,13 @@ function Tracker() {
     flowGenRef.current++;
     setModalState(next);
   }, []);
-  const [transientError, setTransientError] = useState<string | null>(null);
-  const [errorExiting, setErrorExiting] = useState(false);
+  const { transientError, errorExiting, reportError } = useTransientError();
   const activeSheetCloseRef = useRef<(() => void) | null>(null);
   const registerSheetClose = useCallback((fn: (() => void) | null) => {
     activeSheetCloseRef.current = fn;
   }, []);
   const [sheetExiting, setSheetExiting] = useState(false);
   const notifySheetExit = useCallback(() => setSheetExiting(true), []);
-
-  // Track timer IDs so a second `reportError` within ~4s can cancel the prior
-  // call's pending fade — otherwise the older timers fire against the newer
-  // toast and it fades out prematurely. Mirrors `Sheet`'s `exitTimerRef`.
-  const errorTimersRef = useRef<{ outer: number | null; inner: number | null }>({
-    outer: null,
-    inner: null,
-  });
-
-  const reportError = useCallback((msg: string) => {
-    if (errorTimersRef.current.outer !== null) {
-      window.clearTimeout(errorTimersRef.current.outer);
-      errorTimersRef.current.outer = null;
-    }
-    if (errorTimersRef.current.inner !== null) {
-      window.clearTimeout(errorTimersRef.current.inner);
-      errorTimersRef.current.inner = null;
-    }
-    setTransientError(msg);
-    setErrorExiting(false);
-    errorTimersRef.current.outer = window.setTimeout(() => {
-      setErrorExiting(true);
-      errorTimersRef.current.inner = window.setTimeout(() => {
-        setTransientError((cur) => (cur === msg ? null : cur));
-        setErrorExiting(false);
-      }, FADE_EXIT_MS);
-    }, 3750);
-  }, []);
-
-  useEffect(() => () => {
-    if (errorTimersRef.current.outer !== null) window.clearTimeout(errorTimersRef.current.outer);
-    if (errorTimersRef.current.inner !== null) window.clearTimeout(errorTimersRef.current.inner);
-  }, []);
 
   const todayKey = toLocalDateString(new Date());
   const selectedKey = toLocalDateString(selectedDate);
@@ -267,41 +105,7 @@ function Tracker() {
     void loadWeek(toLocalDateString(next));
   }, [user?.id, weekStart, loadWeek]);
 
-  // Revalidate goals from the server on each app boot (or user switch). The
-  // cached user blob in localStorage is a hot-start optimisation, not the
-  // source of truth — without this, goals saved on another device stay
-  // stale until next sign-in. Stale-while-revalidate: cached values render
-  // instantly; fresh values swap in once the GET resolves. Keyed on
-  // user?.id so a setUser inside the success path doesn't re-trigger the
-  // effect (the id is stable across goal edits).
-  useEffect(() => {
-    if (user === null) return;
-    let cancelled = false;
-    void api<Goals>('/settings')
-      .then((fresh) => {
-        if (cancelled) return;
-        setGoals(fresh);
-        setUser((prev) => {
-          if (prev === null) return prev;
-          const updated: User = {
-            ...prev,
-            goal_kcal: fresh.kcal,
-            goal_protein: fresh.protein,
-            goal_carbs: fresh.carbs,
-            goal_fat: fresh.fat,
-          };
-          localStorage.setItem(USER_KEY, JSON.stringify(updated));
-          return updated;
-        });
-      })
-      .catch(() => {
-        // 401 is handled inside `api` (hard-redirect to /). Other errors:
-        // keep cached values — the next boot or save will reconcile.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
+  useGoalRevalidation(user, setUser, setGoals);
 
   // Verify the 6-digit code and persist the session.
   const onVerifyCode = async (email: string, code: string): Promise<void> => {
@@ -484,12 +288,22 @@ function Tracker() {
   const onLabelExtracted = (label: ExtractedLabel) => {
     const draftSoFar: Partial<ProductDraft> =
       modal.kind === 'ai-label-scanner' ? modal.draftSoFar : {};
-    // User-typed name/brand win over AI extraction; macros + unit always come
-    // from the scan, since those are the point of invoking it.
-    const merged: Partial<ProductDraft> = { ...draftSoFar, ...label };
-    if (draftSoFar.name?.trim()) merged.name = draftSoFar.name;
-    if (draftSoFar.brand?.trim()) merged.brand = draftSoFar.brand;
-    setModal({ kind: 'new-product', initial: merged });
+    setModal({ kind: 'new-product', initial: mergeLabelDraft(draftSoFar, label) });
+  };
+
+  const onLabelScannerClose = () => {
+    if (modal.kind !== 'ai-label-scanner') return;
+    setModal({ kind: 'new-product', initial: modal.draftSoFar });
+  };
+
+  const onBarcodeFillDetect = (code: string) => {
+    if (modal.kind !== 'barcode-scanner-fill') return;
+    setModal(barcodeFillReturnState(modal, code));
+  };
+
+  const onBarcodeFillClose = () => {
+    if (modal.kind !== 'barcode-scanner-fill') return;
+    setModal(barcodeFillReturnState(modal));
   };
 
   const onProductSave = async (draft: ProductDraft): Promise<void> => {
@@ -508,6 +322,11 @@ function Tracker() {
   const onEditProduct = () => {
     if (modal.kind !== 'grams-picker') return;
     setModal({ kind: 'edit-product', product: modal.product, entry: modal.entry });
+  };
+
+  const onEditProductClose = () => {
+    if (modal.kind !== 'edit-product') return;
+    setModal({ kind: 'grams-picker', product: modal.product, entry: modal.entry });
   };
 
   const onProductEditSave = async (draft: ProductDraft): Promise<void> => {
@@ -578,18 +397,7 @@ function Tracker() {
   // Settings handlers
   const onSaveGoals = async (next: Goals): Promise<void> => {
     const saved = await api<Goals>('/settings', { method: 'PUT', body: next });
-    setGoals(saved);
-    if (user !== null) {
-      const updatedUser: User = {
-        ...user,
-        goal_kcal: saved.kcal,
-        goal_protein: saved.protein,
-        goal_carbs: saved.carbs,
-        goal_fat: saved.fat,
-      };
-      localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
-      setUser(updatedUser);
-    }
+    applyGoals(saved);
   };
   const onLogout = async () => {
     try {
@@ -604,11 +412,7 @@ function Tracker() {
 
   return (
     <>
-      {transientError !== null && (
-        <div className={`${styles.toast} mono tiny caps${errorExiting ? ' fullscreen-exit' : ''}`}>
-          {transientError}
-        </div>
-      )}
+      <TransientErrorToast message={transientError} exiting={errorExiting} />
 
       <Home
         selectedDate={selectedDate}
@@ -637,151 +441,42 @@ function Tracker() {
         onClick={() => activeSheetCloseRef.current?.()}
       />
 
-      <SheetCloseRegisterProvider register={registerSheetClose} notifyExit={notifySheetExit}>
-        {modal.kind === 'add-picker' && (
-          <AddPicker
-            onPick={onPick}
-            onCreateNew={onCreateNew}
-            onAddTemp={onAddTemp}
-            onScanBarcode={onScanBarcode}
-            onClose={closeModal}
-            addedProductIds={addedProductIds}
-          />
-        )}
-
-        {modal.kind === 'new-product' && (
-          <NewProductForm
-            {...(modal.initial !== undefined ? { initial: modal.initial } : {})}
-            onSave={onProductSave}
-            onClose={() => setModal({ kind: 'add-picker' })}
-            onDismiss={closeModal}
-            onScanLabel={onScanLabel}
-            onScanBarcode={onScanBarcodeFromForm}
-          />
-        )}
-
-        {modal.kind === 'grams-picker' && (
-          <GramsPicker
-            product={modal.product}
-            goals={goals}
-            existingTotals={sumMacros(
-              modal.entry !== undefined
-                ? entriesForSelected.filter((e) => e.id !== modal.entry!.id)
-                : entriesForSelected,
-            )}
-            {...(modal.entry !== undefined
-              ? {
-                  initialGrams: modal.entry.grams,
-                  mode: 'edit' as const,
-                  onDelete: onGramsDelete,
-                }
-              : { mode: 'add' as const })}
-            onConfirm={onGramsConfirm}
-            onClose={closeModal}
-            onEditProduct={onEditProduct}
-          />
-        )}
-
-        {modal.kind === 'edit-product' && (
-          <NewProductForm
-            initial={modal.initialOverride ?? productToDraft(modal.product)}
-            mode="edit"
-            onSave={onProductEditSave}
-            onDelete={onProductDelete}
-            onClose={() =>
-              setModal({
-                kind: 'grams-picker',
-                product: modal.product,
-                entry: modal.entry,
-              })
-            }
-            onDismiss={closeModal}
-            onScanLabel={onScanLabel}
-            onScanBarcode={onScanBarcodeFromForm}
-          />
-        )}
-
-        {modal.kind === 'settings' && (
-          <Settings
-            goals={goals}
-            onSave={onSaveGoals}
-            onClose={closeModal}
-            onLogout={onLogout}
-            userEmail={user.email}
-          />
-        )}
-
-        {modal.kind === 'weights' && (
-          <WeightTracker onClose={closeModal} />
-        )}
-
-        {modal.kind === 'entry-group-create' && (
-          <EntryGroupForm
-            mode="create"
-            onSave={onCreateEntryGroup}
-            onClose={closeModal}
-          />
-        )}
-
-        {modal.kind === 'entry-group-edit' && (
-          <EntryGroupForm
-            mode="edit"
-            initialName={modal.group.name}
-            onSave={onRenameEntryGroup}
-            onUngroup={onUngroupEntries}
-            onClose={closeModal}
-          />
-        )}
-      </SheetCloseRegisterProvider>
-
-      {modal.kind === 'barcode-scanner' && (
-        <BarcodeScanner
-          onDetect={onBarcodeDetect}
-          onClose={() => setModal({ kind: 'add-picker' })}
-        />
-      )}
-
-      {modal.kind === 'barcode-scanner-fill' && (
-        <BarcodeScanner
-          onDetect={(code) => {
-            const merged = { ...modal.draftSoFar, barcode: code };
-            if (modal.returnTo === 'new') {
-              setModal({ kind: 'new-product', initial: merged });
-            } else if (modal.editProduct !== undefined) {
-              setModal({
-                kind: 'edit-product',
-                product: modal.editProduct,
-                entry: modal.editEntry,
-                initialOverride: merged,
-              });
-            }
-          }}
-          onClose={() => {
-            if (modal.returnTo === 'new') {
-              setModal({ kind: 'new-product', initial: modal.draftSoFar });
-            } else if (modal.editProduct !== undefined) {
-              setModal({
-                kind: 'edit-product',
-                product: modal.editProduct,
-                entry: modal.editEntry,
-                initialOverride: modal.draftSoFar,
-              });
-            }
-          }}
-        />
-      )}
-
-      {modal.kind === 'ai-label-scanner' && (
-        <AILabelScanner
-          onExtracted={onLabelExtracted}
-          onClose={() =>
-            setModal({
-              kind: 'new-product',
-              initial: modal.draftSoFar,
-            })
-          }
-        />
-      )}
+      <AppModals
+        modal={modal}
+        goals={goals}
+        entriesForSelected={entriesForSelected}
+        addedProductIds={addedProductIds}
+        userEmail={user.email}
+        registerSheetClose={registerSheetClose}
+        notifySheetExit={notifySheetExit}
+        handlers={{
+          closeModal,
+          onAddEntry,
+          onPick,
+          onCreateNew,
+          onAddTemp,
+          onScanBarcode,
+          onProductSave,
+          onScanLabel,
+          onScanBarcodeFromForm,
+          onGramsDelete,
+          onGramsConfirm,
+          onEditProduct,
+          onProductEditSave,
+          onProductDelete,
+          onEditProductClose,
+          onSaveGoals,
+          onLogout,
+          onCreateEntryGroup,
+          onRenameEntryGroup,
+          onUngroupEntries,
+          onBarcodeDetect,
+          onBarcodeFillDetect,
+          onBarcodeFillClose,
+          onLabelExtracted,
+          onLabelScannerClose,
+        }}
+      />
     </>
   );
 }

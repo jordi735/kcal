@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { startSignIn, submitSignInCode } from './auth-helpers';
 
 // Per-test fresh user: bypasses the shared `e2e@test.local` storageState so
 // existingTotals starts at 0 on today's date. Required by any spec that asserts
@@ -18,12 +19,8 @@ export async function signInFresh(
   emailPrefix: string,
 ): Promise<void> {
   const email = `${emailPrefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
-  await page.goto('/');
-  await page.getByPlaceholder('you@example.com').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in code' }).tap();
-  const res = await request.get(`/auth/test/last-code/${email}`);
-  const { code } = await res.json();
-  await page.getByLabel('6-digit sign-in code').fill(code);
+  await startSignIn(page, email, 'tap');
+  await submitSignInCode(page, request, email);
   // Login.tsx:114 auto-submits at 6 digits; wait for the home shell to land.
   await expect(page.getByRole('button', { name: 'ADD FOOD' })).toBeVisible();
 }

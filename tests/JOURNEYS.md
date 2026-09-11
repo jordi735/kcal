@@ -68,6 +68,12 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-157 · XSS in `brand`: an `<img onerror>` brand string renders as literal text in FoodRow's `· {product.brand}` span (no dialog fires)
 - J-158 · NewProductForm barcode field caps user typing at 64 characters via native `maxLength` (mutation guard for the attribute value)
 
+- J-226 · Cancelling barcode scanning returns to a new product with its entire draft intact
+- J-227 · Cancelling barcode scanning preserves a temporary product draft and its temporary status
+- J-228 · Cancelling barcode scanning preserves an edited product draft and its GramsPicker return destination
+- J-229 · Cancelling the AI file picker preserves a temporary product draft
+- J-234 · Scan-result merging preserves typed metadata, temporary status and edit context while replacing only intended draft fields
+
 # 5. Entry CRUD
 
 - J-015 · Log an entry (pick product, enter grams, save)
@@ -96,6 +102,10 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-094 · Protein/carbs/fat GoalRow projections render with one-decimal formatting (not integer)
 - J-168 · Future-day entries stay in insertion order: a pre-log remains above next-morning and later additions before and after reload
 
+- J-231 · Reversed entry responses retain insertion order and totals across reload
+- J-232 · Adding before a day loads does not overwrite its already loaded week total
+- J-233 · A rejected entry edit leaves client entries and totals unchanged
+
 # 6. Daily goals & macro auto-compute
 
 - J-018 · Daily kcal goal persists and updates MacroSummary
@@ -112,6 +122,8 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-140 · Save persists all four goals (kcal/protein/carbs/fat); a hard reload + reopen reads each input back at its saved value
 - J-141 · Settings Account section displays the signed-in user's email (rules out the `'you@example.com'` fallback in Settings.tsx:219)
 - J-167 · Goals saved on another device appear after reload through authoritative boot revalidation from `GET /settings`
+
+- J-225 · Goal boot revalidation and saves update cached goals without repeating day/week reads
 
 # 7. Multi-select & bulk operations
 
@@ -226,6 +238,8 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-115 · `onPick`: dismiss while `POST /products/adopt/:id` is in-flight does NOT pop GramsPicker after the response lands
 - J-116 · `onPick`: dismiss mid-adopt followed by a server 500 suppresses the error toast (catch-branch `flowGenRef` gate)
 - J-117 · `onProductSave`: without dismissal, a server 500 DOES surface the error toast and leaves the form mounted for retry (positive control for J-114 — pins the catch-branch comparator)
+
+- J-230 · A replacement error receives its full notification lifetime
 
 # 15. Weight tracking
 

@@ -1,6 +1,4 @@
-import { expect, test as base, type APIRequestContext, type Page } from '@playwright/test';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -8,53 +6,17 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import type {
-  McpDayResult, McpMealsResult, McpProductSearchResult, McpSummaryResult, McpWeekResult, McpWeighinsResult,
+  EntryGroup, EntryWithMacros, McpDayResult, McpMealsResult, McpProductSearchResult,
+  McpSummaryResult, McpWeekResult, McpWeighinsResult, Product,
 } from '../../shared/types';
-import { signInFresh } from './helpers';
 import { connectMcp } from './oauth-helpers';
+import { call, createMcpTest, freshUser, MCP_HEADERS, rest as write } from './mcp-helpers';
 
-const MCP_HEADERS = { Accept: 'application/json, text/event-stream' };
 const ZERO = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
 
-type Account = { token: string; user: { id: number; email: string } };
-const test = base.extend<{ account: Account; connection: Awaited<ReturnType<typeof connectMcp>>; mcp: Client; mcpHeaders: Record<string, string> }>({
-  account: async ({ page, request }, use) => { await use(await freshUser(page, request, 'mcp')); },
-  connection: async ({ page, account }, use) => {
-    void account;
-    const connection = await connectMcp(page);
-    try { await use(connection); } finally { await connection.mcp.close(); }
-  },
-  mcp: async ({ connection }, use) => { await use(connection.mcp); },
-  mcpHeaders: async ({ connection }, use) => {
-    await use({ ...MCP_HEADERS, Authorization: `Bearer ${connection.oauth.savedTokens!.access_token}` });
-  },
-});
+const test = createMcpTest({ emailPrefix: 'mcp', scope: 'kcal:read' });
 
 test.use({ storageState: { cookies: [], origins: [] } });
-
-async function call<T>(client: Client, name: string, args: Record<string, unknown> = {}): Promise<T> {
-  const result = await client.callTool({ name, arguments: args }) as CallToolResult;
-  expect(result.isError, JSON.stringify(result)).not.toBe(true);
-  expect(result.structuredContent).toBeDefined();
-  expect(result.content).toEqual([{ type: 'text', text: JSON.stringify(result.structuredContent) }]);
-  return result.structuredContent as T;
-}
-
-async function freshUser(page: Page, request: APIRequestContext, prefix: string) {
-  await signInFresh(page, request, prefix);
-  return page.evaluate(() => {
-    const user = JSON.parse(localStorage.getItem('kcal_user')!) as { id: number; email: string };
-    return { token: localStorage.getItem('kcal_session_token')!, user: { id: user.id, email: user.email } };
-  });
-}
-
-async function write(
-  request: APIRequestContext, token: string, method: 'post' | 'put' | 'patch', url: string, data: unknown,
-) {
-  const response = await request[method](url, { headers: { Authorization: `Bearer ${token}` }, data });
-  expect(response.ok(), await response.text()).toBeTruthy();
-  return response.json();
-}
 
 test('[J-188] MCP discovers six account-scoped read-only tools with output schemas', async ({ mcp }) => {
   expect(mcp.getServerVersion()?.name).toBe('kcal');
@@ -101,8 +63,8 @@ test('[J-189] MCP food reads and summaries match app totals across users, groups
     name: `MCP food ${a.user.id}`, brand: null, unit: 'g', barcode: null, is_temp: false,
     per100: { kcal: 200, protein: 10, carbs: 20, fat: 5 },
   };
-  const product = await write(request, a.token, 'post', '/products', productBody);
-  const entry = (date: string, grams: number) => write(request, a.token, 'post', '/entries', {
+  const product = await write<Product>(request, a.token, 'post', '/products', productBody);
+  const entry = (date: string, grams: number) => write<EntryWithMacros>(request, a.token, 'post', '/entries', {
     product_id: product.id, grams, local_date: date, local_time: '12:30',
   });
   const first = await entry('2024-12-30', 150);
@@ -110,7 +72,7 @@ test('[J-189] MCP food reads and summaries match app totals across users, groups
   await entry('2025-01-05', 100);
   await entry('2024-12-29', 999); // Outside the requested Monday–Sunday.
   await entry('2025-01-06', 999); // After the inclusive end date.
-  const group = await write(request, a.token, 'post', '/entries/groups', {
+  const group = await write<EntryGroup>(request, a.token, 'post', '/entries/groups', {
     name: `MCP meal ${a.user.id}`, entry_ids: [first.id, second.id],
   });
   await write(request, a.token, 'patch', `/entries/${first.id}`, { tagged: true });
@@ -265,14 +227,14 @@ test('[J-200] MCP summaries distinguish missing days from zero-calorie logged da
     totals: ZERO, average_on_logged_days: null,
   });
   const body = { name: `MCP summary water ${user.id}`, brand: null, unit: 'ml', barcode: null, is_temp: false, per100: ZERO };
-  const water = await write(request, token, 'post', '/products', body);
+  const water = await write<Product>(request, token, 'post', '/products', body);
   await write(request, token, 'post', '/entries', {
     product_id: water.id, grams: 250, local_date: '2024-02-29', local_time: '09:00',
   });
   const zero = await call<McpSummaryResult>(mcp, 'get_summary', range);
   expect(zero).toMatchObject({ days_logged: 1, days_without_entries: 2, totals: ZERO, average_on_logged_days: ZERO });
 
-  const product = await write(request, token, 'post', '/products', {
+  const product = await write<Product>(request, token, 'post', '/products', {
     ...body, name: `MCP summary food ${user.id}`, unit: 'g', per100: { kcal: 150, protein: 9, carbs: 18, fat: 6 },
   });
   for (const [local_date, grams] of [
@@ -358,9 +320,9 @@ test('[J-203] MCP product search matches the owned saved library by name and bra
   const body = { name: `${query} Zebra`, brand: null, unit: 'g', barcode: null,
     per100: { kcal: 100, protein: 12, carbs: 7, fat: 3 }, is_temp: false };
   // Saved but never logged: these products must still be searchable.
-  const zebra = await write(request, a.token, 'post', '/products', body);
-  const alpha = await write(request, a.token, 'post', '/products', { ...body, name: `${query} Alpha` });
-  const branded = await write(request, a.token, 'post', '/products', {
+  const zebra = await write<Product>(request, a.token, 'post', '/products', body);
+  const alpha = await write<Product>(request, a.token, 'post', '/products', { ...body, name: `${query} Alpha` });
+  const branded = await write<Product>(request, a.token, 'post', '/products', {
     ...body, name: `Drink ${a.user.id}`, brand: `${query} Maker`, unit: 'ml', barcode: `mcp-lookup-${a.user.id}`,
   });
   await write(request, a.token, 'post', '/products', { ...body, name: `${query} Temporary`, is_temp: true });
@@ -370,7 +332,7 @@ test('[J-203] MCP product search matches the owned saved library by name and bra
     const bPage = await context.newPage();
     const b = await freshUser(bPage, request, 'mcp-search-other');
     await write(request, b.token, 'post', '/products', { ...body, name: `${query} Private` });
-    const shared = await write(request, b.token, 'post', '/products', {
+    const shared = await write<Product>(request, b.token, 'post', '/products', {
       ...body, name: `${query} Shared`, barcode: `mcp-lookup-${b.user.id}`,
     });
     const headers = { Authorization: `Bearer ${a.token}` };
@@ -402,7 +364,7 @@ test('[J-204] MCP product search caps broad queries at 50 alphabetically ordered
   const query = `MCP capped ${user.id}`;
   const names: string[] = [];
   for (let i = 50; i >= 0; i--) {
-    const product = await write(request, token, 'post', '/products', {
+    const product = await write<Product>(request, token, 'post', '/products', {
       name: `${query} ${String(i).padStart(2, '0')}`, brand: null, unit: 'g', barcode: null,
       per100: ZERO, is_temp: false,
     });

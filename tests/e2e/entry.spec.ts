@@ -1,24 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { tokenFrom } from './auth-helpers';
 import { fillNutField, seedProductAndLog } from './helpers';
 
 // auth.setup.ts persisted user A's session token to user.json. Several contract
 // tests below need a bearer token to hit /entries directly without driving the
 // UI. For the cross-user isolation test (J-081) we also need user B's token —
 // that's user2.json (auth.setup2.ts).
-type StorageState = {
-  origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-};
-
-function tokenFrom(path: string): string {
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as StorageState;
-  const entry = parsed.origins[0]?.localStorage.find(
-    (e) => e.name === 'kcal_session_token',
-  );
-  if (entry === undefined) throw new Error(`no session token in ${path}`);
-  return entry.value;
-}
-
 test('[J-010] create new product, save & continue, log to day', async ({ page }) => {
   await page.goto('/');
 
@@ -230,9 +217,9 @@ test('[J-079] POST /entries with malformed body returns 400 invalid_entry', asyn
     { label: 'product_id missing', body: { grams: 100, local_date: today, local_time: '12:00' } },
     // product_id zero — isPositiveInt rejects 0 (must be > 0).
     { label: 'product_id=0', body: { product_id: 0, grams: 100, local_date: today, local_time: '12:00' } },
-    // grams zero — isPositiveFinite rejects 0.
+    // grams zero — isEntryAmount rejects 0.
     { label: 'grams=0', body: { product_id: 1, grams: 0, local_date: today, local_time: '12:00' } },
-    // grams negative — isPositiveFinite rejects negatives.
+    // grams negative — isEntryAmount rejects negatives.
     { label: 'grams=-5', body: { product_id: 1, grams: -5, local_date: today, local_time: '12:00' } },
     // Bad date format — DATE_RE requires \d{4}-\d{2}-\d{2}.
     { label: 'local_date=2026/01/01', body: { product_id: 1, grams: 100, local_date: '2026/01/01', local_time: '12:00' } },

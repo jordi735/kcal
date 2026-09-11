@@ -6,6 +6,17 @@
 // three at the product level, rendered separately (no bar color, no per-field
 // tint), and usually gets whole-number formatting while macros get 1 decimal.
 
+import { scaleMacros, sumMacros as sumMacroValues } from '../shared/macros';
+import type { EntryWithMacros, Macros, Product } from './types';
+
+export function computeMacros(product: Product, grams: number): Macros {
+  return scaleMacros(product.per100, grams);
+}
+
+export function sumMacros(entries: ReadonlyArray<EntryWithMacros>): Macros {
+  return sumMacroValues(entries.map((entry) => entry.macros));
+}
+
 export type MacroKey = 'protein' | 'carbs' | 'fat';
 
 export const MACRO_KEYS: readonly MacroKey[] = ['protein', 'carbs', 'fat'];

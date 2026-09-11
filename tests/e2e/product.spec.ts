@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { tokenFrom } from './auth-helpers';
 import { fillNutField } from './helpers';
 
 // Product CREATION specifics not owned by another spec. The retroactive-edit
@@ -8,21 +8,6 @@ import { fillNutField } from './helpers';
 // the disabled-until-filled gating in entry.spec.ts (J-086). What's left for
 // this spec: unit toggle (g/ml), brand round-trip, per-macro range guards
 // across the four fields, and the full isNewProductBody body-shape contract.
-
-type StorageState = {
-  origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-};
-
-function tokenFromAuthFile(): string {
-  const parsed = JSON.parse(
-    readFileSync('tests/e2e/.auth/user.json', 'utf8'),
-  ) as StorageState;
-  const entry = parsed.origins[0]?.localStorage.find(
-    (e) => e.name === 'kcal_session_token',
-  );
-  if (entry === undefined) throw new Error('no session token in user.json');
-  return entry.value;
-}
 
 test('[J-109] unit toggle to ml flips "Per 100ml" label and persists unit:"ml"', async ({
   page,
@@ -81,7 +66,7 @@ test('[J-109] unit toggle to ml flips "Per 100ml" label and persists unit:"ml"',
   // (shared/normalize.ts:14) sentence-cases the stored name (`E2E ...` →
   // `E2e ...`); identity here is established by the unique Date.now() suffix,
   // not by case.
-  const token = tokenFromAuthFile();
+  const token = tokenFrom('tests/e2e/.auth/user.json');
   const res = await request.get('/products/all', {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -159,7 +144,7 @@ test('[J-111] POST /products rejects per100 macro out-of-range across all four f
   // (e.g. `kcal <= 2000` → `kcal < 2000`) collapses one case and keeps the
   // other seven green — so the failure points directly at the regressed
   // macro/direction.
-  const token = tokenFromAuthFile();
+  const token = tokenFrom('tests/e2e/.auth/user.json');
   const valid = {
     name: 'E2E Cap Probe',
     brand: null,
@@ -204,7 +189,7 @@ test('[J-112] POST /products rejects each isNewProductBody structural branch', a
   //   - is_temp non-boolean (string 'false' is the classic false-positive)
   // Eight independent branches; mutation in any one will break exactly one
   // case, surfacing the regression precisely.
-  const token = tokenFromAuthFile();
+  const token = tokenFrom('tests/e2e/.auth/user.json');
   const valid = {
     name: 'E2E Body Probe',
     brand: null,

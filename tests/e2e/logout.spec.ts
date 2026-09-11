@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { signInFresh } from './helpers';
 
 // Logout surfaces: voluntary sign-out, 401 auto-logout, resend cooldown, and
 // the "Use a different email" reset. All page-driven tests sign in fresh so
@@ -6,22 +7,8 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 // rationale as auth.spec.ts.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-async function signInFresh(page: Page, request: APIRequestContext): Promise<{ email: string }> {
-  const email = `logout-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
-  await page.goto('/');
-  await page.getByPlaceholder('you@example.com').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in code' }).tap();
-  const res = await request.get(`/auth/test/last-code/${email}`);
-  expect(res.ok()).toBeTruthy();
-  const { code } = (await res.json()) as { code: string };
-  await page.getByLabel('6-digit sign-in code').fill(code);
-  // Login.tsx:114 auto-submits at 6 digits; wait for the home shell.
-  await expect(page.getByRole('button', { name: 'ADD FOOD' })).toBeVisible();
-  return { email };
-}
-
 test('[J-097] 401 auto-logout: corrupt bearer redirects to Login', async ({ page, request }) => {
-  await signInFresh(page, request);
+  await signInFresh(page, request, 'logout');
   // Gate on "No food logged" — Home.tsx:91 only shows this once the
   // App.tsx:228 useEffect's loadEntries call has returned. Without the gate,
   // those initial fetches (which use the still-valid token) race the corrupt
@@ -50,7 +37,7 @@ test('[J-097] 401 auto-logout: corrupt bearer redirects to Login', async ({ page
 });
 
 test('[J-098] 401 auto-logout clears both kcal_session_token and kcal_user', async ({ page, request }) => {
-  await signInFresh(page, request);
+  await signInFresh(page, request, 'logout');
   await expect(page.getByText('No food logged')).toBeVisible();
 
   // Pre-condition: App.tsx writes both keys on successful verify-code, so
@@ -177,7 +164,7 @@ test('[J-102] POST /auth/logout without bearer returns 401 unauthorized', async 
 });
 
 test('[J-103] Manual sign-out also clears kcal_user from localStorage', async ({ page, request }) => {
-  await signInFresh(page, request);
+  await signInFresh(page, request, 'logout');
 
   // Pre-condition: both keys are present after sign-in.
   const before = await page.evaluate(() => ({

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { tokenFrom } from './auth-helpers';
 import { seedProductAndLog } from './helpers';
 
 // FoodRow's dot button toggles the entry's `tagged` boolean (migration
@@ -17,19 +17,6 @@ import { seedProductAndLog } from './helpers';
 // break strict-mode locators.
 
 const MACROS = { kcal: '100', protein: '10', carbs: '10', fat: '2' };
-
-type StorageState = {
-  origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-};
-
-function tokenFrom(path: string): string {
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as StorageState;
-  const entry = parsed.origins[0]?.localStorage.find(
-    (e) => e.name === 'kcal_session_token',
-  );
-  if (entry === undefined) throw new Error(`no session token in ${path}`);
-  return entry.value;
-}
 
 test('[J-031] dot toggle flips aria-pressed both ways', async ({ page }) => {
   const name = 'E2E Tag Toggle';

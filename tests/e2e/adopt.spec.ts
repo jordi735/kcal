@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { tokenFrom } from './auth-helpers';
 
 // Cross-user barcode catalog. Per AGENTS.md: "barcode = shared, no barcode =
 // private" — barcoded products surface across users via the ?global=1 search
@@ -28,19 +28,6 @@ import { readFileSync } from 'node:fs';
 // - User B is the DRIVER. Their storageState is user2.json (written by
 //   auth.setup2.ts); the spec runs in that logged-in context.
 test.use({ storageState: 'tests/e2e/.auth/user2.json' });
-
-type StorageState = {
-  origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-};
-
-function tokenFrom(path: string): string {
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as StorageState;
-  const entry = parsed.origins[0]?.localStorage.find(
-    (e) => e.name === 'kcal_session_token',
-  );
-  if (entry === undefined) throw new Error(`no session token in ${path}`);
-  return entry.value;
-}
 
 type SeedInput = {
   name: string;

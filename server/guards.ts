@@ -14,7 +14,3 @@ export function isObject(v: unknown): v is Record<string, unknown> {
 export function isPositiveInt(v: unknown): v is number {
   return typeof v === 'number' && Number.isInteger(v) && v > 0;
 }
-
-export function isPositiveFinite(v: unknown): v is number {
-  return typeof v === 'number' && Number.isFinite(v) && v > 0;
-}

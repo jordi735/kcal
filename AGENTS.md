@@ -5,16 +5,22 @@ These instructions apply to the entire repository.
 ## Project Structure & Module Organization
 
 - `src/` is the Preact SPA. `App.tsx` owns cross-screen auth, date, and modal
-  transitions; components, screens, modals, and hooks own local interaction state.
+  transitions; `components/AppModals.tsx` renders its modal slots and `modalState.ts` defines
+  modal context and draft-return helpers. Session/goal and notification lifecycles
+  live in hooks; components, screens, and modals own local interaction state.
 - `server/` is the Express 5 and SQLite backend. Routes live in `server/routes/`,
   SQL migrations in `server/migrations/`, and normal application statements in
   `server/statements.ts`. `server/reads.ts` shares read functions and serializers
   between REST routes and MCP tools; `server/writes.ts` shares transactional entry,
-  entry-group, and product mutations. Setup is in `docs/mcp.md`.
+  entry-group, and product mutations. `server/mcp/` owns MCP schemas, registration,
+  and result handling; its HTTP route owns auth and transport lifetime. Setup is
+  in `docs/mcp.md`.
 - `shared/` contains code compiled by both TypeScript projects, especially wire
-  types, stored-text normalization, and API-prefix detection.
+  types, unrounded macro arithmetic, stored-text normalization, and API-prefix
+  detection. Frontend display metadata and entry adapters live in `src/macros.ts`.
 - `public/` contains PWA and site assets copied into the Vite build. `tests/e2e/`
   contains the Playwright suite; `tests/JOURNEYS.md` indexes covered user flows.
+  `docs/refactoring.md` records the structural passes and behavior-parity checks.
 - The root TypeScript project uses bundler resolution and Preact JSX for `src/`,
   `shared/`, and `vite.config.ts`. `server/tsconfig.json` separately checks
   `server/` and `shared/` with NodeNext resolution.
@@ -79,7 +85,9 @@ required-key inventory and never commit real credentials.
   Do not rewrite legacy smaller entries or reject their tag-only edits or deletion.
 - `useEntries` applies local cache changes only after successful requests. Preserve
   entry insertion order by `id` and recompute week totals only for loaded dates;
-  tagged-only updates do not change totals.
+  tagged-only updates do not change totals. Its single cache state uses pure
+  `entryCache.ts` transformations; mutation callbacks retain their captured
+  loaded-date eligibility when a day loads while a request is pending.
 - Keep the day-entry wire response flat. `EntryWithMacros.group` annotates real
   child entries; derive collapsed parents, aggregate macros, and mixed/all-tagged
   state in the client without adding a synthetic calorie-bearing entry.
@@ -219,6 +227,9 @@ required-key inventory and never commit real credentials.
 - Reuse `signInFresh`, `fillNutField`, `longPress`, and `seedProductAndLog`. Use
   `.tap()` for touch-oriented Sheet interactions; use `.click()` only when a test
   deliberately exercises mouse behavior.
+  Reuse `auth-helpers.ts` for login primitives and stored tokens, and
+  `mcp-helpers.ts` for scoped MCP fixtures/result helpers. Preserve fresh-user
+  versus shared-user lifetimes and explicit read/read-write scope selection.
 - Scope transient locators to the active `.sheet` or `.food-row`, use `exact: true`
   for collision-prone aria labels, and wait for modal visibility/unmount rather
   than racing animations.

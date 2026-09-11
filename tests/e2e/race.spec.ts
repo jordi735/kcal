@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { tokenFrom } from './auth-helpers';
 import { fillNutField } from './helpers';
 
 // Modal-hijack guard via App.tsx:163 `flowGenRef`. Three async handlers
@@ -24,22 +24,6 @@ async function flushPaint(page: Page) {
         requestAnimationFrame(() => requestAnimationFrame(() => r())),
       ),
   );
-}
-
-// Helpers for cross-user adopt setup, inlined here rather than imported from
-// adopt.spec.ts to keep specs decoupled (helpers.ts is intentionally read-only
-// for this pass; if a third spec needs the same primitives, promote them).
-type StorageState = {
-  origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-};
-
-function tokenFrom(path: string): string {
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as StorageState;
-  const entry = parsed.origins[0]?.localStorage.find(
-    (e) => e.name === 'kcal_session_token',
-  );
-  if (entry === undefined) throw new Error(`no session token in ${path}`);
-  return entry.value;
 }
 
 async function seedBarcodedAsUserA(

@@ -8,7 +8,6 @@
 // the entries JOIN, so PUT automatically updates past days' totals retroactively.
 
 import { Router } from 'express';
-import type { ErrorRequestHandler } from 'express';
 import multer from 'multer';
 import { authMiddleware } from '../auth.js';
 import { extractNutrition, InvalidExtractionError } from '../codex.js';
@@ -18,7 +17,8 @@ import { log } from '../log.js';
 import { rowToProduct, searchOwnProducts } from '../reads.js';
 import { statements } from '../statements.js';
 import { parsePositiveInt } from '../util.js';
-import { createProduct, deleteProduct, updateProduct, WriteError } from '../writes.js';
+import { handleWriteError } from '../middleware/write-error.js';
+import { createProduct, deleteProduct, updateProduct } from '../writes.js';
 import type {
   BarcodeLookupResponse,
   NewProductBody,
@@ -292,13 +292,5 @@ productsRouter.post('/from-image', upload.single('image'), async (req, res, next
     next(err);
   }
 });
-
-const handleWriteError: ErrorRequestHandler = (err: unknown, _req, res, next) => {
-  if (err instanceof WriteError) {
-    res.status(err.status).json({ error: err.message });
-    return;
-  }
-  next(err);
-};
 
 productsRouter.use(handleWriteError);

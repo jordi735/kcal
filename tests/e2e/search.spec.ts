@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { tokenFrom } from './auth-helpers';
 import { seedProductAndLog } from './helpers';
 
 // AddPicker search — server-side LIKE on (name, brand) + scope toggle (My
@@ -23,19 +23,6 @@ import { seedProductAndLog } from './helpers';
 // J-120 / J-126 / J-127 need a barcoded row owned by user B; auth.setup2.ts
 // wrote that token to user2.json. We seed via direct API as user B and drive
 // the spec as user A (default storageState) — same pattern as adopt.spec.ts.
-
-type StorageState = {
-  origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-};
-
-function tokenFrom(path: string): string {
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as StorageState;
-  const entry = parsed.origins[0]?.localStorage.find(
-    (e) => e.name === 'kcal_session_token',
-  );
-  if (entry === undefined) throw new Error(`no session token in ${path}`);
-  return entry.value;
-}
 
 test('[J-118] Clear-X resets the search query and restores the idle Recent/All view', async ({
   page,

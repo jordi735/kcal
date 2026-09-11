@@ -1,8 +1,9 @@
 // Owns the entries cache keyed by local_date; exposes CRUD helpers backed by /entries.
 
 import { useCallback, useState } from 'preact/hooks';
-import { sumMacros, type EntryGroup, type EntryWithMacros, type Macros } from '../types';
+import type { EntryGroup, EntryWithMacros, Macros } from '../types';
 import { api } from '../api';
+import { updateCachedDay, type EntryCache } from './entryCache';
 
 export type UseEntriesReturn = {
   entriesByDate: Record<string, EntryWithMacros[]>;
@@ -25,26 +26,27 @@ export type UseEntriesReturn = {
 };
 
 export function useEntries(): UseEntriesReturn {
-  const [entriesByDate, setEntriesByDate] = useState<Record<string, EntryWithMacros[]>>({});
-  const [weekTotals, setWeekTotals] = useState<Record<string, Macros>>({});
-  const [loadedDates, setLoadedDates] = useState<Set<string>>(() => new Set());
+  const [{ entriesByDate, weekTotals, loadedDates }, setCache] = useState<EntryCache>(() => ({
+    entriesByDate: {},
+    weekTotals: {},
+    loadedDates: new Set(),
+  }));
 
   const load = useCallback(async (date: string) => {
     const list = await api<EntryWithMacros[]>(`/entries?date=${encodeURIComponent(date)}`);
-    setEntriesByDate((prev) => ({ ...prev, [date]: list }));
-    setLoadedDates((prev) => {
-      if (prev.has(date)) return prev;
-      const next = new Set(prev);
-      next.add(date);
-      return next;
-    });
+    setCache((prev) => ({
+      ...updateCachedDay(prev, date, () => list),
+      loadedDates: prev.loadedDates.has(date)
+        ? prev.loadedDates
+        : new Set(prev.loadedDates).add(date),
+    }));
   }, []);
 
   const loadWeek = useCallback(async (start: string) => {
     const data = await api<Record<string, Macros>>(
       `/entries/week?start=${encodeURIComponent(start)}`,
     );
-    setWeekTotals((prev) => ({ ...prev, ...data }));
+    setCache((prev) => ({ ...prev, weekTotals: { ...prev.weekTotals, ...data } }));
   }, []);
 
   const add = useCallback(
@@ -58,21 +60,17 @@ export function useEntries(): UseEntriesReturn {
         method: 'POST',
         body: params,
       });
-      let newList: EntryWithMacros[] = [];
-      setEntriesByDate((prev) => {
-        const list = prev[created.local_date] ?? [];
+      // Only derive totals for a day known to be loaded by this callback.
+      // A partial cache must not replace a full-day total fetched by loadWeek.
+      const deriveTotals = loadedDates.has(created.local_date);
+      setCache((prev) => updateCachedDay(
+        prev,
+        created.local_date,
         // Entry ids are the server-assigned insertion sequence. Sorting also
         // keeps overlapping POST responses in the same order as a cold load.
-        const next = [...list, created].sort((a, b) => a.id - b.id);
-        newList = next;
-        return { ...prev, [created.local_date]: next };
-      });
-      // Skip the optimistic week-total derive when the day's entries cache
-      // hasn't loaded — `prev[date] ?? []` would clobber whatever full-day
-      // total `loadWeek` already wrote with just the new entry's macros.
-      if (loadedDates.has(created.local_date)) {
-        setWeekTotals((prev) => ({ ...prev, [created.local_date]: sumMacros(newList) }));
-      }
+        (list) => [...list, created].sort((a, b) => a.id - b.id),
+        deriveTotals,
+      ));
       return created;
     },
     [loadedDates],
@@ -83,19 +81,13 @@ export function useEntries(): UseEntriesReturn {
       method: 'PATCH',
       body: patch,
     });
-    let newList: EntryWithMacros[] = [];
-    setEntriesByDate((prev) => {
-      const list = prev[updated.local_date] ?? [];
-      const next = list.map((e) => (e.id === updated.id ? updated : e));
-      newList = next;
-      return {
-        ...prev,
-        [updated.local_date]: next,
-      };
-    });
-    if (patch.grams !== undefined && loadedDates.has(updated.local_date)) {
-      setWeekTotals((prev) => ({ ...prev, [updated.local_date]: sumMacros(newList) }));
-    }
+    const deriveTotals = patch.grams !== undefined && loadedDates.has(updated.local_date);
+    setCache((prev) => updateCachedDay(
+      prev,
+      updated.local_date,
+      (list) => list.map((entry) => (entry.id === updated.id ? updated : entry)),
+      deriveTotals,
+    ));
     return updated;
   }, [loadedDates]);
 
@@ -103,22 +95,19 @@ export function useEntries(): UseEntriesReturn {
     const result = await api<{ ok: true; dissolved_group_id: number | null }>(`/entries/${id}`, {
       method: 'DELETE',
     });
-    let newList: EntryWithMacros[] = [];
-    setEntriesByDate((prev) => {
-      const list = prev[date] ?? [];
-      const next = list
+    const deriveTotals = loadedDates.has(date);
+    setCache((prev) => updateCachedDay(
+      prev,
+      date,
+      (list) => list
         .filter((e) => e.id !== id)
         .map((e) =>
           result.dissolved_group_id !== null && e.group?.id === result.dissolved_group_id
             ? { ...e, group: null }
             : e,
-        );
-      newList = next;
-      return { ...prev, [date]: next };
-    });
-    if (loadedDates.has(date)) {
-      setWeekTotals((prev) => ({ ...prev, [date]: sumMacros(newList) }));
-    }
+        ),
+      deriveTotals,
+    ));
   }, [loadedDates]);
 
   const createGroup = useCallback(async (params: { name: string; entry_ids: number[] }) => {
@@ -127,17 +116,15 @@ export function useEntries(): UseEntriesReturn {
       body: params,
     });
     const memberIds = new Set(params.entry_ids);
-    setEntriesByDate((prev) => {
-      const list = prev[group.local_date] ?? [];
-      return {
-        ...prev,
-        [group.local_date]: list.map((entry) =>
-          memberIds.has(entry.id)
-            ? { ...entry, group: { id: group.id, name: group.name } }
-            : entry,
-        ),
-      };
-    });
+    setCache((prev) => updateCachedDay(
+      prev,
+      group.local_date,
+      (list) => list.map((entry) =>
+        memberIds.has(entry.id)
+          ? { ...entry, group: { id: group.id, name: group.name } }
+          : entry,
+      ),
+    ));
     return group;
   }, []);
 
@@ -146,14 +133,15 @@ export function useEntries(): UseEntriesReturn {
       method: 'PATCH',
       body: { name },
     });
-    setEntriesByDate((prev) => ({
-      ...prev,
-      [group.local_date]: (prev[group.local_date] ?? []).map((entry) =>
+    setCache((prev) => updateCachedDay(
+      prev,
+      group.local_date,
+      (list) => list.map((entry) =>
         entry.group?.id === group.id
           ? { ...entry, group: { id: group.id, name: group.name } }
           : entry,
       ),
-    }));
+    ));
     return group;
   }, []);
 
@@ -165,28 +153,30 @@ export function useEntries(): UseEntriesReturn {
     const first = updated[0];
     if (first !== undefined) {
       const byId = new Map(updated.map((entry) => [entry.id, entry]));
-      setEntriesByDate((prev) => ({
-        ...prev,
-        [first.local_date]: (prev[first.local_date] ?? []).map(
+      setCache((prev) => updateCachedDay(
+        prev,
+        first.local_date,
+        (list) => list.map(
           (entry) => byId.get(entry.id) ?? entry,
         ),
-      }));
+      ));
     }
     return updated;
   }, []);
 
   const ungroup = useCallback(async (id: number) => {
     await api<{ ok: true }>(`/entries/groups/${id}`, { method: 'DELETE' });
-    setEntriesByDate((prev) =>
-      Object.fromEntries(
-        Object.entries(prev).map(([date, list]) => [
+    setCache((prev) => ({
+      ...prev,
+      entriesByDate: Object.fromEntries(
+        Object.entries(prev.entriesByDate).map(([date, list]) => [
           date,
           list.map((entry) =>
             entry.group?.id === id ? { ...entry, group: null } : entry,
           ),
         ]),
       ),
-    );
+    }));
   }, []);
 
   return {

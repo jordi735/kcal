@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { tokenFrom } from './auth-helpers';
 
 // Settings.tsx renders 4 GoalField number inputs in order:
 // Protein, Carbs, Fat, Kcal (Kcal is last — see src/screens/Settings.tsx:163-172).
@@ -17,21 +17,6 @@ function bumpButtons(page: Page, fieldIndex: number) {
     minus: field.getByRole('button').first(),
     plus: field.getByRole('button').last(),
   };
-}
-
-// Inline tokenFrom — same pattern as entry/edit/race/adopt/search specs.
-// helpers.ts is read-only from review passes; if a third spec adopts this
-// snippet it would graduate into helpers.ts via a dedicated extraction pass.
-type StorageState = {
-  origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-};
-function tokenFrom(path: string): string {
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as StorageState;
-  const entry = parsed.origins[0]?.localStorage.find(
-    (e) => e.name === 'kcal_session_token',
-  );
-  if (entry === undefined) throw new Error(`no session token in ${path}`);
-  return entry.value;
 }
 
 test('[J-018] change daily kcal goal persists and updates MacroSummary', async ({ page }) => {

@@ -2,6 +2,8 @@
 // from verified credentials; every statement keeps its owner binding.
 
 import { statements } from './statements.js';
+import { scaleMacros, sumMacros } from '../shared/macros.js';
+export { sumMacros } from '../shared/macros.js';
 import type {
   EntryGroup, EntryGroupRow, EntryJoinRow, EntryWithMacros, GoalsRow, Macros, McpSummaryResult, Product, ProductRow,
   WeightEntry, WeightRow, WeightSummaryPoint, WeekSumRow,
@@ -43,7 +45,6 @@ export function searchOwnProducts(userId: number, query: string): Product[] {
 }
 
 export function rowToEntry(r: EntryJoinRow): EntryWithMacros {
-  const f = r.grams / 100;
   return {
     id: r.id,
     product: {
@@ -63,12 +64,12 @@ export function rowToEntry(r: EntryJoinRow): EntryWithMacros {
     grams: r.grams,
     local_date: r.local_date,
     local_time: r.local_time,
-    macros: {
-      kcal: r.p_kcal_per100 * f,
-      protein: r.p_protein_per100 * f,
-      carbs: r.p_carbs_per100 * f,
-      fat: r.p_fat_per100 * f,
-    },
+    macros: scaleMacros({
+      kcal: r.p_kcal_per100,
+      protein: r.p_protein_per100,
+      carbs: r.p_carbs_per100,
+      fat: r.p_fat_per100,
+    }, r.grams),
     tagged: r.tagged === 1,
     group:
       r.group_id === null || r.group_name === null
@@ -89,17 +90,6 @@ export function rowToEntryGroup(row: EntryGroupRow): EntryGroup {
 export function readGroupEntries(userId: number, groupId: number): EntryWithMacros[] {
   const rows = statements.entries.selectForGroup.all(userId, groupId) as EntryJoinRow[];
   return rows.map(rowToEntry);
-}
-
-export function sumMacros(values: Iterable<Macros>): Macros {
-  const total: Macros = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
-  for (const value of values) {
-    total.kcal += value.kcal;
-    total.protein += value.protein;
-    total.carbs += value.carbs;
-    total.fat += value.fat;
-  }
-  return total;
 }
 
 export function readDailyTotals(userId: number, dates: readonly string[]): Record<string, Macros> {

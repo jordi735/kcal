@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { tokenFrom } from './auth-helpers';
 import { longPress, signInFresh } from './helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -44,17 +44,6 @@ async function authHeaders(page: Page): Promise<{ Authorization: string }> {
   const token = await page.evaluate(() => localStorage.getItem('kcal_session_token'));
   if (token === null) throw new Error('missing page session token');
   return { Authorization: `Bearer ${token}` };
-}
-
-function tokenFrom(path: string): string {
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
-    origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-  };
-  const entry = parsed.origins[0]?.localStorage.find(
-    (item) => item.name === 'kcal_session_token',
-  );
-  if (entry === undefined) throw new Error(`no session token in ${path}`);
-  return entry.value;
 }
 
 async function seedEntry(

@@ -1,14 +1,14 @@
-import { expect, test as base, type APIRequestContext, type Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import Database from 'better-sqlite3';
 import type {
   EntryGroup, EntryWithMacros, McpDayResult, McpProductSearchResult, Product,
   McpEntryWriteResult as EntryResult, McpEntryDeleteResult as DeleteEntryResult,
   McpProductWriteResult as ProductResult, McpProductDeleteResult as DeleteProductResult,
 } from '../../shared/types';
-import { fillNutField, signInFresh } from './helpers';
-import { BrowserOAuth, connectMcp } from './oauth-helpers';
+import { fillNutField } from './helpers';
+import { connectMcp } from './oauth-helpers';
+import { call, createMcpTest, freshUser, reject, rest, storedRecords } from './mcp-helpers';
 
 const READ_TOOLS = ['get_day', 'get_meals', 'get_summary', 'get_week', 'get_weighins', 'search_products'];
 const WRITE_TOOLS = [
@@ -19,54 +19,9 @@ const WRITE_TOOLS = [
 const NUTRITION = { kcal: 200, protein: 10, carbs: 20, fat: 5 };
 const ZERO = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
 
-type Account = { token: string; user: { id: number; email: string } };
-type Connection = Awaited<ReturnType<typeof connectMcp>>;
-
-const test = base.extend<{ account: Account; connection: Connection; mcp: Client }>({
-  account: async ({ page, request }, use) => {
-    await use(await freshUser(page, request, 'mcp-write'));
-  },
-  connection: async ({ page, account }, use) => {
-    void account;
-    const connection = await connectMcp(page, new BrowserOAuth('none', 'kcal:read kcal:write'));
-    try { await use(connection); } finally { await connection.mcp.close(); }
-  },
-  mcp: async ({ connection }, use) => { await use(connection.mcp); },
-});
+const test = createMcpTest({ emailPrefix: 'mcp-write', scope: 'kcal:read kcal:write' });
 
 test.use({ storageState: { cookies: [], origins: [] } });
-
-async function freshUser(page: Page, request: APIRequestContext, prefix: string): Promise<Account> {
-  await signInFresh(page, request, prefix);
-  return page.evaluate(() => {
-    const user = JSON.parse(localStorage.getItem('kcal_user')!) as Account['user'];
-    return { token: localStorage.getItem('kcal_session_token')!, user: { id: user.id, email: user.email } };
-  });
-}
-
-async function call<T>(mcp: Client, name: string, args: Record<string, unknown>): Promise<T> {
-  const result = await mcp.callTool({ name, arguments: args }) as CallToolResult;
-  expect(result.isError, `${name}: ${JSON.stringify(result)}`).not.toBe(true);
-  expect(result.structuredContent).toBeDefined();
-  expect(result.content).toEqual([{ type: 'text', text: JSON.stringify(result.structuredContent) }]);
-  return result.structuredContent as T;
-}
-
-async function reject(mcp: Client, name: string, args: Record<string, unknown>, error?: string) {
-  const result = await mcp.callTool({ name, arguments: args }) as CallToolResult;
-  expect(result.isError, `${name}: ${JSON.stringify(args)}`).toBe(true);
-  expect(result.structuredContent).toBeUndefined();
-  expect(result.content).toEqual([{ type: 'text', text: error ?? expect.any(String) }]);
-}
-
-async function rest<T>(
-  request: APIRequestContext, token: string, method: 'get' | 'post' | 'put' | 'patch', url: string,
-  data?: unknown,
-): Promise<T> {
-  const response = await request[method](url, { headers: { Authorization: `Bearer ${token}` }, data });
-  expect(response.ok(), await response.text()).toBe(true);
-  return response.json() as Promise<T>;
-}
 
 async function createProduct(mcp: Client, name: string, extra: Record<string, unknown> = {}): Promise<Product> {
   return (await call<ProductResult>(mcp, 'create_product', { name, unit: 'g', per100: NUTRITION, ...extra })).product;
@@ -74,21 +29,6 @@ async function createProduct(mcp: Client, name: string, extra: Record<string, un
 
 async function createEntry(mcp: Client, product_id: number, local_date: string, grams = 100): Promise<EntryWithMacros> {
   return (await call<EntryResult>(mcp, 'create_entry', { product_id, grams, local_date, local_time: '12:30' })).entry;
-}
-
-function storedRecords(options: { ignoreSessionActivity?: boolean } = {}) {
-  const db = new Database('/tmp/kcal-e2e.db', { readonly: true });
-  try {
-    return ['users', 'sessions', 'products', 'entries', 'entry_groups', 'weights']
-      .map((table) => {
-        const columns = table === 'sessions' && options.ignoreSessionActivity
-          ? 'token, user_id, created_at'
-          : '*';
-        return db.prepare(`SELECT ${columns} FROM ${table} ORDER BY rowid`).all();
-      });
-  } finally {
-    db.close();
-  }
 }
 
 test('[J-205] MCP write scopes advertise mutation schemas and deny writes to read-only tokens', async ({ page, request, mcp, connection, account }) => {

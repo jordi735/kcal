@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { tokenFrom } from './auth-helpers';
 import { fillNutField, seedProductAndLog } from './helpers';
 
 // Edit flows. Entry edit opens GramsPicker in mode='edit' (title 'Edit amount',
@@ -14,21 +14,6 @@ const MACROS = { kcal: '100', protein: '10', carbs: '10', fat: '2' };
 // auth.setup.ts persisted user A's session token to user.json. The contract
 // tests just need a bearer token to prove route validators reject bad input —
 // no UI needed, so read the file directly to avoid a page navigation.
-type StorageState = {
-  origins: Array<{ localStorage: Array<{ name: string; value: string }> }>;
-};
-
-function tokenFromAuthFile(): string {
-  const parsed = JSON.parse(
-    readFileSync('tests/e2e/.auth/user.json', 'utf8'),
-  ) as StorageState;
-  const entry = parsed.origins[0]?.localStorage.find(
-    (e) => e.name === 'kcal_session_token',
-  );
-  if (entry === undefined) throw new Error('no session token in user.json');
-  return entry.value;
-}
-
 test('[J-016] edit grams updates the row without adding a new entry', async ({ page }) => {
   const name = 'E2E Edit Grams';
   await page.goto('/');
@@ -208,7 +193,7 @@ test('[J-068] PUT /products/:id with unknown id returns 404 not_found', async ({
   // doesn't exist (or belongs to another user) returns changes=0, which the
   // route translates to 404. 9_999_999 is far above any test seeding could
   // reach.
-  const token = tokenFromAuthFile();
+  const token = tokenFrom('tests/e2e/.auth/user.json');
   const res = await request.put('/products/9999999', {
     headers: { Authorization: `Bearer ${token}` },
     data: {
@@ -227,7 +212,7 @@ test('[J-069] PUT /products/:id with malformed id returns 400 invalid_id', async
   // products.ts:294-298 → parsePositiveInt returns null for zero, negatives,
   // and non-numerics; all three funnel through the same guard. Cover the
   // three flavors in one test to lock the contract.
-  const token = tokenFromAuthFile();
+  const token = tokenFrom('tests/e2e/.auth/user.json');
   const validBody = {
     name: 'whatever',
     brand: null,
@@ -248,7 +233,7 @@ test('[J-069] PUT /products/:id with malformed id returns 400 invalid_id', async
 test('[J-070] PATCH /entries/:id with unknown id returns 404 not_found', async ({ request }) => {
   // entries.ts:181-185 — updateGrams returns changes=0 for an id outside the
   // user's scope; the route maps that to 404. Same pattern for tagged at :188.
-  const token = tokenFromAuthFile();
+  const token = tokenFrom('tests/e2e/.auth/user.json');
   const res = await request.patch('/entries/9999999', {
     headers: { Authorization: `Bearer ${token}` },
     data: { grams: 200 },
@@ -259,7 +244,7 @@ test('[J-070] PATCH /entries/:id with unknown id returns 404 not_found', async (
 
 test('[J-071] PATCH /entries/:id with malformed id returns 400 invalid_id', async ({ request }) => {
   // entries.ts:170-173 → parsePositiveInt rejects 0, negatives, non-numerics.
-  const token = tokenFromAuthFile();
+  const token = tokenFrom('tests/e2e/.auth/user.json');
   for (const bad of ['0', '-1', 'abc']) {
     const res = await request.patch(`/entries/${bad}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -274,7 +259,7 @@ test('[J-072] PATCH /entries/:id with empty body returns 400 invalid_entry', asy
   // entries.ts:63-69 — isUpdateEntryBody requires at least one of `grams`
   // or `tagged`. Empty {} is rejected so a stray no-op PATCH can't masquerade
   // as a successful update.
-  const token = tokenFromAuthFile();
+  const token = tokenFrom('tests/e2e/.auth/user.json');
   const res = await request.patch('/entries/1', {
     headers: { Authorization: `Bearer ${token}` },
     data: {},
@@ -284,11 +269,11 @@ test('[J-072] PATCH /entries/:id with empty body returns 400 invalid_entry', asy
 });
 
 test('[J-073] PATCH /entries/:id rejects non-positive grams with 400 invalid_entry', async ({ request }) => {
-  // guards.ts isPositiveFinite excludes 0, negatives, NaN, Infinity. Three
+  // The shared isEntryAmount guard excludes amounts below 1, NaN and Infinity. Three
   // bad values exercise three branches: zero (the boundary), a negative,
   // and a string ("abc" coerces to NaN at the type-guard check). All must
   // funnel to 400 `invalid_entry` BEFORE the router touches any statement.
-  const token = tokenFromAuthFile();
+  const token = tokenFrom('tests/e2e/.auth/user.json');
   const cases: Array<unknown> = [0, -10, 'abc'];
   for (const grams of cases) {
     const res = await request.patch('/entries/1', {

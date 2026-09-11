@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Goals, Macros, Product } from '../types';
-import { MACRO_KEYS, MACRO_META } from '../macros';
+import { computeMacros, MACRO_KEYS, MACRO_META } from '../macros';
 import { cssVars } from '../styles';
-import { computeMacros } from '../mocks';
 import { api } from '../api';
 import { Sheet } from '../components/Sheet';
 import { useFocusClearableNumber } from '../hooks/useFocusClearableNumber';

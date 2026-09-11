@@ -1,5 +1,5 @@
-import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
-import { fillNutField, seedProductAndLog } from './helpers';
+import { expect, test } from '@playwright/test';
+import { fillNutField, seedProductAndLog, signInFresh } from './helpers';
 
 // Onboarding is the chain of state transitions a brand-new account walks
 // through on its first session — empty Home, idleEmpty AddPicker, migration-
@@ -9,19 +9,6 @@ import { fillNutField, seedProductAndLog } from './helpers';
 // dedicated proof. Shared storageState carries 20+ products from Tier 1
 // tests, so a per-test fresh sign-in is mandatory.
 test.use({ storageState: { cookies: [], origins: [] } });
-
-async function signInFresh(page: Page, request: APIRequestContext): Promise<string> {
-  const email = `onb-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
-  await page.goto('/');
-  await page.getByPlaceholder('you@example.com').fill(email);
-  await page.getByRole('button', { name: 'Send sign-in code' }).tap();
-  const res = await request.get(`/auth/test/last-code/${email}`);
-  const { code } = await res.json();
-  await page.getByLabel('6-digit sign-in code').fill(code);
-  // Login.tsx:114 auto-submits at 6 digits — wait for the home shell to land.
-  await expect(page.getByRole('button', { name: 'ADD FOOD' })).toBeVisible();
-  return email;
-}
 
 test('[J-104] full first-time onboarding: signup → empty → first product → first log → updated home', async ({
   page,
@@ -34,7 +21,7 @@ test('[J-104] full first-time onboarding: signup → empty → first product →
   // that broke the new-product → grams-picker modal transition, dropped the
   // optimistic addEntry update, or stale-cached entriesByDate would slip past
   // every per-component test. This spec ties them together.
-  await signInFresh(page, request);
+  await signInFresh(page, request, 'onb');
 
   // Sanity: brand-new user lands on the empty home with default kcal goal.
   await expect(page.getByText('No food logged')).toBeVisible();
@@ -97,7 +84,7 @@ test('[J-105] first log replaces idleEmpty with Recent section in AddPicker', as
   // exactly one product, so the branch flips to Recent + recents.map(renderRow).
   // Mutation: dropping `recents.length > 0` from the conditional would still
   // render the empty list but skip the Recent header — this catches that.
-  await signInFresh(page, request);
+  await signInFresh(page, request, 'onb');
   await seedProductAndLog(
     page,
     'E2E Onb Recent',
@@ -131,7 +118,7 @@ test('[J-106] addedProductIds check icon appears next to today logged products i
   // different list, or breaks the `addedProductIds.has(p.id)` check would
   // hide the affordance. Compare a logged product (icon expected) against an
   // unlogged-but-owned product (no icon) for full mutation resistance.
-  await signInFresh(page, request);
+  await signInFresh(page, request, 'onb');
 
   // Fresh user's bearer token — read after sign-in completes so we can seed
   // a sibling product via the API without an extra log.
@@ -188,7 +175,7 @@ test('[J-107] brand-new user has migration default goals visible in Settings', a
   // state from the User row the server just minted. Settings then reads those
   // goals from props (App.tsx:601). Mutation surface: server returning a User
   // without goal_* fields → undefined → Number(undefined) = NaN; or App reading
-  // mockGoals instead of user goals (mockGoals coincidentally matches in this
+  // fallback goals instead of user goals (the fallback coincidentally matches in this
   // codebase, so the comparison is value-by-value to exercise the four
   // independent props rather than rely on a structural diff).
   //
@@ -196,7 +183,7 @@ test('[J-107] brand-new user has migration default goals visible in Settings', a
   // 2=Fat, 3=Kcal (MACRO_KEYS first, kcal last). A label-based query would be
   // ambiguous — "Kcal" appears in the daily-goals row AND in the "kcal from
   // macros" subheading.
-  await signInFresh(page, request);
+  await signInFresh(page, request, 'onb');
 
   await page.getByRole('button', { name: 'Settings' }).tap();
   await expect(page.getByText('Daily goals')).toBeVisible();
@@ -225,7 +212,7 @@ test('[J-108] first log persists across page reload (server actually received PO
   // nothing; useEntries fetches /entries?date=today fresh, and the row only
   // reappears if the server actually persisted it. This separates "the UI
   // updated" from "the data is durable".
-  await signInFresh(page, request);
+  await signInFresh(page, request, 'onb');
   await seedProductAndLog(
     page,
     'E2E Onb Persist',
