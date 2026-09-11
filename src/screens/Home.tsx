@@ -153,6 +153,19 @@ export function Home({
   const canGroup =
     selectedEntries.length >= 2 && selectedEntries.every((entry) => entry.group === null);
 
+  const renderFoodRow = (entry: EntryWithMacros) => (
+    <FoodRow
+      key={entry.id}
+      entry={entry}
+      selected={selectedIds.has(entry.id)}
+      selectionMode={selectionMode}
+      onEdit={onEditEntry}
+      onToggleSelect={toggleSelect}
+      onToggleTagged={(en) => onMarkTagged([en], !en.tagged)}
+      onLongPress={toggleSelect}
+    />
+  );
+
   return (
     <div className={styles.shell}>
       <WeekStrip
@@ -181,19 +194,7 @@ export function Home({
           <div>
             {dayList.map((item) => {
               if (item.kind === 'entry') {
-                const entry = item.entry;
-                return (
-                  <FoodRow
-                    key={entry.id}
-                    entry={entry}
-                    selected={selectedIds.has(entry.id)}
-                    selectionMode={selectionMode}
-                    onEdit={onEditEntry}
-                    onToggleSelect={toggleSelect}
-                    onToggleTagged={(en) => onMarkTagged([en], !en.tagged)}
-                    onLongPress={toggleSelect}
-                  />
-                );
+                return renderFoodRow(item.entry);
               }
 
               const expanded = expandedGroupIds.has(item.group.id);
@@ -213,18 +214,7 @@ export function Home({
                   />
                   {expanded && (
                     <div className={styles.groupChildren}>
-                      {item.entries.map((entry) => (
-                        <FoodRow
-                          key={entry.id}
-                          entry={entry}
-                          selected={selectedIds.has(entry.id)}
-                          selectionMode={selectionMode}
-                          onEdit={onEditEntry}
-                          onToggleSelect={toggleSelect}
-                          onToggleTagged={(en) => onMarkTagged([en], !en.tagged)}
-                          onLongPress={toggleSelect}
-                        />
-                      ))}
+                      {item.entries.map(renderFoodRow)}
                     </div>
                   )}
                 </div>
