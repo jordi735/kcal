@@ -221,7 +221,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-163 · Vertical drag is a no-op (axis lock to `'y'` on first move; gesture state isn't stranded — a follow-up horizontal swipe still commits)
 - J-164 · Tapping a day pill selects that date and applies the `selected` class without shifting `weekStart` (caption stays the same)
 - J-165 · Caption ends with a zero-padded `· W##` (`padStart(2, '0')` shape; positive control across all three `monthLabel` branches)
-- J-166 · A second swipe initiated during the 300 ms snap animation is suppressed by `animatingRef` (only one commit fires; PREV arrow returns to the original caption in exactly one tap)
+- J-166 · A second swipe during a paused, active CSS snap animation leaves the original transition intact; only one commit fires and PREV returns to the original caption in one tap
 
 # 13. Keyboard `Enter` semantics
 
