@@ -1,6 +1,9 @@
 // Weight history and its small add/edit flow, kept inside one dismissible Sheet.
 
 import { useEffect, useState } from 'preact/hooks';
+import {
+  isWeightAmount, MAX_WEIGHT_KG, MAX_WEIGHT_NOTE_LENGTH, MIN_WEIGHT_KG, WEIGHT_STEP_KG,
+} from '../../shared/constraints';
 import { api, ApiError } from '../api';
 import { Sheet, useSheetClose } from '../components/Sheet';
 import { ArrowRightIcon, PlusIcon, TrashIcon, WeightIcon } from '../components/Icon';
@@ -19,7 +22,6 @@ type View =
   | { kind: 'edit'; entry: WeightEntry };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const MAX_NOTE_LENGTH = 500;
 
 function sortEntries(entries: WeightEntry[]): WeightEntry[] {
   return [...entries].sort((a, b) => b.local_date.localeCompare(a.local_date));
@@ -210,13 +212,8 @@ function WeightForm({ mode, entry, onCancel, onSave, onDelete }: WeightFormProps
   const [error, setError] = useState<string | null>(null);
 
   const numericWeight = Number(weight);
-  const validWeight =
-    weight.trim() !== '' &&
-    Number.isFinite(numericWeight) &&
-    numericWeight >= 0.1 &&
-    numericWeight <= 1000 &&
-    Math.abs(numericWeight * 10 - Math.round(numericWeight * 10)) < 1e-9;
-  const valid = DATE_RE.test(localDate) && validWeight && note.length <= MAX_NOTE_LENGTH;
+  const validWeight = weight.trim() !== '' && isWeightAmount(numericWeight);
+  const valid = DATE_RE.test(localDate) && validWeight && note.length <= MAX_WEIGHT_NOTE_LENGTH;
 
   const submit = async () => {
     if (!valid || submitting) return;
@@ -298,9 +295,9 @@ function WeightForm({ mode, entry, onCancel, onSave, onDelete }: WeightFormProps
               <input
                 type="number"
                 inputMode="decimal"
-                min="0.1"
-                max="1000"
-                step="0.1"
+                min={MIN_WEIGHT_KG}
+                max={MAX_WEIGHT_KG}
+                step={WEIGHT_STEP_KG}
                 value={weight}
                 onInput={(event) => setWeight(event.currentTarget.value)}
                 className={`mono ${styles.weightInput}`}
@@ -348,11 +345,11 @@ function WeightForm({ mode, entry, onCancel, onSave, onDelete }: WeightFormProps
               className={styles.noteInput}
               aria-label="Note"
               placeholder="optional"
-              maxLength={MAX_NOTE_LENGTH}
+              maxLength={MAX_WEIGHT_NOTE_LENGTH}
               rows={5}
             />
             <span className={`mono tiny ${styles.noteCount}`}>
-              {note.length}/{MAX_NOTE_LENGTH}
+              {note.length}/{MAX_WEIGHT_NOTE_LENGTH}
             </span>
           </label>
 

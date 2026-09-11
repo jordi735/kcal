@@ -4,9 +4,20 @@ import { normalizeEntryGroupName } from './normalize.js';
 
 export const MIN_ENTRY_AMOUNT = 1;
 export const MAX_ENTRY_GROUP_NAME_LENGTH = 64;
+export const MIN_WEIGHT_KG = 0.1;
+export const MAX_WEIGHT_KG = 1000;
+export const WEIGHT_STEP_KG = 0.1;
+export const MAX_WEIGHT_NOTE_LENGTH = 500;
 
 export function isEntryAmount(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= MIN_ENTRY_AMOUNT;
+}
+
+export function isWeightAmount(value: unknown): value is number {
+  if (typeof value !== 'number' || !Number.isFinite(value)
+    || value < MIN_WEIGHT_KG || value > MAX_WEIGHT_KG) return false;
+  const tenths = value * 10;
+  return Math.abs(tenths - Math.round(tenths)) < 1e-9;
 }
 
 export function parseEntryGroupName(value: unknown): string | null {
