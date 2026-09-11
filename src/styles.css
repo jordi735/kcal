@@ -1,6 +1,6 @@
 /* KCAL — Dark, editorial, monospace-driven macro tracker */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Instrument+Serif&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Fira+Code:wght@400;500;600&family=Syne:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700&display=swap');
 
 :root {
   /* Gruvbox dark (hard) */
@@ -127,14 +127,6 @@ input[type="number"] {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-@keyframes scaleIn {
-  from { transform: scale(0.96); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-@keyframes barGrow {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
 }
 
 .overlay {
@@ -291,7 +283,7 @@ input[type="number"] {
   border-bottom: none;
 }
 
-/* Scanner viewfinder corner markers — shared by barcode + AI label scanners.
+/* Barcode scanner viewfinder corner markers.
    Size via --corner-size on the wrapper (default 28px). */
 .scan-corner {
   position: absolute;
@@ -307,10 +299,4 @@ input[type="number"] {
 @keyframes scanLine {
   0%, 100% { top: 15%; opacity: 1; }
   50%      { top: 85%; opacity: 1; }
-}
-
-@keyframes aiSweep {
-  0%   { top: 0%;  opacity: 0.3; }
-  50%  { top: 98%; opacity: 1; }
-  100% { top: 0%;  opacity: 0.3; }
 }
