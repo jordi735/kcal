@@ -2,6 +2,7 @@
 // Banner at the top opens the AI label scanner (parent-routed via onScanLabel).
 
 import { useState } from 'preact/hooks';
+import { MAX_PRODUCT_BARCODE_LENGTH } from '../../shared/constraints';
 import type { Macros } from '../types';
 import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
 import { cssVars } from '../styles';
@@ -255,7 +256,7 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
               value={barcode}
               onChange={setBarcode}
               placeholder="optional"
-              maxLength={64}
+              maxLength={MAX_PRODUCT_BARCODE_LENGTH}
               inputMode="numeric"
               autoComplete="off"
               wrapClassName={styles.barcodeInput}

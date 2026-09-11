@@ -4,6 +4,7 @@
 import * as fsp from 'node:fs/promises';
 import * as os from 'node:os';
 import path from 'node:path';
+import { MAX_PRODUCT_KCAL_PER100, MAX_PRODUCT_MACRO_GRAMS_PER100 } from '../shared/constraints.js';
 import { runCodexJsonTurn } from './codex-runner.js';
 import { log } from './log.js';
 import type {
@@ -167,12 +168,12 @@ function validateAndCoerce(parsed: unknown): ExtractedLabel {
   }
   const per100Raw = root.per100 as RawPer100;
 
-  const kcal = coerceNonNegMacro(per100Raw.kcal, 2000);
+  const kcal = coerceNonNegMacro(per100Raw.kcal, MAX_PRODUCT_KCAL_PER100);
   if (kcal === null) throw new InvalidExtractionError('kcal_missing');
 
-  const protein = coerceOptionalMacro(per100Raw.protein, 200, 'protein');
-  const carbs = coerceOptionalMacro(per100Raw.carbs, 200, 'carbs');
-  const fat = coerceOptionalMacro(per100Raw.fat, 200, 'fat');
+  const protein = coerceOptionalMacro(per100Raw.protein, MAX_PRODUCT_MACRO_GRAMS_PER100, 'protein');
+  const carbs = coerceOptionalMacro(per100Raw.carbs, MAX_PRODUCT_MACRO_GRAMS_PER100, 'carbs');
+  const fat = coerceOptionalMacro(per100Raw.fat, MAX_PRODUCT_MACRO_GRAMS_PER100, 'fat');
   const name = typeof root.name === 'string' ? root.name.trim() : '';
 
   let brand: string | null = null;

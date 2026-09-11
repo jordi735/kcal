@@ -4,6 +4,11 @@ import { normalizeEntryGroupName } from './normalize.js';
 
 export const MIN_ENTRY_AMOUNT = 1;
 export const MAX_ENTRY_GROUP_NAME_LENGTH = 64;
+export const MAX_PRODUCT_KCAL_PER100 = 2000;
+export const MAX_PRODUCT_MACRO_GRAMS_PER100 = 200;
+export const MAX_PRODUCT_NAME_LENGTH = 200;
+export const MAX_PRODUCT_BRAND_LENGTH = 120;
+export const MAX_PRODUCT_BARCODE_LENGTH = 64;
 export const MIN_WEIGHT_KG = 0.1;
 export const MAX_WEIGHT_KG = 1000;
 export const WEIGHT_STEP_KG = 0.1;

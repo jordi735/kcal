@@ -9,6 +9,10 @@
 
 import { Router } from 'express';
 import multer from 'multer';
+import {
+  MAX_PRODUCT_BARCODE_LENGTH, MAX_PRODUCT_BRAND_LENGTH, MAX_PRODUCT_KCAL_PER100,
+  MAX_PRODUCT_MACRO_GRAMS_PER100, MAX_PRODUCT_NAME_LENGTH,
+} from '../../shared/constraints.js';
 import { authMiddleware } from '../auth.js';
 import { extractNutrition, InvalidExtractionError } from '../codex.js';
 import { env } from '../env.js';
@@ -213,20 +217,20 @@ function isPer100(v: unknown): v is { kcal: number; protein: number; carbs: numb
   if (!isObject(v)) return false;
   const { kcal, protein, carbs, fat } = v;
   return (
-    typeof kcal === 'number' && Number.isFinite(kcal) && kcal >= 0 && kcal <= 2000 &&
-    typeof protein === 'number' && Number.isFinite(protein) && protein >= 0 && protein <= 200 &&
-    typeof carbs === 'number' && Number.isFinite(carbs) && carbs >= 0 && carbs <= 200 &&
-    typeof fat === 'number' && Number.isFinite(fat) && fat >= 0 && fat <= 200
+    typeof kcal === 'number' && Number.isFinite(kcal) && kcal >= 0 && kcal <= MAX_PRODUCT_KCAL_PER100 &&
+    typeof protein === 'number' && Number.isFinite(protein) && protein >= 0 && protein <= MAX_PRODUCT_MACRO_GRAMS_PER100 &&
+    typeof carbs === 'number' && Number.isFinite(carbs) && carbs >= 0 && carbs <= MAX_PRODUCT_MACRO_GRAMS_PER100 &&
+    typeof fat === 'number' && Number.isFinite(fat) && fat >= 0 && fat <= MAX_PRODUCT_MACRO_GRAMS_PER100
   );
 }
 
 function isProductBaseBody(v: unknown): v is UpdateProductBody {
   if (!isObject(v)) return false;
   const { name, brand, unit, barcode } = v;
-  if (typeof name !== 'string' || name.trim().length === 0 || name.length > 200) return false;
-  if (brand !== null && (typeof brand !== 'string' || brand.length > 120)) return false;
+  if (typeof name !== 'string' || name.trim().length === 0 || name.length > MAX_PRODUCT_NAME_LENGTH) return false;
+  if (brand !== null && (typeof brand !== 'string' || brand.length > MAX_PRODUCT_BRAND_LENGTH)) return false;
   if (unit !== 'g' && unit !== 'ml') return false;
-  if (barcode !== null && (typeof barcode !== 'string' || barcode.length > 64)) return false;
+  if (barcode !== null && (typeof barcode !== 'string' || barcode.length > MAX_PRODUCT_BARCODE_LENGTH)) return false;
   if (!isPer100(v.per100)) return false;
   return true;
 }

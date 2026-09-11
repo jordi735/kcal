@@ -1,7 +1,11 @@
 // MCP input/output schemas and tool annotations. Keep the public contracts here.
 
 import { z } from 'zod';
-import { isLocalDate, MIN_ENTRY_AMOUNT, parseEntryGroupName } from '../../shared/constraints.js';
+import {
+  isLocalDate, MIN_ENTRY_AMOUNT, parseEntryGroupName, MAX_PRODUCT_BARCODE_LENGTH,
+  MAX_PRODUCT_BRAND_LENGTH, MAX_PRODUCT_KCAL_PER100, MAX_PRODUCT_MACRO_GRAMS_PER100,
+  MAX_PRODUCT_NAME_LENGTH,
+} from '../../shared/constraints.js';
 import { DATE_RE, TIME_RE } from '../guards.js';
 import type {
   McpEntryWriteResult, McpEntryDeleteResult, McpProductWriteResult, McpProductDeleteResult,
@@ -70,16 +74,16 @@ export const entryGroupName = z.string()
   .refine((name) => parseEntryGroupName(name) !== null, 'Use a group name of 1–64 characters after whitespace normalization')
   .describe('Group name; trim and collapse whitespace, preserve casing, 1–64 characters after normalization');
 export const per100Input = z.strictObject({
-  kcal: z.number().min(0).max(2000),
-  protein: z.number().min(0).max(200),
-  carbs: z.number().min(0).max(200),
-  fat: z.number().min(0).max(200),
+  kcal: z.number().min(0).max(MAX_PRODUCT_KCAL_PER100),
+  protein: z.number().min(0).max(MAX_PRODUCT_MACRO_GRAMS_PER100),
+  carbs: z.number().min(0).max(MAX_PRODUCT_MACRO_GRAMS_PER100),
+  fat: z.number().min(0).max(MAX_PRODUCT_MACRO_GRAMS_PER100),
 });
 export const productFields = {
-  name: z.string().max(200).refine((name) => name.trim().length > 0, 'Name must not be blank'),
-  brand: z.string().max(120).nullable(),
+  name: z.string().max(MAX_PRODUCT_NAME_LENGTH).refine((name) => name.trim().length > 0, 'Name must not be blank'),
+  brand: z.string().max(MAX_PRODUCT_BRAND_LENGTH).nullable(),
   unit: z.enum(['g', 'ml']),
-  barcode: z.string().max(64).nullable(),
+  barcode: z.string().max(MAX_PRODUCT_BARCODE_LENGTH).nullable(),
 };
 export const entryWriteSchema = z.object({ user_id: z.number().int(), entry: entrySchema }) satisfies z.ZodType<McpEntryWriteResult>;
 export const productWriteSchema = z.object({ user_id: z.number().int(), product: productSchema }) satisfies z.ZodType<McpProductWriteResult>;
