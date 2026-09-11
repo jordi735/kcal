@@ -12,7 +12,7 @@ import { statements } from './statements.js';
 import { trimOrNull } from './util.js';
 import type {
   EntryGroupRow, EntryJoinRow, EntryMembershipRow, EntryUpdate, EntryWithMacros,
-  McpEntryGroupResult, McpUngroupResult, McpEntryGroupDeleteResult,
+  EntryGroupResult, UngroupResult, EntryGroupDeleteResult,
   NewEntryBody, NewProductBody, Product, ProductPatch, ProductRow,
 } from './types.js';
 
@@ -121,7 +121,7 @@ function requireEntryGroup(userId: number, groupId: number): EntryGroupRow {
 
 export function createEntryGroup(
   userId: number, rawName: string, entryIds: number[],
-): Omit<McpEntryGroupResult, 'user_id'> {
+): EntryGroupResult {
   const name = parseEntryGroupName(rawName);
   if (name === null || entryIds.length < 2 || !entryIds.every(isPositiveInt)
     || new Set(entryIds).size !== entryIds.length) {
@@ -160,7 +160,7 @@ export function createEntryGroup(
 
 export function updateEntryGroup(
   userId: number, groupId: number, rawName: string,
-): Omit<McpEntryGroupResult, 'user_id'> {
+): EntryGroupResult {
   const name = parseEntryGroupName(rawName);
   if (name === null) throw new WriteError(400, 'invalid_group');
   const result = db.transaction(() => {
@@ -179,7 +179,7 @@ export function updateEntryGroup(
 
 export function setEntryGroupTagged(
   userId: number, groupId: number, tagged: boolean,
-): Omit<McpEntryGroupResult, 'user_id'> {
+): EntryGroupResult {
   if (typeof tagged !== 'boolean') throw new WriteError(400, 'invalid_group');
   const result = db.transaction(() => {
     const group = requireEntryGroup(userId, groupId);
@@ -190,7 +190,7 @@ export function setEntryGroupTagged(
   return result;
 }
 
-export function ungroupEntries(userId: number, groupId: number): Omit<McpUngroupResult, 'user_id'> {
+export function ungroupEntries(userId: number, groupId: number): UngroupResult {
   const entries = db.transaction(() => {
     requireEntryGroup(userId, groupId);
     const children = readGroupEntries(userId, groupId);
@@ -211,7 +211,7 @@ export function ungroupEntries(userId: number, groupId: number): Omit<McpUngroup
 
 export function deleteEntryGroup(
   userId: number, groupId: number,
-): Omit<McpEntryGroupDeleteResult, 'user_id'> {
+): EntryGroupDeleteResult {
   const deletedEntryIds = db.transaction(() => {
     requireEntryGroup(userId, groupId);
     const children = readGroupEntries(userId, groupId);

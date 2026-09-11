@@ -5,7 +5,7 @@ import { statements } from './statements.js';
 import { scaleMacros, sumMacros } from '../shared/macros.js';
 export { sumMacros } from '../shared/macros.js';
 import type {
-  EntryGroup, EntryGroupRow, EntryJoinRow, EntryWithMacros, GoalsRow, Macros, McpSummaryResult, Product, ProductRow,
+  EntryGroup, EntryGroupRow, EntryJoinRow, EntryWithMacros, GoalsRow, Macros, SummaryResult, Product, ProductRow,
   WeightEntry, WeightRow, WeightSummaryPoint, WeekSumRow,
 } from './types.js';
 
@@ -108,7 +108,7 @@ export function readDailyTotals(userId: number, dates: readonly string[]): Recor
 
 export function readSummary(
   userId: number, dates: readonly string[],
-): Omit<McpSummaryResult, 'user_id' | 'start_date' | 'end_date' | 'current_daily_goals'> {
+): SummaryResult {
   const start = dates[0];
   const end = dates.at(-1);
   const validDates = new Set(dates);

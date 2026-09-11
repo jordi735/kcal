@@ -121,10 +121,7 @@ export type McpWeighinsResult = {
 
 export type WeightSummaryPoint = Pick<WeightEntry, 'local_date' | 'weight_kg'>;
 
-export type McpSummaryResult = {
-  user_id: number;
-  start_date: string;
-  end_date: string;
+export type SummaryResult = {
   days_total: number;
   days_logged: number;
   days_without_entries: number;
@@ -132,7 +129,6 @@ export type McpSummaryResult = {
   // Days with at least one entry, including zero-calorie entries. This does
   // not imply complete logging; null means there were no logged days.
   average_on_logged_days: Macros | null;
-  current_daily_goals: Macros;
   weight: {
     weighin_count: number;
     first: WeightSummaryPoint | null;
@@ -140,6 +136,13 @@ export type McpSummaryResult = {
     // Latest minus earliest within the range; null with fewer than two points.
     change_kg: number | null;
   };
+};
+
+export type McpSummaryResult = SummaryResult & {
+  user_id: number;
+  start_date: string;
+  end_date: string;
+  current_daily_goals: Macros;
 };
 
 export type McpProductSearchResult = {
@@ -173,22 +176,25 @@ export type McpProductDeleteResult = {
   deleted_entry_count: number;
 };
 
-export type McpEntryGroupResult = {
-  user_id: number;
+export type EntryGroupResult = {
   group: EntryGroup;
   entries: EntryWithMacros[];
 };
 
-export type McpUngroupResult = {
-  user_id: number;
+export type McpEntryGroupResult = EntryGroupResult & { user_id: number };
+
+export type UngroupResult = {
   ok: true;
   group_id: number;
   entries: EntryWithMacros[];
 };
 
-export type McpEntryGroupDeleteResult = {
-  user_id: number;
+export type McpUngroupResult = UngroupResult & { user_id: number };
+
+export type EntryGroupDeleteResult = {
   ok: true;
   group_id: number;
   deleted_entry_ids: number[];
 };
+
+export type McpEntryGroupDeleteResult = EntryGroupDeleteResult & { user_id: number };
