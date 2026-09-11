@@ -85,7 +85,10 @@ required-key inventory and never commit real credentials.
 - Normalize stored product names, brands, and entry-group names with the helpers
   in `shared/normalize.ts` on every create and update path.
 - Use `shared/constraints.ts` for the UI/REST/MCP entry minimum and group-name
-  validation. New or changed amounts must be at least 1 g/ml; decimals are allowed.
+  validation, weight numeric rules, and product/weight limits. Keep interface
+  parsing local: REST, MCP and AI product validators have different coercion
+  rules, and the weight UI counts raw note length while REST counts trimmed text.
+  New or changed entry amounts must be at least 1 g/ml; decimals are allowed.
   Do not rewrite legacy smaller entries or reject their tag-only edits or deletion.
 - `useEntries` applies local cache changes only after successful requests. Preserve
   entry insertion order by `id` and recompute week totals only for loaded dates;

@@ -234,5 +234,76 @@ are also deferred.
 - Obsolete CSS casting was removed without changing emitted JavaScript.
   Source-reference edits preserve the comment-stripped executable AST of every
   affected E2E file. Frontend typecheck passed for this pass.
+- CSS-only before/after production builds used an isolated archive, database and
+  port. Active Google fonts loaded successfully; computed styles and rendered
+  platform fonts match. Login/Home screenshots are pixel-identical. Product-form
+  captures differ only by one-channel rounded-edge variation also seen when
+  capturing unchanged CSS twice. Report and images:
+  `/tmp/kcal-css-parity-w6td_ebi/captures/`.
+- Weight parser source comparison preserves results and exact failures for
+  boundary values, precision tolerance, invalid calendar-shaped dates, trimmed
+  notes and omitted flags. AI coercion and both scope-specific SDK discovery
+  results match baseline byte-for-byte after product constant extraction.
+  Probe sources/results: `/tmp/kcal-cleanup-2-backend/`.
+- Neutral operation-result types preserve all existing shared exported type
+  structures. Core reads/writes emit identical runtime JavaScript, and final MCP
+  discovery still matches both baseline scope inventories.
+- The first row-focused run exposed a grouping-test synchronization race: group
+  visibility can precede Home's selection-reset effect and the outgoing selection
+  bar's exit. The unchanged parent logic passed an immediate repeated check.
+  `createGroupFromRows` now waits for both Sheet unmount and selection-bar exit
+  before the next interaction; assertions and application behavior are unchanged.
+  Initial log: `/tmp/kcal-cleanup-2-rows.log`; repeated check:
+  `/tmp/kcal-cleanup-2-group-repeat.log`.
 
-Remaining passes and final validation are pending.
+- Focused integration covering weight, refactor parity, product, validation,
+  edit, onboarding, MCP reads/writes/groups and grouping passed (2.6 minutes):
+  `/tmp/kcal-cleanup-2-focused.log`. This includes the grouping synchronization
+  check and the new weight/scanner assertions after all application edits.
+- Final frontend, server and test typechecks passed, as did the journey catalog
+  duplicate/backlink and whitespace checks. Independent reviews found no
+  additional behavior or public API differences.
+
+- The first full-suite run passed every journey except the existing week-strip
+  animation-lock test (`/tmp/kcal-cleanup-2-final.log`). Its two awaited mouse
+  swipes did not guarantee the second began during the 300ms transition. The
+  carousel runtime and its stylesheet are unchanged.
+
+The animation-lock test now pauses the real CSS transition before the second
+mouse swipe, verifies the same transition remains active, then finishes it and
+checks the original one-week result. The complete week-strip spec passes:
+`/tmp/kcal-cleanup-2-weekstrip.log`. In an isolated archive, the corrected test
+passes with the guard present and fails when only the `animatingRef` guard is
+removed (the original animation is cancelled instead of remaining paused).
+Proof logs: `/tmp/kcal-j166-parity-u5n2w9tt/`.
+
+A subsequent full run (`/tmp/kcal-cleanup-2-final-verified.log`) failed before
+the second swipe because the paused track was already cancelled and its week
+committed. An isolated probe reproduced this existing behavior with both a real
+child opacity transition and a synthetic child event: the track's unfiltered
+`transitionend` listener accepts bubbled events and commits prematurely. Late
+progress-dot transitions from the populated shared account are the inferred
+trigger in the full run. Probe: `/tmp/kcal-week-bubble-w23da76a/result.json`.
+J-166 now uses blank storage and `signInFresh`, waits for
+the empty day, and tests the track lock without unrelated history animations.
+The whole week-strip spec passes repeated runs with this setup:
+`/tmp/kcal-cleanup-2-weekstrip-isolated.log`.
+The fresh-account version also passes the isolated guard-present check and fails
+the guard-removal mutation at the intended animation-preservation assertion:
+`/tmp/kcal-j166-parity-u5n2w9tt/baseline-j166-fresh.log` and
+`/tmp/kcal-j166-parity-u5n2w9tt/mutation-j166-fresh.log`.
+
+Separate functional follow-up: restrict the carousel's commit/snap-back completion
+handlers to the track's own transform transition. Characterize child opacity/
+background transition events and late week-total loads before changing it.
+This application behavior is deliberately unchanged in the cleanup campaign.
+
+All eight cleanup passes are complete in separate commits, with the parity
+additions and test-synchronization fixes separately reviewable. Final `npm test`
+passed (2026-09-11; 6.2 minutes), including the isolated animation-lock test:
+`/tmp/kcal-cleanup-2-final-complete.log`. All three typechecks, journey
+duplicate/backlink checks and `git diff --check` pass. The upload/quota extraction
+and the confirmed carousel child-transition issue remain separate follow-ups.
+Live camera decoding and AI inference were not exercised; this campaign's
+automated scanner checks cover cancellation/draft behavior and deterministic
+coercion, as described above.
