@@ -71,8 +71,9 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-226 · Cancelling barcode scanning returns to a new product with its entire draft intact
 - J-227 · Cancelling barcode scanning preserves a temporary product draft and its temporary status
 - J-228 · Cancelling barcode scanning preserves an edited product draft and its GramsPicker return destination
-- J-229 · Cancelling the AI file picker preserves a temporary product draft
+- J-229 · Cancelling the AI file picker preserves temporary metadata and complete nutrition; incomplete nutrition returns as blank fields
 - J-234 · Scan-result merging preserves typed metadata, temporary status and edit context while replacing only intended draft fields
+- J-235 · Scanner snapshots keep complete nutrition and raw metadata, omit incomplete nutrition, and trim metadata only when submitting
 
 # 5. Entry CRUD
 
@@ -248,8 +249,8 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-183 · Future and note-free weigh-ins sort newest-first; Add opens today's existing record and restores its checkbox choices
 - J-184 · Editing date, weight, checkbox choices, and note updates one record, reorders history, and persists after reload
 - J-185 · One-tap weigh-in deletion removes only the chosen record and persists after reload
-- J-186 · Weight form validation and Cancel prevent invalid writes and reset checkbox drafts; failed saves retain every field for a successful retry
-- J-187 · Weight API validates bodies and IDs, rejects date collisions, and isolates every user's records
+- J-186 · Weight form accepts inclusive numeric bounds, rejects excess precision and raw notes over 500 characters, and prevents blank writes; Cancel resets drafts and failed saves retain every field for retry
+- J-187 · Weight API accepts inclusive numeric bounds and trimmed notes up to 500 characters, rejects invalid POST/PUT bodies atomically and date collisions, and isolates every user's records
 - J-215 · Touch checkboxes toggle independently, persist all four combinations in history and edits, reset for new dates, and discard cancelled edits
 - J-216 · Weight API supplies omitted checkbox defaults, preserves omitted flags on edits, and rejects non-boolean values without partial writes
 - J-217 · Weight checkbox migration backfills every owner with Peed true and Pooped false, preserves legacy records and notes, and enforces defaults and constraints

@@ -243,20 +243,64 @@ test('[J-186] validation and Cancel prevent writes; a failed save keeps the draf
   await openWeights(page);
   await page.getByRole('button', { name: 'Add weight', exact: true }).tap();
 
-  const submit = page.getByRole('button', { name: 'Add weigh-in', exact: true });
+  const sheet = page.locator('.sheet');
+  const weight = sheet.getByRole('spinbutton', { name: 'Weight', exact: true });
+  const note = sheet.getByLabel('Note', { exact: true });
+  const weightError = sheet.getByText('Use 0.1–1000.0 kg with one decimal at most.', { exact: true });
+  const submit = sheet.getByRole('button', { name: 'Add weigh-in', exact: true });
+  await expect(weight).toBeEmpty();
   await expect(submit).toBeDisabled();
-  await page.getByRole('spinbutton', { name: 'Weight', exact: true }).fill('82.45');
-  await expect(page.getByText(/one decimal at most/)).toBeVisible();
+  await expect(weightError).toHaveCount(0);
+
+  // Bounds are inclusive; precision applies to the numeric value, so an
+  // extra trailing zero is accepted without rounding a more precise value.
+  for (const value of ['0.1', '1000', '82.40']) {
+    await weight.fill(value);
+    await expect(submit, value).toBeEnabled();
+    await expect(weightError).toHaveCount(0);
+  }
+  for (const value of ['0', '1000.1', '82.45']) {
+    await weight.fill(value);
+    await expect(weightError, value).toBeVisible();
+    await expect(submit, value).toBeDisabled();
+  }
+  await weight.fill('');
+  await expect(weight).toBeEmpty();
+  await expect(submit).toBeDisabled();
+  await expect(weightError).toHaveCount(0);
+
+  await weight.fill('82.4');
+  const maxNote = 'x'.repeat(500);
+  await expect(note).toHaveAttribute('maxlength', '500');
+  await note.fill(maxNote);
+  await expect(note).toHaveValue(maxNote);
+  await expect(sheet.getByText('500/500', { exact: true })).toBeVisible();
+  await expect(submit).toBeEnabled();
+
+  // Reach the form guard past the browser's maxlength protection. The UI
+  // counts raw characters; REST accepts this note after trimming its spaces.
+  const paddedNote = ` ${maxNote} `;
+  await note.evaluate((element, value) => {
+    (element as HTMLTextAreaElement).value = value;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+  }, paddedNote);
+  await expect(note).toHaveValue(paddedNote);
+  await expect(sheet.getByText('502/500', { exact: true })).toBeVisible();
   await expect(submit).toBeDisabled();
 
-  await page.getByRole('spinbutton', { name: 'Weight', exact: true }).fill('82.4');
-  await page.getByLabel('Note').fill('cancelled draft');
+  await note.fill('cancelled draft');
+  await expect(submit).toBeEnabled();
   const peed = page.locator('.sheet').getByRole('checkbox', { name: 'Peed', exact: true });
   const pooped = page.locator('.sheet').getByRole('checkbox', { name: 'Pooped', exact: true });
   await peed.tap();
   await pooped.tap();
   await page.getByRole('button', { name: 'Cancel', exact: true }).tap();
   await expect(page.locator('.weight-row')).toHaveCount(0);
+  const cancelledHistory = await request.get('/weights', {
+    headers: { Authorization: `Bearer ${await bearerFromPage(page)}` },
+  });
+  expect(cancelledHistory.ok()).toBeTruthy();
+  expect(await cancelledHistory.json()).toEqual([]);
 
   await page.getByRole('button', { name: 'Add weight', exact: true }).tap();
   await expect(peed).toBeChecked();
@@ -299,6 +343,19 @@ test('[J-187] API validates, rejects collisions, and isolates users', async ({ p
     weight_kg: 82.4,
     note: '  normalized note  ',
   });
+  const minimum = await createWeight(request, ownerToken, {
+    local_date: '2031-05-08',
+    weight_kg: 0.1,
+    note: ' \n\t ',
+  });
+  expect(minimum).toMatchObject({ weight_kg: 0.1, note: null });
+  const maxNote = 'x'.repeat(500);
+  const maximum = await createWeight(request, ownerToken, {
+    local_date: '2031-05-09',
+    weight_kg: 1000,
+    note: ` ${maxNote} `,
+  });
+  expect(maximum).toMatchObject({ weight_kg: 1000, note: maxNote });
 
   const duplicate = await request.post('/weights', {
     headers: auth,
@@ -307,18 +364,34 @@ test('[J-187] API validates, rejects collisions, and isolates users', async ({ p
   expect(duplicate.status()).toBe(409);
   expect(await duplicate.json()).toEqual({ error: 'weight_exists' });
 
+  const beforeInvalid = await request.get('/weights', { headers: auth });
+  expect(beforeInvalid.ok()).toBeTruthy();
+  const beforeInvalidRows = await beforeInvalid.json();
   for (const data of [
     { local_date: TODAY, weight_kg: 0, note: null },
+    { local_date: TODAY, weight_kg: 0.09, note: null },
     { local_date: TODAY, weight_kg: 1000.1, note: null },
     { local_date: TODAY, weight_kg: 82.45, note: null },
+    { local_date: TODAY, weight_kg: '', note: null },
+    { local_date: TODAY, weight_kg: ' ', note: null },
+    { local_date: TODAY, weight_kg: '82.4', note: null },
+    { local_date: TODAY, weight_kg: null, note: null },
     { local_date: 'not-a-date', weight_kg: 82.4, note: null },
     { local_date: '2031-05-07', weight_kg: 82.4, note: 'x'.repeat(501) },
+    { local_date: '2031-05-07', weight_kg: 82.4, note: ` ${'x'.repeat(501)} ` },
     { local_date: '2031-05-07', weight_kg: 82.4 },
   ]) {
-    const response = await request.post('/weights', { headers: auth, data });
-    expect(response.status(), JSON.stringify(data)).toBe(400);
-    expect(await response.json()).toEqual({ error: 'invalid_weight' });
+    for (const method of ['post', 'put'] as const) {
+      const response = await request[method](method === 'post' ? '/weights' : `/weights/${first.id}`, {
+        headers: auth, data,
+      });
+      expect(response.status(), `${method} ${JSON.stringify(data)}`).toBe(400);
+      expect(await response.json()).toEqual({ error: 'invalid_weight' });
+    }
   }
+  const afterInvalid = await request.get('/weights', { headers: auth });
+  expect(afterInvalid.ok()).toBeTruthy();
+  expect(await afterInvalid.json()).toEqual(beforeInvalidRows);
 
   for (const bad of ['0', '-1', 'abc']) {
     const response = await request.delete(`/weights/${bad}`, { headers: auth });
@@ -356,7 +429,9 @@ test('[J-187] API validates, rejects collisions, and isolates users', async ({ p
   const ownerList = await request.get('/weights', { headers: auth });
   expect(ownerList.ok()).toBeTruthy();
   const ownerRows = (await ownerList.json()) as WeightEntry[];
-  expect(ownerRows).toHaveLength(2);
+  expect(ownerRows).toHaveLength(4);
+  expect(ownerRows.find((row) => row.id === minimum.id)).toEqual(minimum);
+  expect(ownerRows.find((row) => row.id === maximum.id)).toEqual(maximum);
   expect(ownerRows.find((row) => row.id === first.id)).toEqual({
     id: first.id,
     local_date: TODAY,

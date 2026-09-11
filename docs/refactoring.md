@@ -226,4 +226,13 @@ are also deferred.
 
 ### Follow-up implementation record
 
-Pending implementation and validation.
+- Added strict test typechecking; `npm run typecheck:tests` passed before
+  application behavior edits.
+- Extended weight validation and scanner draft assertions and added J-235.
+  `weight.spec.ts` and `refactor-parity.spec.ts` passed against unchanged
+  application logic (50.2 seconds): `/tmp/kcal-cleanup-2-parity-baseline.log`.
+- Obsolete CSS casting was removed without changing emitted JavaScript.
+  Source-reference edits preserve the comment-stripped executable AST of every
+  affected E2E file. Frontend typecheck passed for this pass.
+
+Remaining passes and final validation are pending.

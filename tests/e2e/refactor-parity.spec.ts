@@ -160,6 +160,84 @@ test('[J-229] cancelling the AI file picker preserves a temporary product draft'
   await page.locator('input[type=file]').dispatchEvent('cancel');
   await expectDraft(page, 'E2E Parity AI Draft');
   await expect(page.locator('.sheet').getByText('Add Temp Item', { exact: true })).toBeVisible();
+
+  // Scanner snapshots carry nutrition only when all four fields are present.
+  // An incomplete set currently returns as four blank fields, even when the
+  // other three values were filled. Keep that distinction during extraction.
+  await fillNutField(page, 'Fat', '');
+  const secondChooser = page.waitForEvent('filechooser');
+  await page.locator('.sheet').getByRole('button', { name: /Filled from label/ }).tap();
+  await secondChooser;
+  await page.locator('input[type=file]').dispatchEvent('cancel');
+  await expect(page.getByPlaceholder('e.g. Peanut Butter')).toHaveValue('E2E Parity AI Draft');
+  const sheet = page.locator('.sheet');
+  await expect(sheet.getByText('Add Temp Item', { exact: true })).toBeVisible();
+  await expect(sheet.getByText('Per 100ml', { exact: true })).toBeVisible();
+  for (const label of ['Kcal', 'Protein', 'Carbs', 'Fat']) {
+    await expect(sheet.locator('label').filter({ hasText: new RegExp(`^${label}$`) })
+      .locator('..').getByRole('spinbutton')).toHaveValue('');
+  }
+  await expect(sheet.getByRole('button', { name: /Add to Day/ })).toBeDisabled();
+});
+
+test('[J-235] scanner snapshots keep complete nutrition and raw metadata while submission trims text', async ({ page, request }) => {
+  await signInFresh(page, request, 'parity-draft-values');
+  await page.getByRole('button', { name: 'ADD FOOD', exact: true }).tap();
+  await page.locator('.sheet').getByRole('button', { name: 'Add New', exact: true }).tap();
+  const raw = { name: '  E2E Raw  Draft  ', brand: '  Draft  Brand  ', barcode: `  967${Date.now()}  ` };
+  await fillDraft(page, raw.name);
+  const sheet = page.locator('.sheet');
+  const fields = {
+    name: page.getByPlaceholder('e.g. Peanut Butter'),
+    brand: sheet.locator('label').filter({ hasText: /^Brand$/ }).locator('..').getByRole('textbox'),
+    barcode: sheet.locator('label').filter({ hasText: /^Barcode$/ }).locator('..').getByRole('textbox'),
+  };
+  await fields.brand.fill(raw.brand);
+  await fields.barcode.fill(raw.barcode);
+  const nutrition = [['Kcal', '123'], ['Protein', '4.5'], ['Carbs', '6.7'], ['Fat', '8.9']] as const;
+  const save = sheet.getByRole('button', { name: /Save & Continue/ });
+  let writes = 0;
+  page.on('request', (req) => {
+    if (req.method() === 'POST' && new URL(req.url()).pathname === '/products') writes++;
+  });
+
+  for (const complete of [true, false]) {
+    if (!complete) {
+      await fillNutField(page, 'Fat', '');
+      await expect(save).toBeDisabled();
+    }
+    await sheet.getByRole('button', { name: 'Scan barcode', exact: true }).tap();
+    await expect(page.getByText('SCAN BARCODE', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '×', exact: true }).tap();
+    await expect(page.getByText('SCAN BARCODE', { exact: true })).toHaveCount(0);
+    for (const key of ['name', 'brand', 'barcode'] as const) {
+      await expect(fields[key]).toHaveValue(raw[key]);
+    }
+    await expect(sheet.getByText('Per 100ml', { exact: true })).toBeVisible();
+    for (const [label, value] of nutrition) {
+      await expect(sheet.locator('label').filter({ hasText: new RegExp(`^${label}$`) })
+        .locator('..').getByRole('spinbutton')).toHaveValue(complete ? value : '');
+    }
+    if (complete) await expect(save).toBeEnabled();
+    else await expect(save).toBeDisabled();
+    expect(writes).toBe(0);
+  }
+
+  for (const [label, value] of nutrition) await fillNutField(page, label, value);
+  const submitted = page.waitForRequest((req) => req.method() === 'POST' && new URL(req.url()).pathname === '/products');
+  const created = page.waitForResponse((res) => res.request().method() === 'POST' && new URL(res.url()).pathname === '/products');
+  await save.tap();
+  expect((await submitted).postDataJSON()).toEqual({
+    name: 'E2E Raw  Draft', brand: 'Draft  Brand', barcode: raw.barcode.trim(),
+    unit: 'ml', is_temp: false, per100: { kcal: 123, protein: 4.5, carbs: 6.7, fat: 8.9 },
+  });
+  const response = await created;
+  expect(response.status()).toBe(201);
+  expect(await response.json()).toMatchObject({
+    name: 'E2e raw draft', brand: 'Draft Brand', barcode: raw.barcode.trim(), unit: 'ml', is_temp: false,
+  });
+  await expect(sheet.getByText('How much?', { exact: true })).toBeVisible();
+  expect(writes).toBe(1);
 });
 
 test('[J-230] a replacement error retains its full notification lifetime', async ({ page, request }) => {
