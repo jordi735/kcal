@@ -23,6 +23,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-101 · "Use a different email" returns to the email step and preserves the typed email value
 - J-102 · `POST /auth/logout` without a bearer returns 401 `unauthorized`
 - J-103 · Manual sign-out clears `kcal_user` from localStorage (complement to J-002's server-side proof)
+- J-254 · Login email renders HTML/text with the configured expiry, sends through Postmark, and propagates API and network failures using a local transport stub
 
 # 2. Empty states
 
@@ -74,6 +75,16 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-229 · Cancelling the AI file picker preserves temporary metadata and complete nutrition; incomplete nutrition returns as blank fields
 - J-234 · Scan-result merging preserves typed metadata, temporary status and edit context while replacing only intended draft fields
 - J-235 · Scanner snapshots keep complete nutrition and raw metadata, omit incomplete nutrition, and trim metadata only when submitting
+- J-250 · Image uploads preserve bytes and accept a single image at the exact 8 MiB limit with deterministic extraction
+- J-251 · Malformed, oversized, unexpected, and multiple files or extra/nested multipart fields are rejected before extraction; subsequent valid uploads still work
+- J-252 · Image upload authentication rejects missing and invalid sessions before multipart parsing
+- J-253 · Image extraction preserves controlled and general error responses and accepts a later successful upload
+- J-255 · The installed Codex CLI keeps both extraction and startup-probe models tool-free, preserves images, schemas, results, and usage, rejects unknown models and provider failures, and cleans up timed-out subprocesses and temporary files
+- J-256 · Real EAN-13 video decoding returns the exact barcode once and releases the camera before lookup completion
+- J-257 · Real UPC-A video decoding preserves its 12 digits, delivers one result, and releases the camera
+- J-258 · Cancelling a live barcode camera releases its track; reopening scans on a new stream and preserves the product draft
+- J-259 · Denied camera permission shows the scanner error and closes back to Add Food
+- J-260 · A missing camera shows the scanner error and closes back to Add Food
 
 # 5. Entry CRUD
 

@@ -246,8 +246,9 @@ export type NormalizedCodexInput = {
   images: string[];
 };
 
-export type CodexSchemaFile = {
-  path: string;
+export type CodexRunFiles = {
+  schemaPath: string;
+  modelCatalogPath: string;
   cleanup: () => Promise<void>;
 };
 

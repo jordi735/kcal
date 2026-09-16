@@ -2,7 +2,7 @@
 // Uses the repository-local CLI package, streams JSONL events, and leaves no
 // persisted Codex session or temporary schema behind.
 
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import * as fsp from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
@@ -11,7 +11,7 @@ import type {
   CodexInput,
   CodexJsonTurn,
   CodexRunOptions,
-  CodexSchemaFile,
+  CodexRunFiles,
   CodexThreadEvent,
   CodexUsage,
   NormalizedCodexInput,
@@ -19,9 +19,111 @@ import type {
 
 const require = createRequire(import.meta.url);
 const CODEX_CLI_JS = require.resolve('@openai/codex/bin/codex.js');
+const TOOL_FREE_MODELS = ['gpt-5.6-terra', 'gpt-5.6-luna'] as const;
 const SCHEMA_TEMP_PREFIX = path.join(os.tmpdir(), 'kcal-codex-schema-');
 const STDIO_TAIL_CHARS = 4000;
 const FORCE_KILL_DELAY_MS = 5000;
+const MODEL_CATALOG_TIMEOUT_MS = 5000;
+const MODEL_CATALOG_MAX_BYTES = 2 * 1024 * 1024;
+let modelCatalogPromise: Promise<string> | null = null;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function signalProcess(proc: ChildProcess, signal: NodeJS.Signals): void {
+  if (process.platform !== 'win32' && proc.pid !== undefined) {
+    try {
+      process.kill(-proc.pid, signal);
+      return;
+    } catch {
+      // Fall through to signaling the Node child directly.
+    }
+  }
+  proc.kill(signal);
+}
+
+async function readBundledModelCatalog(): Promise<string> {
+  // --bundled skips refresh, auth and user config. Read the same installed CLI
+  // that will run inference, retaining its prompts, image support and fast tier.
+  const proc = spawn(process.execPath, [CODEX_CLI_JS, 'debug', 'models', '--bundled'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: process.platform !== 'win32',
+    env: process.env,
+  });
+  const chunks: Buffer[] = [];
+  let bytes = 0;
+  let failure: Error | null = null;
+  const stop = (error: Error): void => {
+    failure ??= error;
+    signalProcess(proc, 'SIGKILL');
+  };
+  const timeout = setTimeout(() => {
+    stop(new Error(`Codex model catalog timed out after ${MODEL_CATALOG_TIMEOUT_MS}ms`));
+  }, MODEL_CATALOG_TIMEOUT_MS);
+  const consume = (chunk: Buffer, keep: boolean): void => {
+    if (failure !== null) return;
+    bytes += chunk.length;
+    if (bytes > MODEL_CATALOG_MAX_BYTES) {
+      stop(new Error(`Codex model catalog exceeded ${MODEL_CATALOG_MAX_BYTES} bytes`));
+    } else if (keep) {
+      chunks.push(chunk);
+    }
+  };
+  proc.stdout!.on('data', (chunk: Buffer) => consume(chunk, true));
+  proc.stderr!.on('data', (chunk: Buffer) => consume(chunk, false));
+  try {
+    const exit = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
+      proc.once('error', reject);
+      proc.once('close', (code, signal) => resolve({ code, signal }));
+    });
+    if (failure !== null) throw failure;
+    if (exit.code !== 0 || exit.signal !== null) {
+      throw new Error(`Codex model catalog exited with ${exit.signal ?? `code ${exit.code ?? 1}`}`);
+    }
+    return Buffer.concat(chunks).toString('utf8');
+  } finally {
+    clearTimeout(timeout);
+    proc.removeAllListeners();
+    proc.stdout?.removeAllListeners();
+    proc.stderr?.removeAllListeners();
+  }
+}
+
+async function readToolFreeModelCatalog(): Promise<string> {
+  const stdout = await readBundledModelCatalog();
+  const parsed: unknown = JSON.parse(stdout);
+  if (!isRecord(parsed) || !Array.isArray(parsed.models)) {
+    throw new Error('Invalid bundled Codex model catalog');
+  }
+  const entries: unknown[] = parsed.models;
+  const models = TOOL_FREE_MODELS.map((slug) => {
+    const matches = entries.filter((entry) => isRecord(entry) && entry.slug === slug);
+    const model = matches[0];
+    if (matches.length !== 1 || !isRecord(model)
+      || typeof model.base_instructions !== 'string' || model.base_instructions.length === 0
+      || !Array.isArray(model.input_modalities) || !model.input_modalities.includes('text')
+      || !model.input_modalities.includes('image')
+      || !Array.isArray(model.experimental_supported_tools) || model.experimental_supported_tools.length !== 0
+      || ![null, 'direct', 'code_mode', 'code_mode_only'].includes(model.tool_mode as string | null)
+      || !(model.apply_patch_tool_type === null || typeof model.apply_patch_tool_type === 'string')
+      || ![null, 'v1', 'v2'].includes(model.multi_agent_version as string | null)) {
+      throw new Error(`Unsupported bundled Codex model metadata: ${slug}`);
+    }
+    // Model defaults can force Code Mode and apply_patch despite feature flags.
+    // Change only those two tool settings; the rest remains the shipped catalog.
+    return { ...model, tool_mode: 'direct', apply_patch_tool_type: null };
+  });
+  return JSON.stringify({ models });
+}
+
+function getToolFreeModelCatalog(): Promise<string> {
+  modelCatalogPromise ??= readToolFreeModelCatalog().catch((error: unknown) => {
+    modelCatalogPromise = null;
+    throw error;
+  });
+  return modelCatalogPromise;
+}
 
 function normalizeInput(input: CodexInput): NormalizedCodexInput {
   if (typeof input === 'string') {
@@ -40,12 +142,20 @@ function normalizeInput(input: CodexInput): NormalizedCodexInput {
   return { prompt: promptParts.join('\n\n'), images };
 }
 
-async function createSchemaFile(schema: object): Promise<CodexSchemaFile> {
+async function createRunFiles(schema: object, modelCatalog: string): Promise<CodexRunFiles> {
   const dir = await fsp.mkdtemp(SCHEMA_TEMP_PREFIX);
   const schemaPath = path.join(dir, 'schema.json');
-  await fsp.writeFile(schemaPath, JSON.stringify(schema), 'utf8');
+  const modelCatalogPath = path.join(dir, 'models.json');
+  try {
+    await fsp.writeFile(schemaPath, JSON.stringify(schema), 'utf8');
+    await fsp.writeFile(modelCatalogPath, modelCatalog, 'utf8');
+  } catch (error) {
+    await fsp.rm(dir, { recursive: true, force: true });
+    throw error;
+  }
   return {
-    path: schemaPath,
+    schemaPath,
+    modelCatalogPath,
     cleanup: () => fsp.rm(dir, { recursive: true, force: true }),
   };
 }
@@ -65,7 +175,7 @@ function parseEvent(line: string): CodexThreadEvent | null {
 function buildArgs(
   input: NormalizedCodexInput,
   options: CodexRunOptions,
-  schemaPath: string,
+  files: CodexRunFiles,
 ): string[] {
   const args = [
     'exec',
@@ -79,7 +189,8 @@ function buildArgs(
     '--model', options.model,
     '--sandbox', 'read-only',
     '--cd', options.workingDirectory,
-    '--output-schema', schemaPath,
+    '--output-schema', files.schemaPath,
+    '--config', `model_catalog_json=${JSON.stringify(files.modelCatalogPath)}`,
     '--config', 'approval_policy="never"',
     '--config', 'service_tier="fast"',
     '--config', 'features.fast_mode=true',
@@ -87,6 +198,8 @@ function buildArgs(
     '--config', 'web_search="disabled"',
     '--config', 'project_doc_max_bytes=0',
     '--config', 'shell_environment_policy.inherit="none"',
+    '--config', 'agents.enabled=false',
+    '--config', 'tools.experimental_request_user_input.enabled=false',
     '--disable', 'apps',
     '--disable', 'browser_use',
     '--disable', 'browser_use_external',
@@ -97,9 +210,12 @@ function buildArgs(
     '--disable', 'image_generation',
     '--disable', 'in_app_browser',
     '--disable', 'multi_agent',
+    '--disable', 'multi_agent_v2',
     '--disable', 'plugins',
     '--disable', 'remote_plugin',
     '--disable', 'shell_tool',
+    '--disable', 'sleep_tool',
+    '--disable', 'view_image',
   ];
 
   for (const image of input.images) {
@@ -112,11 +228,15 @@ export async function runCodexJsonTurn(
   input: CodexInput,
   options: CodexRunOptions,
 ): Promise<CodexJsonTurn> {
+  if (!TOOL_FREE_MODELS.some((model) => model === options.model)) {
+    throw new Error(`Unsupported tool-free Codex model: ${options.model}`);
+  }
+  const modelCatalog = await getToolFreeModelCatalog();
   const normalized = normalizeInput(input);
-  const schemaFile = await createSchemaFile(options.outputSchema);
+  const files = await createRunFiles(options.outputSchema, modelCatalog);
 
   try {
-    const args = buildArgs(normalized, options, schemaFile.path);
+    const args = buildArgs(normalized, options, files);
     let stdoutTail = '';
     let stderrTail = '';
     let pendingStdout = '';
@@ -136,23 +256,11 @@ export async function runCodexJsonTurn(
       env: process.env,
     });
 
-    const signalProcess = (signal: NodeJS.Signals): void => {
-      if (process.platform !== 'win32' && proc.pid !== undefined) {
-        try {
-          process.kill(-proc.pid, signal);
-          return;
-        } catch {
-          // Fall through to signaling the Node child directly.
-        }
-      }
-      proc.kill(signal);
-    };
-
     const stopForTimeout = (): void => {
       if (timedOut) return;
       timedOut = true;
-      signalProcess('SIGTERM');
-      forceKillTimer = setTimeout(() => signalProcess('SIGKILL'), FORCE_KILL_DELAY_MS);
+      signalProcess(proc, 'SIGTERM');
+      forceKillTimer = setTimeout(() => signalProcess(proc, 'SIGKILL'), FORCE_KILL_DELAY_MS);
     };
 
     const handleLine = (line: string): void => {
@@ -238,6 +346,6 @@ export async function runCodexJsonTurn(
       proc.stderr?.removeAllListeners();
     }
   } finally {
-    await schemaFile.cleanup();
+    await files.cleanup();
   }
 }

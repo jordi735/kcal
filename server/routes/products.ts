@@ -41,7 +41,14 @@ productsRouter.use(authMiddleware);
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB — typical phone JPEGs are 2–4 MB.
+  // Label scanning accepts one image and no multipart text fields.
+  limits: {
+    fileSize: 8 * 1024 * 1024, // 8 MiB — typical phone JPEGs are 2–4 MB.
+    files: 1,
+    fields: 0,
+    parts: 1,
+    fieldNestingDepth: 0,
+  },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
     else cb(null, false);
