@@ -57,7 +57,9 @@ export function FoodRow({
           </div>
           <div className={`mono ${styles.meta}`}>
             <span>{grams}{product.unit}</span>
-            {product.brand && <span className={styles.metaDim}>· {product.brand}</span>}
+            {product.brand && (
+              <span className={`${styles.metaDim} ${styles.brand}`}>· {product.brand}</span>
+            )}
             <span className={styles.metaDim}>· {local_time}</span>
           </div>
         </div>
