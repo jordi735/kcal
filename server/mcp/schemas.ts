@@ -8,7 +8,7 @@ import {
 } from '../../shared/constraints.js';
 import { DATE_RE, TIME_RE } from '../guards.js';
 import type {
-  McpEntryWriteResult, McpEntryDeleteResult, McpProductWriteResult, McpProductDeleteResult,
+  McpEntry, McpEntryWriteResult, McpEntryDeleteResult, McpProductWriteResult, McpProductDeleteResult,
   McpEntryGroupResult, McpUngroupResult, McpEntryGroupDeleteResult,
 } from '../types.js';
 
@@ -39,9 +39,8 @@ export const entrySchema = z.object({
   local_date: dateString,
   local_time: z.string().regex(TIME_RE),
   macros: macrosSchema,
-  tagged: z.boolean(),
   group: z.object({ id: z.number().int(), name: z.string() }).nullable(),
-});
+}) satisfies z.ZodType<McpEntry>;
 export const weightSchema = z.object({
   id: z.number().int(),
   local_date: dateString,

@@ -6,6 +6,7 @@ export type {
   EntryGroupRef,
   EntryGroup,
   EntryWithMacros,
+  McpEntry,
   ExtractedLabel,
   WeightInput,
   WeightEntry,

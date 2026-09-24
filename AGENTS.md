@@ -157,15 +157,20 @@ required-key inventory and never commit real credentials.
   Never accept app sessions, admin tokens, or caller-selected user IDs. Reuse app
   calculations. Read-only connections expose only these six tools. Connections
   granted both `kcal:read` and `kcal:write` additionally expose `create_entry`,
-  `update_entry`, `delete_entry`, `create_product`, `update_product`, and
+  `update_entry`, `delete_entry`, `create_product`, `update_product`,
   `delete_product`, `create_entry_group`, `update_entry_group`,
-  `set_entry_group_tagged`, `ungroup_entries`, and `delete_entry_group`. Check write
-  scope before mutation and reuse `server/writes.ts` from REST and MCP. MCP entry
+  `ungroup_entries`, and `delete_entry_group`. Check write scope before mutation
+  and reuse `server/writes.ts` from REST and MCP. MCP entry
   creation requires an owned saved food; do not reuse temporary foods. Keep the
   UI's new-temporary-food workflow and existing temporary-entry operations working.
-  Entry edits allow only grams/tagged; product updates preserve
-  omitted metadata/macros. Product deletion cascades through the owner's logs and
-  dissolves undersized groups. Controlled failures must leave no partial changes;
+  MCP entry edits require `entry_id` and `grams` and reject `tagged`. Use one
+  MCP-entry projection without `tagged` for every read and write result, including
+  text content and output schemas. Food checkmarks remain an app/REST feature;
+  MCP mutations preserve existing checkmarks internally. All recorded food counts
+  toward totals; a food record proves neither complete logging nor actual
+  consumption. Product updates preserve omitted metadata/macros. Product deletion
+  cascades through the owner's logs and dissolves undersized groups. Controlled
+  failures must leave no partial changes;
   validate MCP output before committing the mutation transaction.
   MCP may offer a more convenient interface, but cannot enable an action or
   stored value forbidden by the UI. Keep explicit creation timestamps, partial

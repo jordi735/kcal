@@ -10,6 +10,7 @@ import type {
   McpDayResult, McpMealsResult, McpProductSearchResult, McpSummaryResult, McpWeekResult, McpWeighinsResult,
 } from '../types.js';
 import { ReadInputError, requireGoals, readResult } from './results.js';
+import { toMcpEntry } from './entries.js';
 import {
   dateString, localDate, macrosSchema, productSchema, entrySchema, weightSchema,
   pagination, annotations,
@@ -42,7 +43,7 @@ function rangeDates(start: string, end: string, maxDays: number): string[] {
 
 export function registerReadTools(server: McpServer, user_id: number): void {
   server.registerTool('get_day', {
-    description: 'Get one user’s food log for a date, with product details, per-entry macros, tags, groups, daily totals, and current daily goals.',
+    description: 'Get one user’s food log for a date, with product details, per-entry macros, groups, daily totals, and current daily goals. Totals include all logged entries. Logs do not prove actual consumption or complete logging.',
     inputSchema: z.strictObject({ date: localDate.describe('Local date to read, YYYY-MM-DD') }),
     outputSchema: z.object({
       user_id: z.number().int(),
@@ -54,7 +55,7 @@ export function registerReadTools(server: McpServer, user_id: number): void {
     annotations,
   }, ({ date }) => readResult(() => {
     const goals = requireGoals(user_id);
-    const entries = readDayEntries(user_id, date);
+    const entries = readDayEntries(user_id, date).map(toMcpEntry);
     return {
       user_id, date, entries,
       totals: sumMacros(entries.map((entry) => entry.macros)),
@@ -63,7 +64,7 @@ export function registerReadTools(server: McpServer, user_id: number): void {
   }));
 
   server.registerTool('get_meals', {
-    description: 'Get the connected account’s food logs by day across an inclusive date range of up to 31 days. Each date includes food names, amounts, times, macros, tags, group references, and daily totals. Meals means logged foods, including named groups. Empty days have no entries and zero totals.',
+    description: 'Get the connected account’s food logs by day across an inclusive date range of up to 31 days. Each date includes food names, amounts, times, macros, group references, and daily totals. Meals means logged foods, including named groups. Totals include all logged entries. Logs do not prove actual consumption or complete logging. Empty days have no entries and zero totals.',
     inputSchema: z.strictObject({
       start_date: localDate.describe('First local date to read, inclusive, YYYY-MM-DD'),
       end_date: localDate.describe('Last local date to read, inclusive, YYYY-MM-DD; at most 31 days including both bounds'),
@@ -79,7 +80,7 @@ export function registerReadTools(server: McpServer, user_id: number): void {
     const dates = rangeDates(start_date, end_date, 31);
     requireGoals(user_id);
     const days = Object.fromEntries(dates.map((date) => {
-      const entries = readDayEntries(user_id, date);
+      const entries = readDayEntries(user_id, date).map(toMcpEntry);
       return [date, { entries, totals: sumMacros(entries.map((entry) => entry.macros)) }];
     }));
     return { user_id, start_date, end_date, days };

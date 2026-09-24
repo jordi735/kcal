@@ -2,6 +2,7 @@ import { expect, test as base, type APIRequestContext, type Page } from '@playwr
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import Database from 'better-sqlite3';
+import type { EntryWithMacros, McpEntry } from '../../shared/types';
 import { signInFresh } from './helpers';
 import { BrowserOAuth, connectMcp } from './oauth-helpers';
 
@@ -49,8 +50,13 @@ export async function call<T>(mcp: Client, name: string, args: Record<string, un
   const result = await mcp.callTool({ name, arguments: args }) as CallToolResult;
   expect(result.isError, `${name}: ${JSON.stringify(result)}`).not.toBe(true);
   expect(result.structuredContent).toBeDefined();
+  expect(JSON.stringify(result.structuredContent), `${name} must omit app-only food checkmarks`).not.toContain('"tagged":');
   expect(result.content).toEqual([{ type: 'text', text: JSON.stringify(result.structuredContent) }]);
   return result.structuredContent as T;
+}
+
+export function mcpEntry({ tagged: _tagged, ...entry }: EntryWithMacros): McpEntry {
+  return entry;
 }
 
 export async function reject(mcp: Client, name: string, args: Record<string, unknown>, error?: string) {

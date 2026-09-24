@@ -1,6 +1,6 @@
 # Connect KCAL to ChatGPT or Codex
 
-KCAL exposes six read tools and eleven optional write tools at `/mcp`. Connect using
+KCAL exposes six read tools and ten optional write tools at `/mcp`. Connect using
 OAuth, sign in with KCAL's existing email code, and approve access to your own
 account. `kcal:read` permits reads; `kcal:read kcal:write` also permits creating,
 editing, and deleting food logs, combined items, and library foods. Write-only
@@ -76,7 +76,7 @@ occurred before the weigh-in. Existing records were backfilled with `peed: true`
 and `pooped: false`; these are defaults, not interpretations of their notes.
 Notes remain available separately.
 
-Use `get_meals` to ask what you ate across several days. Both dates are required.
+Use `get_meals` to inspect food recorded across several days. Both dates are required.
 Its response contains `user_id`, `start_date`, `end_date`, and `days` keyed by
 `YYYY-MM-DD`, oldest first. Each day has `entries` (the same food-entry shape as
 `get_day`) and `totals`. Empty dates have `entries: []` and zero totals. Named
@@ -113,12 +113,13 @@ dates. Pagination defaults to 100 records, allows 1–500, and returns newest fi
 Follow `next_offset` until null for a complete history; concurrent edits can shift
 live offsets. Weigh-ins include kilograms and notes.
 
-Food entries include product details, computed macros, tags, and group references,
-in entry ID order. Tagged entries count toward totals; groups count only through
-their children. Historical totals use current product nutrition, matching the app.
-Goals describe current settings. Zero totals can mean missing logs or logged
-zero-calorie foods. All tools advertise output schemas and return matching
-structured JSON and equivalent text.
+Food entries include product details, computed macros, and group references,
+in entry ID order. All recorded food counts toward totals; groups count only through
+their children. A food record proves neither complete logging nor actual consumption.
+Historical totals use current product nutrition, matching the app. Goals describe
+current settings. Zero totals can mean missing logs or logged zero-calorie foods.
+All tools advertise output schemas and return matching structured JSON and
+equivalent text.
 
 ## Write tools
 
@@ -132,14 +133,13 @@ connections can discover them without a new scope or additional consent.
 | Tool | Arguments | Result (in addition to `user_id`) |
 | --- | --- | --- |
 | `create_entry` | `product_id`, `grams`, `local_date`, `local_time` | `entry` with computed macros |
-| `update_entry` | `entry_id`, optional `grams` and `tagged` (at least one) | Updated `entry` |
+| `update_entry` | `entry_id`, `grams` (both required) | Updated `entry` |
 | `delete_entry` | `entry_id` | `ok: true`, `entry_id`, nullable `dissolved_group_id` |
 | `create_product` | `name`, `unit`, complete `per100`; optional nullable `brand`, `barcode` | Saved `product` |
 | `update_product` | `product_id`, supplied changes to `name`, `brand`, `unit`, `barcode`, or individual `per100` values | Updated `product` |
 | `delete_product` | `product_id` | `ok: true`, `product_id`, `deleted_entry_count` |
 | `create_entry_group` | `name`, `entry_ids` | `group`, grouped `entries` |
 | `update_entry_group` | `group_id`, `name` | Renamed `group`, `entries` |
-| `set_entry_group_tagged` | `group_id`, `tagged` | `group`, updated `entries` |
 | `ungroup_entries` | `group_id` | `ok: true`, `group_id`, ungrouped `entries` |
 | `delete_entry_group` | `group_id` | `ok: true`, `group_id`, `deleted_entry_ids` |
 
@@ -150,7 +150,7 @@ an amount. Newly created products are saved foods, never temporary foods. Brand
 and barcode default to `null`; product names and brands use the app's normalization.
 Barcoded products can appear in the app's shared catalog; unbarcoded foods are private.
 MCP can log only saved foods; temporary foods cannot be reused for new logs.
-Existing temporary entries remain readable, editable, taggable, groupable, and
+Existing temporary entries remain readable, editable, groupable, and
 deletable. The app's workflow for creating a new temporary food and its first log
 is unchanged.
 
@@ -158,11 +158,13 @@ Entry creation requires an actual calendar date (`YYYY-MM-DD`), a valid local
 `HH:MM` time, and a finite amount of at least **1 g/ml**, no greater than `Number.MAX_SAFE_INTEGER`
 (9,007,199,254,740,991), keeping nutrition arithmetic within finite bounds.
 The existing `grams` field represents
-the amount in the product's `g` or `ml` unit. New entries are untagged and ungrouped.
+the amount in the product's `g` or `ml` unit. New entries are ungrouped.
 Decimals such as `1.5` are allowed. The same minimum applies to amount edits in
 REST and MCP. Existing smaller entries are not rewritten and can still be read,
-tagged, grouped, or deleted without changing their amount.
-Entry edits accept only amount and tagged status, matching the app. Product edits
+grouped, or deleted without changing their amount. Their checkmarks remain editable
+through the app and REST without changing their amount.
+MCP entry edits accept only `entry_id` and `grams`, both required; unsupported fields
+such as `tagged` are rejected without changes. Product edits
 preserve omitted fields and macros; explicit `null` clears brand or barcode. Empty
 updates are rejected. Nutrition is per 100 units: kcal must be between 0 and 2000,
 and protein/carbs/fat between 0 and 200, with all four required on product creation.
@@ -181,15 +183,14 @@ is collapsed, casing is preserved, and the normalized name must be 1–64 charac
 Entries may reference saved or temporary foods.
 
 `update_entry_group` changes only the name. Use `update_entry` to edit an
-individual child's amount or eaten status. `set_entry_group_tagged` sets every
-child's eaten status atomically. Groups cannot be nested or silently regrouped,
+individual child's amount. Groups cannot be nested or silently regrouped,
 and their membership, date, portions, and nutrition cannot be edited as group fields.
-Totals and mixed/all-eaten status always derive from the children.
+Totals always derive from the children.
 
 **Ungroup preserves all food logs. Delete group deletes all of its food logs.**
-`ungroup_entries` preserves each child's amount, date, time, tag, and nutrition,
+`ungroup_entries` preserves each child's amount, date, time, and nutrition,
 so totals stay unchanged. `delete_entry_group` preserves library products and
-unrelated logs. Both remove the group metadata. Create, rename, and tag results
+unrelated logs. Both remove the group metadata. Create and rename results
 contain `group: { id, name, local_date }` and real children in entry-ID order;
 ungroup returns those children with `group: null`. Day responses remain flat.
 
@@ -210,6 +211,19 @@ offer a more convenient interface, but cannot enable an otherwise forbidden
 action or stored value. Explicit creation dates/times, partial edits, read
 summaries and pagination, and single-call deletion remain available; UI gestures
 and confirmation steps are not protocol requirements.
+
+### Version 3.0.0 compatibility
+
+MCP server version `3.0.0` removes food checkmarks from every entry response and
+output schema. `update_entry` now requires an amount and rejects `tagged`;
+`set_entry_group_tagged` is no longer available. This is a breaking change from
+`2.4.0`. Clients must refresh their tool definitions. Existing conversation history
+may still contain old checkmark information; assess the new behavior using fresh
+tool results.
+
+Checkmarks remain available in the app and REST. MCP amount edits and group
+operations preserve existing checkmarks internally. No database migration or OAuth
+scope change is needed, and existing authorized connections remain valid.
 
 ## Connection lifecycle
 

@@ -2,15 +2,15 @@ import { expect } from '@playwright/test';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import Database from 'better-sqlite3';
 import type {
-  EntryGroup, EntryWithMacros, McpDayResult, McpEntryDeleteResult, McpEntryGroupDeleteResult,
+  EntryGroup, EntryWithMacros, McpDayResult, McpEntry, McpEntryDeleteResult, McpEntryGroupDeleteResult,
   McpEntryGroupResult, McpEntryWriteResult, McpMealsResult, McpProductWriteResult,
   McpUngroupResult, McpWeekResult, Product,
 } from '../../shared/types';
 import { BrowserOAuth, connectMcp } from './oauth-helpers';
-import { call, createMcpTest, freshUser, reject, rest, storedRecords } from './mcp-helpers';
+import { call, createMcpTest, freshUser, mcpEntry, reject, rest, storedRecords } from './mcp-helpers';
 
 const GROUP_TOOLS = [
-  'create_entry_group', 'delete_entry_group', 'set_entry_group_tagged', 'ungroup_entries', 'update_entry_group',
+  'create_entry_group', 'delete_entry_group', 'ungroup_entries', 'update_entry_group',
 ];
 const NUTRITION = { kcal: 200, protein: 10, carbs: 20, fat: 5 };
 
@@ -24,7 +24,7 @@ async function createProduct(mcp: Client, name: string): Promise<Product> {
 
 async function createEntry(
   mcp: Client, product_id: number, local_date: string, grams = 100, local_time = '12:30',
-): Promise<EntryWithMacros> {
+): Promise<McpEntry> {
   return (await call<McpEntryWriteResult>(mcp, 'create_entry', { product_id, grams, local_date, local_time })).entry;
 }
 
@@ -34,10 +34,10 @@ async function createGroup(mcp: Client, name: string, entry_ids: number[]): Prom
 
 test('[J-218] MCP group tools declare write schemas and read-only tokens cannot mutate groups', async ({ page, mcp, account }) => {
   const { tools } = await mcp.listTools();
+  expect(tools.map((tool) => tool.name)).not.toContain('set_entry_group_tagged');
   const fields: Record<string, string[]> = {
     create_entry_group: ['user_id', 'group', 'entries'],
     update_entry_group: ['user_id', 'group', 'entries'],
-    set_entry_group_tagged: ['user_id', 'group', 'entries'],
     ungroup_entries: ['user_id', 'ok', 'group_id', 'entries'],
     delete_entry_group: ['user_id', 'ok', 'group_id', 'deleted_entry_ids'],
   };
@@ -52,10 +52,11 @@ test('[J-218] MCP group tools declare write schemas and read-only tokens cannot 
     expect(tool.inputSchema.additionalProperties).toBe(false);
     expect(Object.keys(tool.outputSchema!.properties ?? {}).sort()).toEqual(fields[name]!.sort());
     expect(tool.outputSchema!.required).toEqual(expect.arrayContaining(fields[name]!));
+    expect(JSON.stringify(tool.outputSchema)).not.toContain('"tagged"');
   }
 
   const product = await createProduct(mcp, `MCP group scope ${account.user.id}`);
-  const entries: EntryWithMacros[] = [];
+  const entries: McpEntry[] = [];
   for (let i = 0; i < 4; i++) entries.push(await createEntry(mcp, product.id, '2024-02-29'));
   const group = await createGroup(mcp, 'Scope group', [entries[0]!.id, entries[1]!.id]);
   const readOnly = await connectMcp(page);
@@ -79,7 +80,7 @@ test('[J-218] MCP group tools declare write schemas and read-only tokens cannot 
   }
 });
 
-test('[J-219] MCP group create rename tag and ungroup preserve totals and appear after UI reload', async ({ page, request, mcp, account }) => {
+test('[J-219] MCP group edits preserve app flags while REST tagging leaves MCP results unchanged', async ({ page, request, mcp, account }) => {
   const date = await page.evaluate(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -88,13 +89,13 @@ test('[J-219] MCP group create rename tag and ungroup preserve totals and appear
   const first = await createEntry(mcp, product.id, date, 62.5, '08:15');
   const second = await createEntry(mcp, product.id, date, 37.5, '19:45');
   const loose = await createEntry(mcp, product.id, date, 25, '21:10');
-  const taggedFirst = (await call<McpEntryWriteResult>(mcp, 'update_entry', { entry_id: first.id, tagged: true })).entry;
+  await rest(request, account.token, 'patch', `/entries/${first.id}`, { tagged: true });
   const baseline = await call<McpDayResult>(mcp, 'get_day', { date });
   const baselineWeek = await call<McpWeekResult>(mcp, 'get_week', { date });
-  const assertTotals = async (entries: EntryWithMacros[]) => {
+  const assertTotals = async (entries: McpEntry[]) => {
     const day = await call<McpDayResult>(mcp, 'get_day', { date });
     expect(day.entries).toEqual([...entries, loose]);
-    expect(day.entries).toEqual(await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`));
+    expect(day.entries).toEqual((await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`)).map(mcpEntry));
     expect(day.totals).toEqual(baseline.totals);
     expect(await call<McpWeekResult>(mcp, 'get_week', { date })).toEqual(baselineWeek);
     const meals = await call<McpMealsResult>(mcp, 'get_meals', { start_date: date, end_date: date });
@@ -105,7 +106,7 @@ test('[J-219] MCP group create rename tag and ungroup preserve totals and appear
   const created = await createGroup(mcp, `  MCP   Mixed\nMeal ${account.user.id}  `, [second.id, first.id]);
   expect(created).toEqual({
     user_id: account.user.id, group: { id: expect.any(Number), name, local_date: date },
-    entries: [taggedFirst, second].map((entry) => ({ ...entry, group: { id: created.group.id, name } })),
+    entries: [first, second].map((entry) => ({ ...entry, group: { id: created.group.id, name } })),
   });
   await assertTotals(created.entries);
   await page.goto('/');
@@ -131,14 +132,13 @@ test('[J-219] MCP group create rename tag and ungroup preserve totals and appear
   await page.reload();
   await expect(parent(renamedName)).toBeVisible();
   await expect(parent(name)).toHaveCount(0);
+  await expect(parent(renamedName).getByRole('button', { name: `Mark ${renamedName} as eaten`, exact: true }))
+    .toHaveAttribute('aria-pressed', 'mixed');
 
   for (const tagged of [true, false]) {
-    const result = await call<McpEntryGroupResult>(mcp, 'set_entry_group_tagged', { group_id: created.group.id, tagged });
-    expect(result).toEqual({ user_id: account.user.id, group: renamed.group,
-      entries: renamed.entries.map((entry) => ({ ...entry, tagged })),
-    });
-    expect(await call(mcp, 'set_entry_group_tagged', { group_id: created.group.id, tagged })).toEqual(result);
-    await assertTotals(result.entries);
+    const result = await rest<EntryWithMacros[]>(request, account.token, 'patch', `/entries/groups/${created.group.id}/tagged`, { tagged });
+    expect(result).toEqual(renamed.entries.map((entry) => ({ ...entry, tagged })));
+    await assertTotals(renamed.entries);
     await page.reload();
     await expect(parent(renamedName).getByRole('button', {
       name: `Mark ${renamedName} as ${tagged ? 'not eaten' : 'eaten'}`, exact: true,
@@ -146,12 +146,14 @@ test('[J-219] MCP group create rename tag and ungroup preserve totals and appear
   }
 
   // Keep a mixed tag state through Ungroup to verify each child's value survives.
-  await call<McpEntryWriteResult>(mcp, 'update_entry', { entry_id: first.id, tagged: true });
+  await rest(request, account.token, 'patch', `/entries/${first.id}`, { tagged: true });
   const ungrouped = await call<McpUngroupResult>(mcp, 'ungroup_entries', { group_id: created.group.id });
   expect(ungrouped).toEqual({ user_id: account.user.id, ok: true, group_id: created.group.id,
-    entries: [taggedFirst, second],
+    entries: [first, second],
   });
   await assertTotals(ungrouped.entries);
+  expect(await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`))
+    .toEqual([{ ...first, tagged: true }, { ...second, tagged: false }, { ...loose, tagged: false }]);
   await page.reload();
   await expect(page.getByRole('button', { name: 'ADD FOOD' })).toBeVisible();
   await expect(page.locator('.entry-group')).toHaveCount(0);
@@ -206,11 +208,8 @@ test('[J-220] MCP groups reject invalid memberships and unsupported edits withou
     ['update_entry_group', { ...rename, per100: NUTRITION }],
     ['update_entry_group', { ...rename, tagged: true }],
     ['update_entry_group', { ...rename, user_id: account.user.id }],
-    ['set_entry_group_tagged', { group_id: group.group.id }],
-    ['set_entry_group_tagged', { group_id: group.group.id, tagged: 'true' }],
-    ['set_entry_group_tagged', { group_id: group.group.id, tagged: 1 }],
-    ['set_entry_group_tagged', { group_id: group.group.id, tagged: true, entry_ids: [c.id] }],
-    ['set_entry_group_tagged', { group_id: group.group.id, tagged: true, user_id: account.user.id }],
+    ['set_entry_group_tagged', { group_id: group.group.id, tagged: true }],
+    ['set_entry_group_tagged', { group_id: group.group.id, tagged: false }],
     ['ungroup_entries', { group_id: 0 }],
     ['ungroup_entries', { group_id: group.group.id, entry_ids: [c.id] }],
     ['ungroup_entries', { group_id: group.group.id, user_id: account.user.id }],
@@ -241,7 +240,6 @@ test('[J-220] MCP groups reject invalid memberships and unsupported edits withou
   await reject(mcp, 'create_entry_group', { name: 'Impossible date', entry_ids: [impossibleA.id, impossibleB.id] });
   for (const [name, args] of [
     ['update_entry_group', { group_id: extremeGroup.id, name: 'Must roll back' }],
-    ['set_entry_group_tagged', { group_id: extremeGroup.id, tagged: true }],
     ['ungroup_entries', { group_id: extremeGroup.id }],
   ] as const) await reject(mcp, name, args, 'write_failed');
   expect(storedRecords()).toEqual(beforeLegacyRejections);
@@ -259,7 +257,7 @@ test('[J-221] MCP groups isolate owners and reject missing or mixed-owner resour
     const otherConnection = await connectMcp(otherPage, new BrowserOAuth('none', 'kcal:read kcal:write'));
     try {
       const foreignProduct = await createProduct(otherConnection.mcp, `MCP foreign group ${other.user.id}`);
-      const foreignEntries: EntryWithMacros[] = [];
+      const foreignEntries: McpEntry[] = [];
       for (let i = 0; i < 4; i++) foreignEntries.push(await createEntry(otherConnection.mcp, foreignProduct.id, date));
       const foreignGroup = await createGroup(otherConnection.mcp, 'Foreign meal', [foreignEntries[2]!.id, foreignEntries[3]!.id]);
       await otherPage.close();
@@ -273,7 +271,6 @@ test('[J-221] MCP groups isolate owners and reject missing or mixed-owner resour
       ]) await reject(mcp, 'create_entry_group', { name: 'Denied meal', entry_ids }, 'not_found');
       for (const group_id of [foreignGroup.group.id, Number.MAX_SAFE_INTEGER]) {
         await reject(mcp, 'update_entry_group', { group_id, name: 'Stolen meal' }, 'not_found');
-        await reject(mcp, 'set_entry_group_tagged', { group_id, tagged: true }, 'not_found');
         await reject(mcp, 'ungroup_entries', { group_id }, 'not_found');
         await reject(mcp, 'delete_entry_group', { group_id }, 'not_found');
       }
@@ -310,14 +307,15 @@ test('[J-222] MCP groups support temporary children and deletion while preservin
   expect(group.entries.map((entry) => entry.id)).toEqual([tempEntry.id, savedA.id, savedB.id]);
   expect(group.entries[0]!.product.is_temp).toBe(true);
   const groupRef = { id: group.group.id, name: group.group.name };
-  const changed = await call<McpEntryWriteResult>(mcp, 'update_entry', { entry_id: tempEntry.id, grams: 75, tagged: true });
-  expect(changed.entry).toEqual({ ...tempEntry, grams: 75, tagged: true, group: groupRef,
+  await rest(request, account.token, 'patch', `/entries/${tempEntry.id}`, { tagged: true });
+  const changed = await call<McpEntryWriteResult>(mcp, 'update_entry', { entry_id: tempEntry.id, grams: 75 });
+  expect(changed.entry).toEqual({ ...mcpEntry(tempEntry), grams: 75, group: groupRef,
     macros: { kcal: 150, protein: 7.5, carbs: 15, fat: 3.75 },
   });
   expect((await call<McpDayResult>(mcp, 'get_day', { date })).totals)
     .toEqual({ kcal: 400, protein: 20, carbs: 40, fat: 10 });
-  const tagged = await call<McpEntryGroupResult>(mcp, 'set_entry_group_tagged', { group_id: group.group.id, tagged: true });
-  expect(tagged.entries.every((entry) => entry.tagged)).toBe(true);
+  const tagged = await rest<EntryWithMacros[]>(request, account.token, 'patch', `/entries/groups/${group.group.id}/tagged`, { tagged: true });
+  expect(tagged.every((entry) => entry.tagged)).toBe(true);
   expect(await call<McpEntryDeleteResult>(mcp, 'delete_entry', { entry_id: savedB.id })).toEqual({
     user_id: account.user.id, ok: true, entry_id: savedB.id, dissolved_group_id: null,
   });
@@ -342,7 +340,7 @@ test('[J-222] MCP groups support temporary children and deletion while preservin
   const day = await call<McpDayResult>(mcp, 'get_day', { date });
   expect(day.entries).toEqual([loose]);
   expect(day.totals).toEqual(loose.macros);
-  expect(day.entries).toEqual(await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`));
+  expect(day.entries).toEqual((await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`)).map(mcpEntry));
   expect((await call<McpDayResult>(mcp, 'get_day', { date: outside.local_date })).entries).toEqual([outside]);
   expect((await call<McpWeekResult>(mcp, 'get_week', { date })).totals)
     .toEqual({ kcal: 60, protein: 3, carbs: 6, fat: 1.5 });

@@ -10,7 +10,7 @@ import type {
   McpSummaryResult, McpWeekResult, McpWeighinsResult, Product,
 } from '../../shared/types';
 import { connectMcp } from './oauth-helpers';
-import { call, createMcpTest, freshUser, MCP_HEADERS, rest as write } from './mcp-helpers';
+import { call, createMcpTest, freshUser, MCP_HEADERS, mcpEntry, rest as write } from './mcp-helpers';
 
 const ZERO = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
 
@@ -19,7 +19,8 @@ const test = createMcpTest({ emailPrefix: 'mcp', scope: 'kcal:read' });
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test('[J-188] MCP discovers six account-scoped read-only tools with output schemas', async ({ mcp }) => {
-  expect(mcp.getServerVersion()?.name).toBe('kcal');
+  expect(mcp.getServerVersion()).toEqual({ name: 'kcal', version: '3.0.0' });
+  expect(mcp.getInstructions()).not.toMatch(/tagged|\btags\b|\beaten\b/);
   const { tools } = await mcp.listTools();
   expect(tools.map((tool) => tool.name).sort()).toEqual([
     'get_day', 'get_meals', 'get_summary', 'get_week', 'get_weighins', 'search_products',
@@ -36,6 +37,7 @@ test('[J-188] MCP discovers six account-scoped read-only tools with output schem
     search_products: ['user_id', 'query', 'products'],
   };
   for (const tool of tools) {
+    expect(JSON.stringify(tool)).not.toMatch(/tagged|\btags\b|\beaten\b/);
     expect(tool.outputSchema, tool.name).toMatchObject({
       type: 'object', properties: { user_id: { type: 'integer' } },
     });
@@ -78,9 +80,10 @@ test('[J-189] MCP food reads and summaries match app totals across users, groups
   await write(request, a.token, 'patch', `/entries/${first.id}`, { tagged: true });
 
   const day = await call<McpDayResult>(mcp, 'get_day', { date: '2024-12-30' });
-  expect(day.entries).toEqual(await (await request.get('/entries?date=2024-12-30', { headers })).json());
+  const appEntries = await write<EntryWithMacros[]>(request, a.token, 'get', '/entries?date=2024-12-30');
+  expect(day.entries).toEqual(appEntries.map(mcpEntry));
   expect(day.entries.map((row) => row.group?.id)).toEqual([group.id, group.id]);
-  expect(day.entries.map((row) => row.tagged)).toEqual([true, false]);
+  expect(appEntries.map((row) => row.tagged)).toEqual([true, false]);
   expect(day.totals).toEqual({ kcal: 400, protein: 20, carbs: 40, fat: 10 });
   expect(day.current_daily_goals).toEqual(await (await request.get('/settings', { headers })).json());
   const week = await call<McpWeekResult>(mcp, 'get_week', { date: '2025-01-05' });
@@ -148,7 +151,7 @@ test('[J-189] MCP food reads and summaries match app totals across users, groups
     ...productBody, per100: { kcal: 300, protein: 20, carbs: 30, fat: 10 },
   });
   const edited = await call<McpDayResult>(mcp, 'get_day', { date: '2024-12-30' });
-  expect(edited.entries).toEqual(await (await request.get('/entries?date=2024-12-30', { headers })).json());
+  expect(edited.entries).toEqual((await write<EntryWithMacros[]>(request, a.token, 'get', '/entries?date=2024-12-30')).map(mcpEntry));
   expect(edited.totals).toEqual({ kcal: 600, protein: 40, carbs: 60, fat: 20 });
   const editedMeals = await call<McpMealsResult>(mcp, 'get_meals', range);
   expect(editedMeals.days['2024-12-30']).toEqual({ entries: edited.entries, totals: edited.totals });
@@ -160,6 +163,59 @@ test('[J-189] MCP food reads and summaries match app totals across users, groups
   expect(editedSummary.totals).toEqual(editedWeek.totals);
   expect(editedSummary.average_on_logged_days).toEqual({ kcal: 450, protein: 30, carbs: 45, fat: 15 });
   expect(editedSummary.current_daily_goals).toEqual(newGoals);
+});
+
+test('[J-261] MCP includes every logged meal regardless of app checkmarks', async ({ request, mcp, account }) => {
+  const date = '2031-04-01';
+  const entries: EntryWithMacros[] = [];
+  for (const [name, per100, times] of [
+    ['Breakfast', { kcal: 400, protein: 20, carbs: 60, fat: 10 }, ['08:00']],
+    ['Wrap', { kcal: 200, protein: 10, carbs: 20, fat: 5 }, ['12:00', '12:30', '13:00']],
+    ['Dinner', { kcal: 700, protein: 40, carbs: 80, fat: 20 }, ['18:00']],
+  ] as const) {
+    const product = await write<Product>(request, account.token, 'post', '/products', {
+      name: `${name} ${account.user.id}`, unit: 'g', brand: null, barcode: null, is_temp: false, per100,
+    });
+    for (const local_time of times) {
+      const entry = await write<EntryWithMacros>(request, account.token, 'post', '/entries', {
+        product_id: product.id, grams: 100, local_date: date, local_time,
+      });
+      if (name === 'Wrap') await write(request, account.token, 'patch', `/entries/${entry.id}`, { tagged: true });
+      entries.push(entry);
+    }
+  }
+  await write(request, account.token, 'post', '/entries/groups', {
+    name: `Three wraps ${account.user.id}`, entry_ids: entries.slice(1, 4).map((entry) => entry.id),
+  });
+  const appEntries = await write<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`);
+  expect(appEntries.map((entry) => entry.tagged)).toEqual([false, true, true, true, false]);
+  const range = { start_date: date, end_date: date };
+  const readViews = () => Promise.all([
+    call<McpDayResult>(mcp, 'get_day', { date }),
+    call<McpMealsResult>(mcp, 'get_meals', range),
+    call<McpWeekResult>(mcp, 'get_week', { date }),
+    call<McpSummaryResult>(mcp, 'get_summary', range),
+  ]);
+  const baseline = await readViews();
+  const [day, meals, week, summary] = baseline;
+  const totals = { kcal: 1700, protein: 90, carbs: 200, fat: 45 };
+  expect(day.entries).toEqual(appEntries.map(mcpEntry));
+  expect(day.entries.map((entry) => entry.id)).toEqual(entries.map((entry) => entry.id));
+  expect(day.totals).toEqual(totals);
+  expect(meals.days[date]).toEqual({ entries: day.entries, totals });
+  expect(week.days[date]).toEqual(totals);
+  expect(week.totals).toEqual(totals);
+  expect(summary).toMatchObject({ totals, average_on_logged_days: totals, days_logged: 1 });
+
+  // Selective, inverted, and entirely unchecked logs expose identical MCP data.
+  for (const flags of [[true, false, false, false, true], [false, false, false, false, false]]) {
+    for (const [index, entry] of entries.entries()) {
+      await write(request, account.token, 'patch', `/entries/${entry.id}`, { tagged: flags[index]! });
+    }
+    const updated = await write<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`);
+    expect(updated.map((entry) => entry.tagged)).toEqual(flags);
+    expect(await readViews()).toEqual(baseline);
+  }
 });
 
 test('[J-199] MCP meals include empty days and handle calendar boundaries through 31 days', async ({ mcp }) => {

@@ -2,18 +2,18 @@ import { expect } from '@playwright/test';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import Database from 'better-sqlite3';
 import type {
-  EntryGroup, EntryWithMacros, McpDayResult, McpProductSearchResult, Product,
+  EntryGroup, EntryWithMacros, McpDayResult, McpEntry, McpProductSearchResult, Product,
   McpEntryWriteResult as EntryResult, McpEntryDeleteResult as DeleteEntryResult,
   McpProductWriteResult as ProductResult, McpProductDeleteResult as DeleteProductResult,
 } from '../../shared/types';
 import { fillNutField } from './helpers';
 import { connectMcp } from './oauth-helpers';
-import { call, createMcpTest, freshUser, reject, rest, storedRecords } from './mcp-helpers';
+import { call, createMcpTest, freshUser, mcpEntry, reject, rest, storedRecords } from './mcp-helpers';
 
 const READ_TOOLS = ['get_day', 'get_meals', 'get_summary', 'get_week', 'get_weighins', 'search_products'];
 const WRITE_TOOLS = [
   'create_entry', 'create_entry_group', 'create_product', 'delete_entry', 'delete_entry_group',
-  'delete_product', 'set_entry_group_tagged', 'ungroup_entries', 'update_entry',
+  'delete_product', 'ungroup_entries', 'update_entry',
   'update_entry_group', 'update_product',
 ];
 const NUTRITION = { kcal: 200, protein: 10, carbs: 20, fat: 5 };
@@ -27,7 +27,7 @@ async function createProduct(mcp: Client, name: string, extra: Record<string, un
   return (await call<ProductResult>(mcp, 'create_product', { name, unit: 'g', per100: NUTRITION, ...extra })).product;
 }
 
-async function createEntry(mcp: Client, product_id: number, local_date: string, grams = 100): Promise<EntryWithMacros> {
+async function createEntry(mcp: Client, product_id: number, local_date: string, grams = 100): Promise<McpEntry> {
   return (await call<EntryResult>(mcp, 'create_entry', { product_id, grams, local_date, local_time: '12:30' })).entry;
 }
 
@@ -42,7 +42,6 @@ test('[J-205] MCP write scopes advertise mutation schemas and deny writes to rea
     delete_product: ['user_id', 'ok', 'product_id', 'deleted_entry_count'],
     create_entry_group: ['user_id', 'group', 'entries'],
     update_entry_group: ['user_id', 'group', 'entries'],
-    set_entry_group_tagged: ['user_id', 'group', 'entries'],
     ungroup_entries: ['user_id', 'ok', 'group_id', 'entries'],
     delete_entry_group: ['user_id', 'ok', 'group_id', 'deleted_entry_ids'],
   };
@@ -56,7 +55,11 @@ test('[J-205] MCP write scopes advertise mutation schemas and deny writes to rea
     expect(tool.inputSchema.additionalProperties).toBe(false);
     expect(Object.keys(tool.outputSchema!.properties ?? {}).sort()).toEqual(outputFields[name]!.sort());
     expect(tool.outputSchema!.required).toEqual(expect.arrayContaining(outputFields[name]!));
+    expect(JSON.stringify(tool.outputSchema)).not.toContain('"tagged"');
   }
+  const updateEntry = tools.find((tool) => tool.name === 'update_entry')!;
+  expect(Object.keys(updateEntry.inputSchema.properties ?? {}).sort()).toEqual(['entry_id', 'grams']);
+  expect(updateEntry.inputSchema.required!.slice().sort()).toEqual(['entry_id', 'grams']);
 
   const product = await createProduct(mcp, `MCP scope ${account.user.id}`);
   const entry = await createEntry(mcp, product.id, '2024-02-29');
@@ -118,8 +121,8 @@ test('[J-206] MCP product creates and partial edits match REST and recalculate l
   expect(nutrition.product).toEqual({ ...metadata.product, per100: { ...NUTRITION, kcal: 300, protein: 20 } });
   expect(await rest<Product[]>(request, account.token, 'get', '/products/all')).toEqual([nutrition.product]);
   const day = await call<McpDayResult>(mcp, 'get_day', { date: entry.local_date });
-  expect(day.entries).toEqual(await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${entry.local_date}`));
-  expect(day.entries).toEqual([{ ...entry, product: nutrition.product, macros: { kcal: 450, protein: 30, carbs: 30, fat: 7.5 } }]);
+  expect(day.entries).toEqual((await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${entry.local_date}`)).map(mcpEntry));
+  expect(day.entries).toEqual([{ ...mcpEntry(entry), product: nutrition.product, macros: { kcal: 450, protein: 30, carbs: 30, fat: 7.5 } }]);
   expect(day.totals).toEqual({ kcal: 450, protein: 30, carbs: 30, fat: 7.5 });
 
   const cleared = await call<ProductResult>(mcp, 'update_product', { product_id: product.id, brand: null, barcode: null });
@@ -134,14 +137,13 @@ test('[J-207] MCP entry create update and delete match REST and preserve or diss
   const date = '2024-02-29';
   const first = await createEntry(mcp, product.id, date, 62.5);
   expect(first).toMatchObject({ product, grams: 62.5, local_date: date, local_time: '12:30',
-    macros: { kcal: 125, protein: 6.25, carbs: 12.5, fat: 3.125 }, tagged: false, group: null });
-  expect(await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`)).toEqual([first]);
-  const edited = await call<EntryResult>(mcp, 'update_entry', { entry_id: first.id, grams: 150, tagged: true });
-  expect(edited).toEqual({ user_id: account.user.id, entry: { ...first, grams: 150, tagged: true,
+    macros: { kcal: 125, protein: 6.25, carbs: 12.5, fat: 3.125 }, group: null });
+  expect(await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`)).toEqual([{ ...first, tagged: false }]);
+  await rest(request, account.token, 'patch', `/entries/${first.id}`, { tagged: true });
+  const edited = await call<EntryResult>(mcp, 'update_entry', { entry_id: first.id, grams: 150 });
+  expect(edited).toEqual({ user_id: account.user.id, entry: { ...first, grams: 150,
     macros: { kcal: 300, protein: 15, carbs: 30, fat: 7.5 } } });
-  const untagged = await call<EntryResult>(mcp, 'update_entry', { entry_id: first.id, tagged: false });
-  expect(untagged.entry).toEqual({ ...edited.entry, tagged: false });
-  expect(await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`)).toEqual([untagged.entry]);
+  expect(await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`)).toEqual([{ ...edited.entry, tagged: true }]);
 
   const second = await createEntry(mcp, product.id, date, 50);
   const third = await createEntry(mcp, product.id, date, 25);
@@ -149,7 +151,8 @@ test('[J-207] MCP entry create update and delete match REST and preserve or diss
     name: `MCP deletion group ${account.user.id}`, entry_ids: [first.id, second.id, third.id],
   });
   const groupRef = { id: group.id, name: group.name };
-  const grouped = await call<EntryResult>(mcp, 'update_entry', { entry_id: third.id, tagged: true });
+  await rest(request, account.token, 'patch', `/entries/${third.id}`, { tagged: true });
+  const grouped = await call<EntryResult>(mcp, 'update_entry', { entry_id: third.id, grams: 25 });
   expect(grouped.entry.group).toEqual(groupRef);
 
   expect(await call<DeleteEntryResult>(mcp, 'delete_entry', { entry_id: first.id })).toEqual({
@@ -161,8 +164,8 @@ test('[J-207] MCP entry create update and delete match REST and preserve or diss
   expect(await call<DeleteEntryResult>(mcp, 'delete_entry', { entry_id: second.id })).toEqual({
     user_id: account.user.id, ok: true, entry_id: second.id, dissolved_group_id: group.id,
   });
-  const survivor = { ...third, tagged: true, group: null };
-  expect(await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`)).toEqual([survivor]);
+  const survivor = { ...third, group: null };
+  expect(await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`)).toEqual([{ ...survivor, tagged: true }]);
   const one = await call<McpDayResult>(mcp, 'get_day', { date });
   expect(one.entries).toEqual([survivor]);
   expect(one.totals).toEqual(third.macros);
@@ -200,7 +203,7 @@ test('[J-208] MCP writes reject foreign and missing products and entries without
       await reject(mcp, 'delete_product', { product_id }, 'not_found');
     }
     for (const entry_id of [foreignEntry.id, missingId]) {
-      await reject(mcp, 'update_entry', { entry_id, grams: 1, tagged: true }, 'not_found');
+      await reject(mcp, 'update_entry', { entry_id, grams: 1 }, 'not_found');
       await reject(mcp, 'delete_entry', { entry_id }, 'not_found');
     }
     expect(storedRecords()).toEqual(before);
@@ -210,7 +213,7 @@ test('[J-208] MCP writes reject foreign and missing products and entries without
   }
 });
 
-test('[J-209] MCP write validation rejects malformed and unsupported inputs without mutation', async ({ page, mcp, account, request }) => {
+test('[J-209] MCP write validation rejects malformed and unsupported inputs without mutation', async ({ page, mcp, account }) => {
   const product = await createProduct(mcp, `MCP validation ${account.user.id}`);
   const entry = await createEntry(mcp, product.id, '2024-02-29');
   const newEntry = { product_id: product.id, grams: 100, local_date: entry.local_date, local_time: '12:30' };
@@ -237,12 +240,15 @@ test('[J-209] MCP write validation rejects malformed and unsupported inputs with
     ['create_entry', { ...newEntry, group_id: 1 }],
     ['update_entry', { entry_id: entry.id }],
     ['update_entry', { entry_id: 0, grams: 100 }],
-    ['update_entry', { entry_id: entry.id, grams: -1, tagged: true }],
-    ['update_entry', { entry_id: entry.id, grams: 1e308, tagged: true }],
+    ['update_entry', { entry_id: entry.id, grams: -1 }],
+    ['update_entry', { entry_id: entry.id, grams: 1e308 }],
     ['update_entry', { entry_id: entry.id, grams: 1e306 }],
     ['update_entry', { entry_id: entry.id, grams: 50, tagged: 'yes' }],
+    ['update_entry', { entry_id: entry.id, grams: 50, tagged: true }],
+    ['update_entry', { entry_id: entry.id, tagged: true }],
+    ['update_entry', { entry_id: entry.id, tagged: false }],
     ['update_entry', { entry_id: entry.id, grams: 50, local_date: '2024-03-01' }],
-    ['update_entry', { entry_id: entry.id, tagged: true, user_id: account.user.id }],
+    ['update_entry', { entry_id: entry.id, grams: 50, user_id: account.user.id }],
     ['delete_entry', { entry_id: -1 }],
     ['delete_entry', { entry_id: entry.id, user_id: account.user.id }],
     ['create_product', {}],
@@ -277,13 +283,17 @@ test('[J-209] MCP write validation rejects malformed and unsupported inputs with
   ] as const) await reject(mcp, name, args);
   expect(storedRecords()).toEqual(before);
 
-  // Legacy REST input allows extreme finite amounts. If its serialized macros
-  // cannot satisfy the MCP output schema, roll back even a valid tag-only edit.
-  const legacy = await rest<EntryWithMacros>(request, account.token, 'post', '/entries', {
-    ...newEntry, grams: 1e308,
-  });
+  // Simulate legacy nutrition whose macros overflow for an otherwise valid edit.
+  // Output validation must roll back the changed amount before it is committed.
+  const db = new Database('/tmp/kcal-e2e.db');
+  try {
+    db.prepare('UPDATE products SET kcal_per100 = ? WHERE created_by = ? AND id = ?')
+      .run(1e308, account.user.id, product.id);
+  } finally {
+    db.close();
+  }
   const beforeOutputFailure = storedRecords();
-  await reject(mcp, 'update_entry', { entry_id: legacy.id, tagged: true }, 'write_failed');
+  await reject(mcp, 'update_entry', { entry_id: entry.id, grams: 1000 }, 'write_failed');
   expect(storedRecords()).toEqual(beforeOutputFailure);
 });
 
@@ -350,13 +360,13 @@ test('[J-210] MCP product deletion cleans owned history and groups while preserv
   }
 });
 
-test('[J-223] MCP and REST enforce the UI amount minimum without invalidating legacy entries', async ({ page, request, mcp, account }) => {
+test('[J-223] MCP and REST enforce the UI amount minimum while REST preserves legacy tag edits', async ({ page, request, mcp, account }) => {
   const headers = { Authorization: `Bearer ${account.token}` };
   // REST authentication renews session timestamps even when validation rejects
   // a write. Preserve session identity and all application data in this snapshot.
   const snapshot = () => storedRecords({ ignoreSessionActivity: true });
   const date = '2024-06-03';
-  const entries: EntryWithMacros[] = [];
+  const entries: McpEntry[] = [];
   const products: Product[] = [];
   for (const unit of ['g', 'ml'] as const) {
     const product = await createProduct(mcp, `MCP amount ${unit} ${account.user.id}`, { unit });
@@ -369,7 +379,7 @@ test('[J-223] MCP and REST enforce the UI amount minimum without invalidating le
         product_id: product.id, grams, local_date: date, local_time: '12:30',
       });
       expect(fromRest).toMatchObject({ grams, product });
-      entries.push(fromRest);
+      entries.push(mcpEntry(fromRest));
     }
   }
   const first = entries[0]!;
@@ -385,7 +395,7 @@ test('[J-223] MCP and REST enforce the UI amount minimum without invalidating le
     for (const grams of [-1, 0, 0.5, 0.999]) {
       const create = { product_id: product.id, grams, local_date: date, local_time: '12:30' };
       await reject(mcp, 'create_entry', create);
-      await reject(mcp, 'update_entry', { entry_id: entry.id, grams, tagged: true });
+      await reject(mcp, 'update_entry', { entry_id: entry.id, grams });
       const createResponse = await request.post('/entries', { headers, data: create });
       expect(createResponse.status()).toBe(400);
       expect(await createResponse.json()).toEqual({ error: 'invalid_entry' });
@@ -397,7 +407,7 @@ test('[J-223] MCP and REST enforce the UI amount minimum without invalidating le
   expect(snapshot()).toEqual(before);
 
   // Simulate an entry saved before the minimum existed. New validation must
-  // apply only when an amount is supplied, never to tag-only edits or reads.
+  // apply only when an amount is supplied, never to REST tag-only edits or reads.
   const db = new Database('/tmp/kcal-e2e.db');
   try {
     expect(db.prepare('UPDATE entries SET grams = ? WHERE user_id = ? AND id = ?')
@@ -408,12 +418,15 @@ test('[J-223] MCP and REST enforce the UI amount minimum without invalidating le
   const legacy = { ...first, grams: 0.5, macros: { kcal: 1, protein: 0.05, carbs: 0.1, fat: 0.025 } };
   expect((await call<McpDayResult>(mcp, 'get_day', { date })).entries.find((item) => item.id === first.id)).toEqual(legacy);
   expect((await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`))
-    .find((item) => item.id === first.id)).toEqual(legacy);
-  expect((await call<EntryResult>(mcp, 'update_entry', { entry_id: first.id, tagged: true })).entry)
+    .find((item) => item.id === first.id)).toEqual({ ...legacy, tagged: false });
+  expect(await rest<EntryWithMacros>(request, account.token, 'patch', `/entries/${first.id}`, { tagged: true }))
     .toEqual({ ...legacy, tagged: true });
-  expect(await rest<EntryWithMacros>(request, account.token, 'patch', `/entries/${first.id}`, { tagged: false })).toEqual(legacy);
+  expect((await call<McpDayResult>(mcp, 'get_day', { date })).entries.find((item) => item.id === first.id)).toEqual(legacy);
+  expect(await rest<EntryWithMacros>(request, account.token, 'patch', `/entries/${first.id}`, { tagged: false }))
+    .toEqual({ ...legacy, tagged: false });
   const beforeLegacyRejection = snapshot();
-  await reject(mcp, 'update_entry', { entry_id: first.id, grams: 0.5, tagged: true });
+  await reject(mcp, 'update_entry', { entry_id: first.id, grams: 0.5 });
+  await reject(mcp, 'update_entry', { entry_id: first.id, tagged: true });
   const legacyUpdate = await request.patch(`/entries/${first.id}`, { headers, data: { grams: 0.5, tagged: true } });
   expect(legacyUpdate.status()).toBe(400);
   expect(snapshot()).toEqual(beforeLegacyRejection);
@@ -444,7 +457,7 @@ test('[J-224] MCP blocks temporary-food reuse while preserving the UI flow and e
   const row = page.locator('.food-row').filter({ hasText: name });
   await expect(row.getByText('TMP', { exact: true })).toBeVisible();
   expect(entry).toMatchObject({ grams: 50, product: { name, is_temp: true } });
-  expect((await call<McpDayResult>(mcp, 'get_day', { date: entry.local_date })).entries).toEqual([entry]);
+  expect((await call<McpDayResult>(mcp, 'get_day', { date: entry.local_date })).entries).toEqual([mcpEntry(entry)]);
 
   const unlogged = await rest<Product>(request, account.token, 'post', '/products', {
     name: `Mcp unused temp ${account.user.id}`, unit: 'g', brand: null, barcode: null, per100: NUTRITION, is_temp: true,
@@ -466,12 +479,13 @@ test('[J-224] MCP blocks temporary-food reuse while preserving the UI flow and e
   expect(updatedProduct.product).toEqual({
     ...entry.product, name: `Mcp edited temp ${account.user.id}`, per100: { ...NUTRITION, kcal: 300 },
   });
-  const updatedEntry = await call<EntryResult>(mcp, 'update_entry', { entry_id: entry.id, grams: 1.5, tagged: true });
+  await rest(request, account.token, 'patch', `/entries/${entry.id}`, { tagged: true });
+  const updatedEntry = await call<EntryResult>(mcp, 'update_entry', { entry_id: entry.id, grams: 1.5 });
   expect(updatedEntry).toEqual({ user_id: account.user.id, entry: {
-    ...entry, product: updatedProduct.product, grams: 1.5, tagged: true,
+    ...mcpEntry(entry), product: updatedProduct.product, grams: 1.5,
     macros: { kcal: 4.5, protein: 0.15, carbs: 0.3, fat: 0.075 },
   } });
-  expect(await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${entry.local_date}`)).toEqual([updatedEntry.entry]);
+  expect(await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${entry.local_date}`)).toEqual([{ ...updatedEntry.entry, tagged: true }]);
   expect(await call<DeleteEntryResult>(mcp, 'delete_entry', { entry_id: entry.id })).toEqual({
     user_id: account.user.id, ok: true, entry_id: entry.id, dissolved_group_id: null,
   });

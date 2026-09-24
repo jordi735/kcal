@@ -287,7 +287,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-204 · MCP product search caps broad queries at 50 alphabetically ordered results and supports narrowing the query
 - J-205 · MCP write scopes advertise mutation schemas and deny writes to read-only tokens
 - J-206 · MCP product creates and partial edits match REST and recalculate logged nutrition
-- J-207 · MCP entry create/update/delete matches REST and preserves or dissolves groups
+- J-207 · MCP entry create/update/delete matches REST, hides and preserves app checkmarks, and preserves or dissolves groups
 - J-208 · MCP writes reject foreign and missing products and entries without mutation
 - J-209 · MCP write validation rejects malformed and unsupported inputs without mutation
 - J-210 · MCP product deletion cascades through owned history and cleans groups while preserving adopted copies
@@ -295,13 +295,14 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-212 · OAuth reconnects legacy clients for write without upgrading old or omitted-scope grants
 - J-213 · OAuth refresh preserves or narrows scope without restoring write permissions
 - J-214 · OAuth scope migration preserves legacy requests grants and tokens as read-only
-- J-218 · MCP group tools declare write schemas and read-only tokens cannot mutate groups
-- J-219 · MCP group creation, renaming, tagging, and ungrouping preserve child fields and totals and appear after UI reload
+- J-218 · MCP group tools declare write schemas, exclude group tagging, and read-only tokens cannot mutate groups
+- J-219 · MCP group creation, renaming, and ungrouping preserve app checkmarks and totals after UI reload; REST tagging leaves MCP results unchanged
 - J-220 · MCP groups reject invalid membership, impossible legacy dates, unsupported edits, and invalid output without partial changes
 - J-221 · MCP group operations reject missing and foreign resources and isolate connected accounts
 - J-222 · MCP groups support existing temporary children and individual edits, dissolve below two members, and delete whole groups while preserving products
-- J-223 · MCP and REST enforce the UI amount minimum, allow fractional amounts above it, and preserve legacy reads and tag-only edits
+- J-223 · MCP and REST enforce the UI amount minimum and allow fractional amounts above it; legacy reads remain available and REST preserves tag-only edits
 - J-224 · MCP blocks temporary-food reuse while preserving UI temporary-food creation and existing temporary log edits and deletion
+- J-261 · MCP includes breakfast, three wraps, and dinner regardless of app checkmarks and preserves day, week, and summary totals
 
 # 17. Foreground data refresh
 

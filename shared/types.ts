@@ -86,10 +86,13 @@ export type OAuthDecision = { redirect_url: string };
 
 // Read-only MCP results. Goals always describe the current settings;
 // recorded totals use current product nutrition, as the app does.
+// Food checkmarks are an app-only aid, not a record of actual consumption.
+export type McpEntry = Omit<EntryWithMacros, 'tagged'>;
+
 export type McpDayResult = {
   user_id: number;
   date: string;
-  entries: EntryWithMacros[];
+  entries: McpEntry[];
   totals: Macros;
   current_daily_goals: Macros;
 };
@@ -99,7 +102,7 @@ export type McpMealsResult = {
   start_date: string;
   end_date: string;
   days: Record<string, {
-    entries: EntryWithMacros[];
+    entries: McpEntry[];
     totals: Macros;
   }>;
 };
@@ -151,10 +154,10 @@ export type McpProductSearchResult = {
   products: Product[];
 };
 
-// MCP mutation results reuse app objects and report deletion effects.
+// MCP mutation results omit app-only food checkmarks and report deletion effects.
 export type McpEntryWriteResult = {
   user_id: number;
-  entry: EntryWithMacros;
+  entry: McpEntry;
 };
 
 export type McpEntryDeleteResult = {
@@ -181,7 +184,7 @@ export type EntryGroupResult = {
   entries: EntryWithMacros[];
 };
 
-export type McpEntryGroupResult = EntryGroupResult & { user_id: number };
+export type McpEntryGroupResult = Omit<EntryGroupResult, 'entries'> & { user_id: number; entries: McpEntry[] };
 
 export type UngroupResult = {
   ok: true;
@@ -189,7 +192,7 @@ export type UngroupResult = {
   entries: EntryWithMacros[];
 };
 
-export type McpUngroupResult = UngroupResult & { user_id: number };
+export type McpUngroupResult = Omit<UngroupResult, 'entries'> & { user_id: number; entries: McpEntry[] };
 
 export type EntryGroupDeleteResult = {
   ok: true;
