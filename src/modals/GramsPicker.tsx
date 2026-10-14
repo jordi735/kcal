@@ -45,10 +45,9 @@ type GoalRowProps = {
   fmt: (n: number) => string;
   color: string;
   colorDim: string;
-  currentColor?: string;
 };
 
-function GoalRow({ label, existing, entry, goal, unit, fmt, color, colorDim, currentColor = 'var(--fg)' }: GoalRowProps) {
+function GoalRow({ label, existing, entry, goal, unit, fmt, color, colorDim }: GoalRowProps) {
   const total = existing + entry;
   const over = total >= goal && goal > 0;
 
@@ -60,7 +59,7 @@ function GoalRow({ label, existing, entry, goal, unit, fmt, color, colorDim, cur
   const entryWidth = Math.max(0, totalWidth - existingWidth);
 
   return (
-    <div className={styles.row} style={cssVars({ '--current-color': currentColor })}>
+    <div className={styles.row}>
       <span
         className={`mono tiny caps ${styles.rowLabel}`}
         style={{ color }}
@@ -205,7 +204,6 @@ function GramsPickerInner({
             fmt={fmtInt}
             color="var(--kcal)"
             colorDim="var(--kcal-dim)"
-            currentColor="var(--kcal)"
           />
           {MACRO_KEYS.map((k) => (
             <GoalRow

@@ -33,7 +33,7 @@
   font-size: 24px;
   font-weight: 500;
   letter-spacing: -0.02em;
-  color: var(--kcal);
+  color: var(--fg);
   transition: color 0.3s ease;
 }
 
@@ -59,7 +59,7 @@
 
 .consumedValue {
   font-size: 14px;
-  color: var(--kcal);
+  color: var(--fg);
 }
 
 .consumedUnit {
