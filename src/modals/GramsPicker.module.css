@@ -116,11 +116,6 @@
   text-align: center;
 }
 
-.portionTitle {
-  color: var(--fg-dimmer);
-  margin-bottom: 10px;
-}
-
 .portionMacros {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

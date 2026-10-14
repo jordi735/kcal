@@ -263,7 +263,6 @@ function GramsPickerInner({
           </div>
 
           <section className={styles.portion} aria-label="This portion">
-            <div className={`mono tiny caps ${styles.portionTitle}`}>This portion</div>
             <dl className={styles.portionMacros}>
               <div className={styles.portionMacro}>
                 <dt className={`mono ${styles.portionLabel}`}>Kcal</dt>
