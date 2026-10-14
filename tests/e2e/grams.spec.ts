@@ -1,20 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 import { fillNutField, seedProductAndLog, signInFresh } from './helpers';
 
-// Per-test fresh user — every assertion below checks a `current/goal` macro
-// projection where `current = existingTotals + entry` (GramsPicker.tsx).
-// The shared `auth.setup.ts` user accumulates entries from prior specs (adopt,
-// delete, edit, entry…) on today's date, so existingTotals is non-zero by the
-// time grams.spec.ts runs and breaks every hardcoded number. Fresh user →
-// existingTotals = 0, so the projection equals the displayed total.
+// Fresh users keep daily totals deterministic, including the journeys that
+// deliberately seed existing entries to distinguish the portion from the day.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-// GramsPicker (src/modals/GramsPicker.tsx) — add-mode coverage. Edit-mode flows
-// (title 'Edit amount') live in edit.spec.ts; the Enter key handler lives in
-// keyboard.spec.ts. Here we exercise the bump +/- buttons (with clamp), the
-// quick-value pills (DEFAULT vs recent-grams), the live macro projection, and
-// the negative-path absence of edit-only affordances when the picker is opened
-// from the Add flow.
+// GramsPicker amount controls, daily projections, and selected-portion values.
+// General edit flows live in edit.spec.ts; Enter handlers in keyboard.spec.ts.
 
 const MACROS = { kcal: '100', protein: '10', carbs: '10', fat: '2' };
 
@@ -25,20 +17,18 @@ function addSheet(page: Page) {
   return page.locator('.sheet').filter({ has: page.getByText('How much?') });
 }
 
-// The bump buttons are unlabelled icon-only buttons inside the .gramsBox div
-// — siblings of the .gramsRow that wraps the input. Walking up two levels
-// from the spinbutton lands on .gramsBox; the first/last children of that
-// box are minus/plus respectively (GramsPicker.tsx).
+// The bump buttons are siblings of the row that wraps the input. Walking up
+// two levels lands on their shared amount-controls container.
 //
 // `getByRole('spinbutton')` plus role-anchor scoping is the only way to
 // disambiguate without raw class selectors — there are several other icon-
 // only buttons in this sheet (the Edit-product pencil in the header) that
 // would otherwise alias.
 function bumpButtons(page: Page) {
-  const gramsBox = page.getByRole('spinbutton').locator('../..');
+  const controls = page.getByRole('spinbutton').locator('../..');
   return {
-    minus: gramsBox.locator('button').first(),
-    plus: gramsBox.locator('button').last(),
+    minus: controls.locator('button').first(),
+    plus: controls.locator('button').last(),
   };
 }
 
@@ -50,11 +40,13 @@ async function openAddGramsForNewProduct(
   page: Page,
   name: string,
   macros: typeof MACROS,
+  unit: 'g' | 'ml' = 'g',
 ) {
   await page.goto('/');
   await page.getByRole('button', { name: 'ADD FOOD' }).tap();
   await page.getByRole('button', { name: 'Add New' }).tap();
   await page.getByPlaceholder('e.g. Peanut Butter').fill(name);
+  if (unit === 'ml') await page.getByRole('button', { name: 'Millilitres', exact: true }).tap();
   await fillNutField(page, 'Kcal', macros.kcal);
   await fillNutField(page, 'Protein', macros.protein);
   await fillNutField(page, 'Carbs', macros.carbs);
@@ -76,9 +68,20 @@ async function expectMacroRow(
   goal: number,
   unit: '' | 'g',
 ) {
-  const row = addSheet(page).getByText(label, { exact: true }).locator('..');
+  const row = page.getByRole('group', { name: 'Daily totals', exact: true })
+    .getByText(label, { exact: true }).locator('..');
   const escaped = current.replace('.', '\\.');
   await expect(row).toHaveText(new RegExp(`${label}\\s*${escaped}\\s*/\\s*${goal}${unit}`));
+}
+
+async function expectPortion(page: Page, values: [string, string, string, string]) {
+  const summary = page.getByRole('region', { name: 'This portion', exact: true });
+  const labels = ['Kcal', 'Protein', 'Carbs', 'Fat'];
+  await expect(summary).toBeVisible();
+  for (const [index, label] of labels.entries()) {
+    const definition = summary.getByText(label, { exact: true }).locator('..').locator('dd');
+    await expect(definition).toHaveText(values[index]!);
+  }
 }
 
 test('[J-087] default grams in add mode is 100 for a brand-new product', async ({ page, request }) => {
@@ -99,6 +102,7 @@ test('[J-087] default grams in add mode is 100 for a brand-new product', async (
   // Anchors the regex shape used by the rest of the spec — proves the helper
   // works against a known-good baseline.
   await expectMacroRow(page, 'Kcal', '100', 2400, '');
+  await expectPortion(page, ['100', '10.0 g', '10.0 g', '2.0 g']);
 });
 
 test('[J-088] plus button bumps grams +10 and the live kcal projection scales linearly', async ({
@@ -115,7 +119,7 @@ test('[J-088] plus button bumps grams +10 and the live kcal projection scales li
   await openAddGramsForNewProduct(page, 'E2E Plus Bump', MACROS);
   await expect(page.getByRole('spinbutton')).toHaveValue('100');
 
-  // Tap the plus bump (second/last child button inside .gramsBox).
+  // Tap the plus bump (last button inside the amount controls).
   await bumpButtons(page).plus.tap();
 
   // Grams advanced from 100 to 110; spinbutton AND projection both moved.
@@ -124,6 +128,7 @@ test('[J-088] plus button bumps grams +10 and the live kcal projection scales li
   // render 11 here; a numerator mutation (per100.kcal × grams × 100) would
   // render an absurd number. The exact-match regex catches both.
   await expectMacroRow(page, 'Kcal', '110', 2400, '');
+  await expectPortion(page, ['110', '11.0 g', '11.0 g', '2.2 g']);
 });
 
 test('[J-089] minus button decreases grams by 10 and the projection scales', async ({ page, request }) => {
@@ -141,6 +146,7 @@ test('[J-089] minus button decreases grams by 10 and the projection scales', asy
   await expect(page.getByRole('spinbutton')).toHaveValue('90');
   // 100kcal/100g × 90g = 90 kcal.
   await expectMacroRow(page, 'Kcal', '90', 2400, '');
+  await expectPortion(page, ['90', '9.0 g', '9.0 g', '1.8 g']);
 });
 
 test('[J-090] minus button clamps grams at 1 (Math.max floor)', async ({ page, request }) => {
@@ -168,7 +174,8 @@ test('[J-090] minus button clamps grams at 1 (Math.max floor)', async ({ page, r
   // Projection at 1g of 100kcal/100g = 1 kcal. Negative-path: the row text
   // doesn't contain '0 / 2400' (which would result from a 0-floor mutation).
   await expectMacroRow(page, 'Kcal', '1', 2400, '');
-  await expect(addSheet(page).getByText('Kcal', { exact: true }).locator('..')).not.toHaveText(
+  await expect(page.getByRole('group', { name: 'Daily totals', exact: true })
+    .getByText('Kcal', { exact: true }).locator('..')).not.toHaveText(
     /Kcal\s*0\s*\//,
   );
 });
@@ -193,6 +200,7 @@ test('[J-091] quick-value pill tap sets grams and updates the live projection', 
   await expect(page.getByRole('spinbutton')).toHaveValue('150');
   // 100kcal/100g × 150g = 150 kcal.
   await expectMacroRow(page, 'Kcal', '150', 2400, '');
+  await expectPortion(page, ['150', '15.0 g', '15.0 g', '3.0 g']);
 });
 
 test('[J-092] recent-grams replaces the DEFAULT [50,100,150,200,250] quick row', async ({ page, request }) => {
@@ -220,6 +228,8 @@ test('[J-092] recent-grams replaces the DEFAULT [50,100,150,200,250] quick row',
   // Pre-fill from recent-grams effect lands the spinbutton on 175 (J-085
   // contract; we verify here too as the precondition for the pill assertion).
   await expect(page.getByRole('spinbutton')).toHaveValue('175');
+  await expectPortion(page, ['175', '17.5 g', '17.5 g', '3.5 g']);
+  await expectMacroRow(page, 'Kcal', '350', 2400, '');
 
   // The 175 pill exists in the new quick row.
   await expect(
@@ -294,10 +304,69 @@ test('[J-094] protein/carbs/fat projections render with one-decimal formatting',
   await openAddGramsForNewProduct(page, 'E2E Decimals', MACROS);
   await expect(page.getByRole('spinbutton')).toHaveValue('100');
 
-  const sheet = addSheet(page);
+  const dailyTotals = page.getByRole('group', { name: 'Daily totals', exact: true });
   for (const label of ['Protein', 'Carbs', 'Fat'] as const) {
-    await expect(sheet.getByText(label, { exact: true }).locator('..')).toHaveText(
+    await expect(dailyTotals.getByText(label, { exact: true }).locator('..')).toHaveText(
       new RegExp(`${label}\\s*\\d+\\.\\d+\\s*/\\s*\\d+g`),
     );
   }
+});
+
+test('[J-270] portion values stay separate from daily totals for fractional ml and blank input', async ({
+  page,
+  request,
+}) => {
+  await signInFresh(page, request, 'portion-add');
+  await seedProductAndLog(page, 'E2E Portion Existing', MACROS, '50');
+  await openAddGramsForNewProduct(page, 'E2E Portion Drink', {
+    kcal: '387', protein: '22.4', carbs: '13.3', fat: '0',
+  }, 'ml');
+
+  await expectPortion(page, ['387', '22.4 g', '13.3 g', '0.0 g']);
+  await expectMacroRow(page, 'Kcal', '437', 2400, '');
+  await expectMacroRow(page, 'Protein', '27.4', 180, 'g');
+
+  const amount = addSheet(page).getByRole('spinbutton');
+  await expect(amount.locator('..').getByText('ml', { exact: true })).toBeVisible();
+  await amount.fill('33.3');
+  await expectPortion(page, ['129', '7.5 g', '4.4 g', '0.0 g']);
+  await expectMacroRow(page, 'Kcal', '179', 2400, '');
+  await expectMacroRow(page, 'Protein', '12.5', 180, 'g');
+  await expectMacroRow(page, 'Carbs', '9.4', 240, 'g');
+  await expectMacroRow(page, 'Fat', '1.0', 80, 'g');
+
+  // A temporary empty edit must retain the last valid nutrition preview.
+  await amount.fill('');
+  await expect(amount).toHaveValue('');
+  await expectPortion(page, ['129', '7.5 g', '4.4 g', '0.0 g']);
+  await expectMacroRow(page, 'Protein', '12.5', 180, 'g');
+  await amount.press('Tab');
+  await expect(amount).toHaveValue('33.3');
+});
+
+test('[J-271] editing shows full portion nutrition and replaces the original in daily totals', async ({
+  page,
+  request,
+}) => {
+  await signInFresh(page, request, 'portion-edit');
+  await seedProductAndLog(page, 'E2E Portion Other Entry', MACROS, '50');
+  const name = 'E2E Portion Edited Entry';
+  await seedProductAndLog(page, name, MACROS, '100');
+
+  const row = page.locator('.food-row').filter({ hasText: name });
+  await row.locator('button').nth(1).tap();
+  const sheet = page.locator('.sheet').filter({ has: page.getByText('Edit amount', { exact: true }) });
+  await expect(sheet).toBeVisible();
+  await expectPortion(page, ['100', '10.0 g', '10.0 g', '2.0 g']);
+  await expectMacroRow(page, 'Kcal', '150', 2400, '');
+  await expectMacroRow(page, 'Protein', '15.0', 180, 'g');
+
+  await sheet.getByRole('spinbutton').fill('200');
+  await expectPortion(page, ['200', '20.0 g', '20.0 g', '4.0 g']);
+  await expectMacroRow(page, 'Kcal', '250', 2400, '');
+  await expectMacroRow(page, 'Protein', '25.0', 180, 'g');
+  await sheet.getByRole('button', { name: 'Save', exact: true }).tap();
+  await expect(sheet).toHaveCount(0);
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('200g');
 });

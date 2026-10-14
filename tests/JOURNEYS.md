@@ -98,12 +98,12 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-083 · `GET /entries/week` with malformed or missing `start` returns 400 `invalid_date`
 - J-084 · `GET /entries/recent-grams` with malformed or missing `product_id` returns 400 `invalid_product_id`
 - J-085 · GramsPicker pre-fills grams from the product's most recent log (recent-grams effect overrides the 100 default)
-- J-087 · Default grams in add-mode GramsPicker is 100 for a brand-new product (no recent history → DEFAULT sticks)
-- J-088 · `+` button in GramsPicker bumps grams by +10 and the live kcal projection scales linearly
-- J-089 · `-` button in GramsPicker decreases grams by 10 and the live kcal projection scales linearly
+- J-087 · Default grams in add-mode GramsPicker is 100 for a brand-new product, with matching portion nutrition and daily projection
+- J-088 · `+` button in GramsPicker bumps grams by +10 and updates portion nutrition and the daily projection
+- J-089 · `-` button in GramsPicker decreases grams by 10 and updates portion nutrition and the daily projection
 - J-090 · `-` button in GramsPicker clamps grams at 1 (cannot go to 0 or below)
-- J-091 · Quick-value pill tap in GramsPicker sets grams and updates the live macro projection
-- J-092 · Recent-grams response replaces the DEFAULT `[50,100,150,200,250]` quick row after history loads
+- J-091 · Quick-value pill tap in GramsPicker sets grams and updates portion nutrition and the daily projection
+- J-092 · Recent grams replace the default quick row and update portion nutrition separately from the existing daily total
 - J-093 · Add-mode GramsPicker shows the pencil (`Edit product`, escalation to product-edit) but hides the trash (`Delete entry` is edit-only)
 - J-094 · Protein/carbs/fat GoalRow projections render with one-decimal formatting (not integer)
 - J-168 · Future-day entries stay in insertion order: a pre-log remains above next-morning and later additions before and after reload
@@ -111,6 +111,8 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-231 · Reversed entry responses retain insertion order and totals across reload
 - J-232 · Adding before a day loads does not overwrite its already loaded week total
 - J-233 · A rejected entry edit leaves client entries and totals unchanged
+- J-270 · Portion nutrition stays separate from daily totals, rounds fractional ml amounts correctly, keeps zero nutrients in grams, and retains the last valid preview during blank input
+- J-271 · Editing shows the full selected portion's nutrition and replaces the original entry in projected daily totals
 
 # 6. Daily goals & macro auto-compute
 

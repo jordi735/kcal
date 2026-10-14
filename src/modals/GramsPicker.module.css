@@ -58,6 +58,10 @@
   background: var(--bg-elev-2);
   border: 1px solid var(--border);
   border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.amountControls {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -67,6 +71,7 @@
 .bumpBtn {
   width: 44px;
   height: 44px;
+  flex-shrink: 0;
   border-radius: 22px;
   border: 1px solid var(--border-strong);
   color: var(--fg);
@@ -85,6 +90,7 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
+  min-width: 0;
 }
 
 .gramsInput {
@@ -93,12 +99,52 @@
   letter-spacing: -0.03em;
   color: var(--fg);
   width: calc(var(--ch, 2) * 1ch);
+  min-width: 0;
   text-align: center;
 }
 
 .gramsUnit {
+  flex-shrink: 0;
   font-size: 18px;
   color: var(--fg-dimmer);
+}
+
+.portion {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.portionTitle {
+  color: var(--fg-dimmer);
+  margin-bottom: 10px;
+}
+
+.portionMacros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.portionMacro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.portionLabel {
+  order: 1;
+  font-size: 11px;
+}
+
+.portionValue {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .quickRow {

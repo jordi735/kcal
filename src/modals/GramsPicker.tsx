@@ -194,7 +194,7 @@ function GramsPickerInner({
           </div>
         </div>
 
-        <div className={styles.macros}>
+        <div className={styles.macros} role="group" aria-label="Daily totals">
           <GoalRow
             label="Kcal"
             existing={existingTotals.kcal}
@@ -221,44 +221,62 @@ function GramsPickerInner({
         </div>
 
         <div className={styles.gramsBox}>
-          <button onClick={() => bump(-10)} className={styles.bumpBtn}>
-            <MinusIcon size={18} />
-          </button>
-          <div className={styles.gramsRow}>
-            <input
-              ref={inputRef}
-              type="number"
-              inputMode="numeric"
-              value={text}
-              onFocus={onFocus}
-              onBlur={onBlur}
-              onInput={(e) => {
-                const raw = e.currentTarget.value;
-                setText(raw);
-                // Empty input is a transient state — keep the prior `grams`
-                // so a subsequent Enter doesn't silently submit Math.max(1, 0).
-                if (raw.trim() === '') return;
-                const n = Number(raw);
-                setUserChangedGrams(true);
-                setGrams(Math.max(MIN_ENTRY_AMOUNT, Number.isFinite(n) ? n : 0));
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
+          <div className={styles.amountControls}>
+            <button onClick={() => bump(-10)} className={styles.bumpBtn}>
+              <MinusIcon size={18} />
+            </button>
+            <div className={styles.gramsRow}>
+              <input
+                ref={inputRef}
+                type="number"
+                inputMode="numeric"
+                value={text}
+                onFocus={onFocus}
+                onBlur={onBlur}
+                onInput={(e) => {
                   const raw = e.currentTarget.value;
+                  setText(raw);
+                  // Empty input is a transient state — keep the prior `grams`
+                  // so a subsequent Enter doesn't silently submit Math.max(1, 0).
                   if (raw.trim() === '') return;
-                  e.currentTarget.blur();
-                  confirmCurrentValue(raw);
-                }
-              }}
-              className={`mono ${styles.gramsInput}`}
-              style={cssVars({ '--ch': Math.max(2, text.length) })}
-            />
-            <span className={`mono ${styles.gramsUnit}`}>{unit}</span>
+                  const n = Number(raw);
+                  setUserChangedGrams(true);
+                  setGrams(Math.max(MIN_ENTRY_AMOUNT, Number.isFinite(n) ? n : 0));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const raw = e.currentTarget.value;
+                    if (raw.trim() === '') return;
+                    e.currentTarget.blur();
+                    confirmCurrentValue(raw);
+                  }
+                }}
+                className={`mono ${styles.gramsInput}`}
+                style={cssVars({ '--ch': Math.max(2, text.length) })}
+              />
+              <span className={`mono ${styles.gramsUnit}`}>{unit}</span>
+            </div>
+            <button onClick={() => bump(10)} className={styles.bumpBtn}>
+              <PlusIcon size={18} />
+            </button>
           </div>
-          <button onClick={() => bump(10)} className={styles.bumpBtn}>
-            <PlusIcon size={18} />
-          </button>
+
+          <section className={styles.portion} aria-label="This portion">
+            <div className={`mono tiny caps ${styles.portionTitle}`}>This portion</div>
+            <dl className={styles.portionMacros}>
+              <div className={styles.portionMacro}>
+                <dt className={`mono ${styles.portionLabel}`}>Kcal</dt>
+                <dd className={`mono ${styles.portionValue}`}>{fmtInt(macros.kcal)}</dd>
+              </div>
+              {MACRO_KEYS.map((k) => (
+                <div key={k} className={styles.portionMacro} style={{ color: MACRO_META[k].color }}>
+                  <dt className={`mono ${styles.portionLabel}`}>{MACRO_META[k].label}</dt>
+                  <dd className={`mono ${styles.portionValue}`}>{fmtOneDecimal(macros[k])} g</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         </div>
 
         <div className={styles.quickRow}>
