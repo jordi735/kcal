@@ -41,7 +41,7 @@
 .kcal {
   font-size: 16px;
   font-weight: 500;
-  color: var(--fg);
+  color: var(--kcal);
 }
 
 .kcalUnit {
@@ -127,7 +127,7 @@
   border-radius: 10px;
   border: 1px solid transparent;
   background: var(--danger);
-  color: var(--fg);
+  color: var(--bg);
   font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;

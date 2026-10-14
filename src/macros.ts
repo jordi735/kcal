@@ -3,8 +3,8 @@
 // instead of hardcoding color / label / short-letter per call site.
 //
 // Kcal is intentionally NOT a MacroKey: it's a scalar derived from the other
-// three at the product level, rendered separately (no bar color, no per-field
-// tint), and usually gets whole-number formatting while macros get 1 decimal.
+// three at the product level, rendered separately with its own calorie color,
+// and usually gets whole-number formatting while macros get 1 decimal.
 
 import { scaleMacros, sumMacros as sumMacroValues } from '../shared/macros';
 import type { EntryWithMacros, Macros, Product } from './types';

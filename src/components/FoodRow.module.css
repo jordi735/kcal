@@ -114,6 +114,6 @@
 
 .kcal {
   font-size: 16px;
-  color: var(--fg);
+  color: var(--kcal);
   font-weight: 500;
 }

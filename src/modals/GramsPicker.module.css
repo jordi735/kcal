@@ -224,7 +224,7 @@
 }
 
 .current {
-  color: var(--fg);
+  color: var(--current-color, var(--fg));
   font-weight: 500;
   transition: color 0.3s ease;
 }

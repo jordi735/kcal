@@ -82,7 +82,7 @@
 }
 
 .kcal {
-  color: var(--fg);
+  color: var(--kcal);
   font-size: 16px;
   font-weight: 500;
 }

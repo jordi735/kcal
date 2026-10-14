@@ -45,9 +45,10 @@ type GoalRowProps = {
   fmt: (n: number) => string;
   color: string;
   colorDim: string;
+  currentColor?: string;
 };
 
-function GoalRow({ label, existing, entry, goal, unit, fmt, color, colorDim }: GoalRowProps) {
+function GoalRow({ label, existing, entry, goal, unit, fmt, color, colorDim, currentColor = 'var(--fg)' }: GoalRowProps) {
   const total = existing + entry;
   const over = total >= goal && goal > 0;
 
@@ -59,7 +60,7 @@ function GoalRow({ label, existing, entry, goal, unit, fmt, color, colorDim }: G
   const entryWidth = Math.max(0, totalWidth - existingWidth);
 
   return (
-    <div className={styles.row}>
+    <div className={styles.row} style={cssVars({ '--current-color': currentColor })}>
       <span
         className={`mono tiny caps ${styles.rowLabel}`}
         style={{ color }}
@@ -202,8 +203,9 @@ function GramsPickerInner({
             goal={goals.kcal}
             unit=""
             fmt={fmtInt}
-            color="var(--fg)"
-            colorDim="var(--fg-dimmer)"
+            color="var(--kcal)"
+            colorDim="var(--kcal-dim)"
+            currentColor="var(--kcal)"
           />
           {MACRO_KEYS.map((k) => (
             <GoalRow
@@ -264,7 +266,7 @@ function GramsPickerInner({
 
           <section className={styles.portion} aria-label="This portion">
             <dl className={styles.portionMacros}>
-              <div className={styles.portionMacro}>
+              <div className={styles.portionMacro} style={{ color: 'var(--kcal)' }}>
                 <dt className={`mono ${styles.portionLabel}`}>Kcal</dt>
                 <dd className={`mono ${styles.portionValue}`}>{fmtInt(macros.kcal)}</dd>
               </div>

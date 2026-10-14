@@ -15,16 +15,18 @@
   --fg-dimmer: #8993a2;
   --accent: #c9d5e3;
   --accent-ink: #000000;
-  --danger: #ff7b86;       /* Errors and over-threshold values only. */
+  --danger: #ff8580;       /* Coral for errors and over-threshold values. */
 
-  --macro-p: #78b7ff;      /* Protein — blue. */
-  --macro-c: #c0a2ff;      /* Carbs — purple. */
-  --macro-f: #68d9b4;      /* Fat — mint. */
+  --kcal: #70bbff;         /* Calories — blue. */
+  --macro-p: #feb13d;      /* Protein — amber. */
+  --macro-c: #2cb9b1;      /* Carbs — teal. */
+  --macro-f: #c677e2;      /* Fat — purple. */
 
   /* Existing portions in the amount picker's stacked bars. */
-  --macro-p-dim: #4c7eae;
-  --macro-c-dim: #8268b5;
-  --macro-f-dim: #3c8b73;
+  --kcal-dim: #527fae;
+  --macro-p-dim: #ae7d33;
+  --macro-c-dim: #25827e;
+  --macro-f-dim: #925ca8;
 
   --track-height: 6px;
   --track-radius: 3px;
