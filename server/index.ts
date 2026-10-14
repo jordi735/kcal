@@ -14,7 +14,6 @@ import { weightsRouter } from './routes/weights.js';
 import { debugRouter } from './routes/debug.js';
 import { mcpRouter } from './routes/mcp.js';
 import { oauthRouter } from './routes/oauth.js';
-import { probeCodex } from './codex.js';
 import { log } from './log.js';
 import { isApiPath } from '../shared/apiPrefixes.js';
 
@@ -122,7 +121,6 @@ app.use(errorHandler);
 
 const server = app.listen(env.PORT, () => {
   log.info('server started', { port: env.PORT, url: `http://localhost:${env.PORT}` });
-  if (!env.TEST_MODE) void probeCodex();
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

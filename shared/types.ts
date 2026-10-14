@@ -54,13 +54,6 @@ export type EntryWithMacros = {
   group: EntryGroupRef | null;
 };
 
-export type ExtractedLabel = {
-  name: string;
-  brand: string | null;
-  unit: 'g' | 'ml';
-  per100: Macros;
-};
-
 export type WeightInput = {
   local_date: string;
   weight_kg: number;

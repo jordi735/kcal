@@ -1,5 +1,5 @@
 import type { ProductDraft } from './modals/NewProductForm';
-import type { EntryGroup, EntryWithMacros, ExtractedLabel, Product } from './types';
+import type { EntryGroup, EntryWithMacros, Product } from './types';
 
 export type ModalState =
   | { kind: 'none' }
@@ -17,7 +17,6 @@ export type ModalState =
       editProduct: Product;
       editEntry: EntryWithMacros | undefined;
     }
-  | { kind: 'ai-label-scanner'; draftSoFar: Partial<ProductDraft> }
   | { kind: 'new-product'; initial: Partial<ProductDraft> | undefined }
   | { kind: 'grams-picker'; product: Product; entry: EntryWithMacros | undefined }
   | {
@@ -55,17 +54,6 @@ export function productToDraft(product: Product): Partial<ProductDraft> {
     barcode: product.barcode,
     per100: product.per100,
   };
-}
-
-export function mergeLabelDraft(
-  draftSoFar: Partial<ProductDraft>,
-  label: ExtractedLabel,
-): Partial<ProductDraft> {
-  // User-typed name/brand win; macros and unit always come from the scan.
-  const merged: Partial<ProductDraft> = { ...draftSoFar, ...label };
-  if (draftSoFar.name?.trim()) merged.name = draftSoFar.name;
-  if (draftSoFar.brand?.trim()) merged.brand = draftSoFar.brand;
-  return merged;
 }
 
 export function barcodeFillReturnState(

@@ -27,7 +27,7 @@ export function clearStoredSession(): void {
   localStorage.removeItem(USER_KEY);
 }
 
-type Body = Record<string, unknown> | FormData | undefined;
+type Body = Record<string, unknown> | undefined;
 
 type ApiOpts = {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
@@ -58,13 +58,8 @@ export async function api<T>(path: string, opts?: ApiOpts): Promise<T> {
   if (init.method === 'GET') init.cache = 'no-store';
 
   if (opts?.body !== undefined) {
-    if (opts.body instanceof FormData) {
-      // Leave Content-Type unset — the browser sets multipart boundary.
-      init.body = opts.body;
-    } else {
-      headers.set('Content-Type', 'application/json');
-      init.body = JSON.stringify(opts.body);
-    }
+    headers.set('Content-Type', 'application/json');
+    init.body = JSON.stringify(opts.body);
   }
 
   const res = await fetch(path, init);

@@ -53,8 +53,8 @@ Run commands from the repository root.
 - `npm run icons` regenerates tracked PWA/social PNGs from `kcal-logo-blue.png`
   and requires ImageMagick's `convert`.
 - `./scripts/review-e2e.sh` runs the resumable Codex E2E-maintenance loop. It
-  requires the repository-local Codex CLI to be authenticated; `--reset` clears
-  only its `/tmp/kcal-e2e-review` state.
+  requires the repository-local Codex CLI development dependency to be
+  authenticated; `--reset` clears only its `/tmp/kcal-e2e-review` state.
 
 There is no configured lint, formatter, or unit-test command. Do not invent one
 in validation reports. The backend loads root `.env`; use `.env.example` as the
@@ -72,21 +72,25 @@ required-key inventory and never commit real credentials.
 - When adding a top-level API router, mount it before static serving and add its
   prefix to `shared/apiPrefixes.ts`. That list drives the Vite proxy and prevents
   unknown production API paths from falling through to SPA HTML.
-- Route all frontend HTTP through `src/api.ts`; it owns Bearer injection, JSON and
-  `FormData`, 401 logout, and `ApiError`. Do not call raw `fetch` elsewhere.
+- Route all frontend HTTP through `src/api.ts`; it owns Bearer injection, JSON
+  requests, 401 logout, and `ApiError`. Do not call raw `fetch` elsewhere.
 - Treat `GET /settings` as authoritative for goals. The stored user is a hot-start
   cache; boot revalidation and saves must update both live goal state and the
   cached user blob.
 - Keep navigation client-state-driven through `App.tsx`; do not add a router for
   the current addressless flow. Add Sheet-backed modal kinds to `SHEET_KINDS` and
   preserve the distinction between explicit `onClose` and gesture `onDismiss`.
+- The shared `ChatGPTGuide` and connection card are available from New Product,
+  Add Temp, and Settings. Show the guide as a local Sheet subview; keep forms
+  mounted but hidden to preserve drafts, and give only the visible pane the
+  `data-sheet-scroll` attribute. Back restores the form; dismissal closes the Sheet.
 - Keep `local_date` and `local_time` as timezone-free `YYYY-MM-DD` and `HH:MM`
   strings. Generate them with `src/dates.ts`; weeks are Monday-first.
 - Normalize stored product names, brands, and entry-group names with the helpers
   in `shared/normalize.ts` on every create and update path.
 - Use `shared/constraints.ts` for the UI/REST/MCP entry minimum and group-name
   validation, weight numeric rules, and product/weight limits. Keep interface
-  parsing local: REST, MCP and AI product validators have different coercion
+  parsing local: REST and MCP product validators have different coercion
   rules, and the weight UI counts raw note length while REST counts trimmed text.
   New or changed entry amounts must be at least 1 g/ml; decimals are allowed.
   Do not rewrite legacy smaller entries or reject their tag-only edits or deletion.
@@ -140,12 +144,11 @@ required-key inventory and never commit real credentials.
   record per user and `local_date`. Accept 0.1–1000.0 kg at one-decimal precision,
   allow past or future dates, and normalize blank notes to null with a 500-character
   limit.
-- Authentication uses emailed six-digit codes and Bearer sessions. Login codes and
-  AI scan quotas are process-local maps, so multi-process deployment requires
-  shared state or affinity. Preserve timing-safe code comparison and attempt caps.
-- `TEST_MODE` disables email delivery and the startup Codex probe, and exposes
-  login-code lookup; `LOG_LEVEL=debug` logs live codes. Never enable either
-  behavior in production.
+- Authentication uses emailed six-digit codes and Bearer sessions. Login codes are
+  process-local maps, so multi-process deployment requires shared state or
+  affinity. Preserve timing-safe code comparison and attempt caps.
+- `TEST_MODE` disables email delivery and exposes login-code lookup;
+  `LOG_LEVEL=debug` logs live codes. Never enable either behavior in production.
 - Preserve the `{ error: string }` failure shape. Keep request-body guards beside
   their routes and build them from `server/guards.ts` primitives.
 - `/debug` is an unauthenticated raw-data endpoint. Keep its fail-closed
@@ -199,13 +202,6 @@ required-key inventory and never commit real credentials.
 - Use `server/log.ts` for runtime logs and `log.emailHash(email)` for explicit email
   correlation fields. Direct console calls are limited to `server/env.ts` bootstrap
   diagnostics and logger internals.
-- Keep AI label extraction one-turn and tool-free. `server/codex-runner.ts`
-  must use the repository-local CLI with ephemeral sessions, an isolated temp
-  workdir, read-only sandboxing, ignored ambient config/rules, disabled tools,
-  and a JSON output schema. Authentication comes from the service account's
-  persisted `CODEX_HOME`; do not add an application API key by default. Treat
-  model output as untrusted: JSON-parse it, validate/coerce it, retain macro
-  caps, and map `InvalidExtractionError` to the controlled route error.
 
 ## PWA and Generated Assets
 

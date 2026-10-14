@@ -46,7 +46,6 @@ export default defineConfig({
       POSTMARK_FROM: 'test@test.local',
       SESSION_EXPIRY_DAYS: '7',
       LOGIN_CODE_EXPIRY_MINUTES: '10',
-      AI_SCAN_DAILY_CAP: '100',
       LOG_LEVEL: 'warn',
       PUBLIC_ORIGIN: 'http://localhost:3001',
     },

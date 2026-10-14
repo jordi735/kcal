@@ -5,7 +5,6 @@ import type {
   BarcodeLookupResponse,
   EntryGroup,
   EntryWithMacros,
-  ExtractedLabel,
   Goals,
   Product,
 } from './types';
@@ -21,7 +20,7 @@ import { useEntries } from './hooks/useEntries';
 import { useAppRefresh } from './hooks/useAppRefresh';
 import { useTransientError } from './hooks/useTransientError';
 import { useGoalRevalidation, useSessionGoals } from './hooks/useSessionGoals';
-import { barcodeFillReturnState, isSheetModal, mergeLabelDraft, type ModalState } from './modalState';
+import { barcodeFillReturnState, isSheetModal, type ModalState } from './modalState';
 import { userToGoals } from './session';
 import { api, ApiError, clearStoredSession, oauthRequestId, requestLoginCode, verifyLoginCode } from './api';
 
@@ -267,13 +266,6 @@ function Tracker() {
     }
   };
 
-  // NewProductForm handlers. draftSoFar is a live snapshot of the form's local
-  // state, pushed up by the form on click — reading modal.initial here would be
-  // stale (that's only the seed values at mount time).
-  const onScanLabel = (draftSoFar: Partial<ProductDraft>) => {
-    setModal({ kind: 'ai-label-scanner', draftSoFar });
-  };
-
   // Scan-from-form: open the scanner, preserve enough context to return to
   // the same form with the scanned code merged into the barcode field.
   const onScanBarcodeFromForm = (draftSoFar: Partial<ProductDraft>) => {
@@ -292,17 +284,6 @@ function Tracker() {
         editEntry: modal.entry,
       });
     }
-  };
-
-  const onLabelExtracted = (label: ExtractedLabel) => {
-    const draftSoFar: Partial<ProductDraft> =
-      modal.kind === 'ai-label-scanner' ? modal.draftSoFar : {};
-    setModal({ kind: 'new-product', initial: mergeLabelDraft(draftSoFar, label) });
-  };
-
-  const onLabelScannerClose = () => {
-    if (modal.kind !== 'ai-label-scanner') return;
-    setModal({ kind: 'new-product', initial: modal.draftSoFar });
   };
 
   const onBarcodeFillDetect = (code: string) => {
@@ -470,7 +451,6 @@ function Tracker() {
           onAddTemp,
           onScanBarcode,
           onProductSave,
-          onScanLabel,
           onScanBarcodeFromForm,
           onGramsDelete,
           onGramsConfirm,
@@ -486,8 +466,6 @@ function Tracker() {
           onBarcodeDetect,
           onBarcodeFillDetect,
           onBarcodeFillClose,
-          onLabelExtracted,
-          onLabelScannerClose,
         }}
       />
     </>

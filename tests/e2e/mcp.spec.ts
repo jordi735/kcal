@@ -554,7 +554,7 @@ test('[J-193] MCP stays disabled without a public origin and rejects unsafe orig
       const childEnv: NodeJS.ProcessEnv = {
         ...process.env, PORT: '3000', DATABASE_PATH: path.join(directory, 'app.db'),
         TEST_MODE: 'true', POSTMARK_SERVER_TOKEN: 'unused', POSTMARK_FROM: 'test@test.local',
-        SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '10', AI_SCAN_DAILY_CAP: '100', LOG_LEVEL: 'warn',
+        SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '10', LOG_LEVEL: 'warn',
       };
       delete childEnv.PUBLIC_ORIGIN;
       if (origin !== undefined) childEnv.PUBLIC_ORIGIN = origin;

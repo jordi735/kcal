@@ -268,7 +268,7 @@ test('[J-198] OAuth clients and hashed credentials survive a backend restart', a
     `], { env: {
       ...process.env, PORT: '3000', DATABASE_PATH: dbPath, PUBLIC_ORIGIN: ORIGIN,
       TEST_MODE: 'true', POSTMARK_SERVER_TOKEN: 'unused', POSTMARK_FROM: 'test@test.local',
-      SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '10', AI_SCAN_DAILY_CAP: '100', LOG_LEVEL: 'warn',
+      SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '10', LOG_LEVEL: 'warn',
       TEST_CLIENT_ID: connection.oauth.info!.client_id,
       TEST_ACCESS_TOKEN: tokens.access_token, TEST_REFRESH_TOKEN: tokens.refresh_token!,
     } });
@@ -451,7 +451,7 @@ test('[J-214] OAuth scope migration preserves legacy requests grants and tokens 
     `], { env: {
       ...process.env, PORT: '3000', DATABASE_PATH: dbPath, PUBLIC_ORIGIN: ORIGIN,
       TEST_MODE: 'true', POSTMARK_SERVER_TOKEN: 'unused', POSTMARK_FROM: 'test@test.local',
-      SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '10', AI_SCAN_DAILY_CAP: '100', LOG_LEVEL: 'warn',
+      SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '10', LOG_LEVEL: 'warn',
       TEST_CLIENT_ID: clientId, TEST_ACCESS_TOKEN: access, TEST_REFRESH_TOKEN: refresh,
       TEST_CODE: code, TEST_CALLBACK: CALLBACK, TEST_RESOURCE: RESOURCE, TEST_MIGRATION: migration,
     } });

@@ -1,9 +1,8 @@
-import { sumMacros, type EntryWithMacros, type ExtractedLabel, type Goals, type Product } from '../types';
+import { sumMacros, type EntryWithMacros, type Goals, type Product } from '../types';
 import { productToDraft, type ModalState } from '../modalState';
 import { Settings } from '../screens/Settings';
 import { AddPicker } from '../modals/AddPicker';
 import { BarcodeScanner } from '../modals/BarcodeScanner';
-import { AILabelScanner } from '../modals/AILabelScanner';
 import { NewProductForm, type ProductDraft } from '../modals/NewProductForm';
 import { GramsPicker } from '../modals/GramsPicker';
 import { EntryGroupForm } from '../modals/EntryGroupForm';
@@ -18,7 +17,6 @@ type AppModalHandlers = {
   onAddTemp: (name: string) => void;
   onScanBarcode: () => void;
   onProductSave: (draft: ProductDraft) => Promise<void>;
-  onScanLabel: (draft: Partial<ProductDraft>) => void;
   onScanBarcodeFromForm: (draft: Partial<ProductDraft>) => void;
   onGramsDelete: () => void;
   onGramsConfirm: (grams: number) => void;
@@ -34,8 +32,6 @@ type AppModalHandlers = {
   onBarcodeDetect: (code: string) => Promise<void>;
   onBarcodeFillDetect: (code: string) => void;
   onBarcodeFillClose: () => void;
-  onLabelExtracted: (label: ExtractedLabel) => void;
-  onLabelScannerClose: () => void;
 };
 
 type AppModalsProps = {
@@ -87,7 +83,6 @@ export function AppModals({
             onSave={handlers.onProductSave}
             onClose={handlers.onAddEntry}
             onDismiss={handlers.closeModal}
-            onScanLabel={handlers.onScanLabel}
             onScanBarcode={handlers.onScanBarcodeFromForm}
           />
         )}
@@ -122,7 +117,6 @@ export function AppModals({
             onDelete={handlers.onProductDelete}
             onClose={handlers.onEditProductClose}
             onDismiss={handlers.closeModal}
-            onScanLabel={handlers.onScanLabel}
             onScanBarcode={handlers.onScanBarcodeFromForm}
           />
         )}
@@ -175,13 +169,6 @@ export function AppModals({
         <BarcodeScanner
           onDetect={handlers.onBarcodeFillDetect}
           onClose={handlers.onBarcodeFillClose}
-        />
-      )}
-
-      {modal.kind === 'ai-label-scanner' && (
-        <AILabelScanner
-          onExtracted={handlers.onLabelExtracted}
-          onClose={handlers.onLabelScannerClose}
         />
       )}
     </>

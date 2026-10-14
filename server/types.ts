@@ -17,7 +17,6 @@ export type {
   EntryGroup,
   EntryWithMacros,
   McpEntry,
-  ExtractedLabel,
   WeightInput,
   WeightEntry,
   OAuthConsent,
@@ -142,8 +141,6 @@ export type ProductPatch = Partial<Omit<UpdateProductBody, 'per100'>> & {
   per100?: Partial<Macros>;
 };
 
-export type ScanTally = { date: string; count: number };
-
 // --- entries ---
 
 export type EntryJoinRow = {
@@ -211,67 +208,3 @@ export type WeightRow = {
 // --- db plumbing ---
 
 export type MigrationRow = { filename: string };
-
-// --- Codex runner / vision extraction ---
-
-export type CodexInput = string | ReadonlyArray<
-  | { type: 'text'; text: string }
-  | { type: 'local_image'; path: string }
->;
-
-export type CodexReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
-
-export type CodexUsage = {
-  input_tokens: number;
-  cached_input_tokens: number;
-  output_tokens: number;
-  reasoning_output_tokens: number;
-};
-
-export type CodexRunOptions = {
-  model: string;
-  modelReasoningEffort: CodexReasoningEffort;
-  workingDirectory: string;
-  outputSchema: object;
-  timeoutMs: number;
-};
-
-export type CodexJsonTurn = {
-  finalResponse: string;
-  threadId: string;
-  usage: CodexUsage | null;
-};
-
-export type NormalizedCodexInput = {
-  prompt: string;
-  images: string[];
-};
-
-export type CodexRunFiles = {
-  schemaPath: string;
-  modelCatalogPath: string;
-  cleanup: () => Promise<void>;
-};
-
-export type CodexThreadEvent =
-  | { type: 'thread.started'; thread_id: string }
-  | { type: 'turn.completed'; usage: CodexUsage }
-  | { type: 'turn.failed'; error: { message: string } }
-  | { type: 'item.completed'; item: { type?: string; text?: string; message?: string } }
-  | { type: 'error'; message: string };
-
-export type SupportedImageMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
-
-export type RawPer100 = {
-  kcal?: unknown;
-  protein?: unknown;
-  carbs?: unknown;
-  fat?: unknown;
-};
-
-export type RawExtraction = {
-  name?: unknown;
-  brand?: unknown;
-  unit?: unknown;
-  per100?: unknown;
-};

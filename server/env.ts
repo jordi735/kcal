@@ -11,7 +11,6 @@ const REQUIRED = [
   'POSTMARK_FROM',
   'SESSION_EXPIRY_DAYS',
   'LOGIN_CODE_EXPIRY_MINUTES',
-  'AI_SCAN_DAILY_CAP',
   'LOG_LEVEL',
 ] as const;
 
@@ -73,7 +72,7 @@ if (rawOrigin) {
 const TEST_MODE = process.env.TEST_MODE === 'true';
 if (TEST_MODE) {
   console.warn('[kcal] ============================================================');
-  console.warn('[kcal] TEST_MODE ON — emails/probe disabled, test auth endpoint open');
+  console.warn('[kcal] TEST_MODE ON — emails disabled, test auth endpoint open');
   console.warn('[kcal] never use TEST_MODE in production');
   console.warn('[kcal] ============================================================');
 }
@@ -85,7 +84,6 @@ export const env = {
   POSTMARK_FROM: process.env.POSTMARK_FROM!,
   SESSION_EXPIRY_DAYS: toPositiveInt('SESSION_EXPIRY_DAYS'),
   LOGIN_CODE_EXPIRY_MINUTES: toPositiveInt('LOGIN_CODE_EXPIRY_MINUTES'),
-  AI_SCAN_DAILY_CAP: toPositiveInt('AI_SCAN_DAILY_CAP'),
   LOG_LEVEL: rawLevel as LogLevel,
   PUBLIC_ORIGIN,
   TEST_MODE,

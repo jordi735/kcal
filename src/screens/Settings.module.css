@@ -1,3 +1,7 @@
+.pane { display: contents; }
+.pane[hidden] { display: none; }
+.connectionSection { margin-bottom: 30px; }
+
 .field {
   display: flex;
   justify-content: space-between;

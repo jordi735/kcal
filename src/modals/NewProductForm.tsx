@@ -1,5 +1,4 @@
-// NewProductForm — manual product entry, optionally prefilled from an AI scan.
-// Banner at the top opens the AI label scanner (parent-routed via onScanLabel).
+// NewProductForm — manual product entry with barcode scanning and ChatGPT setup.
 
 import { useState } from 'preact/hooks';
 import { MAX_PRODUCT_BARCODE_LENGTH } from '../../shared/constraints';
@@ -8,7 +7,8 @@ import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
 import { cssVars } from '../styles';
 import { Sheet, useSheetClose } from '../components/Sheet';
 import { ClearableField } from '../components/ClearableField';
-import { ArrowRightIcon, BarcodeIcon, ExclamationTriangleIcon, SparklesIcon, TrashIcon } from '../components/Icon';
+import { ChatGPTConnectCard, ChatGPTGuide, useChatGPTGuide } from '../components/ChatGPTGuide';
+import { ArrowRightIcon, BarcodeIcon, ExclamationTriangleIcon, TrashIcon } from '../components/Icon';
 import styles from './NewProductForm.module.css';
 
 export type ProductDraft = {
@@ -29,7 +29,6 @@ type NewProductFormProps = {
   onDelete?: () => void | Promise<void>;
   onClose: () => void;
   onDismiss?: () => void;
-  onScanLabel: (draftSoFar: Partial<ProductDraft>) => void;
   onScanBarcode: (draftSoFar: Partial<ProductDraft>) => void;
 };
 
@@ -80,6 +79,7 @@ function toField(n: number | undefined): NumField {
 }
 
 export function NewProductForm(props: NewProductFormProps) {
+  const { guideOpen, openGuide, closeGuide } = useChatGPTGuide();
   // Forward `onDismiss` only when the parent provided it — Sheet's prop is
   // optional and exactOptionalPropertyTypes forbids passing `undefined`
   // explicitly. Spread keeps the spread shape narrow.
@@ -89,16 +89,22 @@ export function NewProductForm(props: NewProductFormProps) {
     <Sheet
       onClose={props.onClose}
       {...dismissProp}
-      style={cssVars({ '--sheet-max-height': '100%' })}
+      style={cssVars({ '--sheet-max-height': '100%', '--sheet-height': guideOpen ? '92%' : 'auto' })}
     >
-      <NewProductFormInner {...props} />
+      <div className={styles.pane} hidden={guideOpen}>
+        <NewProductFormInner {...props} active={!guideOpen} onOpenGuide={openGuide} />
+      </div>
+      {guideOpen && <ChatGPTGuide onBack={closeGuide} />}
     </Sheet>
   );
 }
 
-type InnerProps = Omit<NewProductFormProps, 'onClose'>;
+type InnerProps = Omit<NewProductFormProps, 'onClose'> & {
+  active: boolean;
+  onOpenGuide: (button: HTMLButtonElement) => void;
+};
 
-function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onScanLabel, onScanBarcode }: InnerProps) {
+function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onScanBarcode, active, onOpenGuide }: InnerProps) {
   const close = useSheetClose();
   const initialPer100 = initial?.per100;
 
@@ -116,7 +122,6 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
 
   const isEdit = mode === 'edit';
   const isTemp = !isEdit && (initial?.is_temp ?? false);
-  const prefilled = initial?.per100 !== undefined;
 
   const macroValues: Record<MacroKey, NumField> = { protein, carbs, fat };
   const macroSetters: Record<MacroKey, (v: NumField) => void> = {
@@ -208,28 +213,8 @@ function NewProductFormInner({ initial, mode = 'create', onSave, onDelete, onSca
         </button>
       </div>
 
-      <div data-sheet-scroll className={`no-scroll ${styles.scroll}`}>
-        {!isEdit && (
-          <button
-            onClick={() => onScanLabel(currentDraft())}
-            className={`${styles.aiBanner}${prefilled ? ` ${styles.aiBannerPrefilled}` : ''}`}
-          >
-            <div className={styles.aiIcon}>
-              <SparklesIcon size={18} />
-            </div>
-            <div className={styles.aiTextCol}>
-              <div className={`mono caps ${styles.aiTitle}`}>
-                {prefilled ? '✓ Filled from label' : 'Scan label with AI'}
-              </div>
-              <div className={`mono tiny ${styles.aiSubtitle}`}>
-                {prefilled ? 'Review and adjust below' : 'Auto-fill macros from a photo'}
-              </div>
-            </div>
-            <span className={styles.aiArrow}>
-              <ArrowRightIcon size={14} />
-            </span>
-          </button>
-        )}
+      <div data-sheet-scroll={active ? '' : undefined} className={`no-scroll ${styles.scroll}`}>
+        {!isEdit && <ChatGPTConnectCard onOpen={onOpenGuide} />}
 
         <div className="field">
           <label className="field-label">Name *</label>

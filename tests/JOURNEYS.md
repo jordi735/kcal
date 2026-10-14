@@ -72,14 +72,8 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-226 · Cancelling barcode scanning returns to a new product with its entire draft intact
 - J-227 · Cancelling barcode scanning preserves a temporary product draft and its temporary status
 - J-228 · Cancelling barcode scanning preserves an edited product draft and its GramsPicker return destination
-- J-229 · Cancelling the AI file picker preserves temporary metadata and complete nutrition; incomplete nutrition returns as blank fields
-- J-234 · Scan-result merging preserves typed metadata, temporary status and edit context while replacing only intended draft fields
-- J-235 · Scanner snapshots keep complete nutrition and raw metadata, omit incomplete nutrition, and trim metadata only when submitting
-- J-250 · Image uploads preserve bytes and accept a single image at the exact 8 MiB limit with deterministic extraction
-- J-251 · Malformed, oversized, unexpected, and multiple files or extra/nested multipart fields are rejected before extraction; subsequent valid uploads still work
-- J-252 · Image upload authentication rejects missing and invalid sessions before multipart parsing
-- J-253 · Image extraction preserves controlled and general error responses and accepts a later successful upload
-- J-255 · The installed Codex CLI keeps both extraction and startup-probe models tool-free, preserves images, schemas, results, and usage, rejects unknown models and provider failures, and cleans up timed-out subprocesses and temporary files
+- J-234 · Barcode results preserve typed metadata, temporary status and edit context while replacing only the barcode
+- J-235 · Barcode scanner snapshots keep complete nutrition and raw metadata, omit incomplete nutrition, and trim metadata only when submitting
 - J-256 · Real EAN-13 video decoding returns the exact barcode once and releases the camera before lookup completion
 - J-257 · Real UPC-A video decoding preserves its 12 digits, delivers one result, and releases the camera
 - J-258 · Cancelling a live barcode camera releases its track; reopening scans on a new stream and preserves the product draft
@@ -318,6 +312,17 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-247 · A newer foreground goals read supersedes an older response
 - J-248 · A successful local entry write survives older in-flight day and week responses and retries affected reads
 - J-249 · Deleting an entry during a refresh cannot resurrect its row or week progress
+
+# 18. ChatGPT connection guide
+
+- J-262 · Opening and returning from the guide preserves a new product's raw metadata, unit and incomplete nutrition; completed values save correctly
+- J-263 · Opening and returning from the guide preserves a temporary product's raw metadata, unit and incomplete nutrition; the saved product remains temporary
+- J-264 · Settings goals survive guide navigation, persist on Save and remain unchanged on Cancel
+- J-265 · The guide copies the production MCP URL and opens ChatGPT and official setup documentation in new tabs
+- J-266 · Clipboard denial shows a manual-copy fallback and leaves the server URL available
+- J-267 · The guide scrolls on mobile, a downward touch while scrolled does not dismiss, and a downward touch at the top closes the whole sheet
+- J-268 · Backdrop dismissal closes the guide and its underlying product form together
+- J-269 · Keyboard navigation opens the guide, reaches its visible controls, and returns focus to the originating button on desktop
 
 # Verification
 

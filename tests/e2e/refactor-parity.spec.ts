@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page, type Response } from '@playwright/test';
 import { fillNutField, signInFresh } from './helpers';
 import type { EntryWithMacros, Product } from '../../shared/types';
-import { barcodeFillReturnState, mergeLabelDraft } from '../../src/modalState';
+import { barcodeFillReturnState } from '../../src/modalState';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -149,38 +149,7 @@ for (const [id, mode] of [['J-226', 'new'], ['J-227', 'temp'], ['J-228', 'edit']
   });
 }
 
-test('[J-229] cancelling the AI file picker preserves a temporary product draft', async ({ page, request }) => {
-  await signInFresh(page, request, 'parity-ai-cancel');
-  await page.getByRole('button', { name: 'ADD FOOD', exact: true }).tap();
-  await page.locator('.sheet').getByRole('button', { name: 'Add Temp', exact: true }).tap();
-  await fillDraft(page, 'E2E Parity AI Draft');
-  const chooser = page.waitForEvent('filechooser');
-  await page.locator('.sheet').getByRole('button', { name: /Scan label with AI/ }).tap();
-  await chooser;
-  await page.locator('input[type=file]').dispatchEvent('cancel');
-  await expectDraft(page, 'E2E Parity AI Draft');
-  await expect(page.locator('.sheet').getByText('Add Temp Item', { exact: true })).toBeVisible();
-
-  // Scanner snapshots carry nutrition only when all four fields are present.
-  // An incomplete set currently returns as four blank fields, even when the
-  // other three values were filled. Keep that distinction during extraction.
-  await fillNutField(page, 'Fat', '');
-  const secondChooser = page.waitForEvent('filechooser');
-  await page.locator('.sheet').getByRole('button', { name: /Filled from label/ }).tap();
-  await secondChooser;
-  await page.locator('input[type=file]').dispatchEvent('cancel');
-  await expect(page.getByPlaceholder('e.g. Peanut Butter')).toHaveValue('E2E Parity AI Draft');
-  const sheet = page.locator('.sheet');
-  await expect(sheet.getByText('Add Temp Item', { exact: true })).toBeVisible();
-  await expect(sheet.getByText('Per 100ml', { exact: true })).toBeVisible();
-  for (const label of ['Kcal', 'Protein', 'Carbs', 'Fat']) {
-    await expect(sheet.locator('label').filter({ hasText: new RegExp(`^${label}$`) })
-      .locator('..').getByRole('spinbutton')).toHaveValue('');
-  }
-  await expect(sheet.getByRole('button', { name: /Add to Day/ })).toBeDisabled();
-});
-
-test('[J-235] scanner snapshots keep complete nutrition and raw metadata while submission trims text', async ({ page, request }) => {
+test('[J-235] barcode scanner snapshots keep complete nutrition and raw metadata while submission trims text', async ({ page, request }) => {
   await signInFresh(page, request, 'parity-draft-values');
   await page.getByRole('button', { name: 'ADD FOOD', exact: true }).tap();
   await page.locator('.sheet').getByRole('button', { name: 'Add New', exact: true }).tap();
@@ -342,27 +311,15 @@ test('[J-233] a rejected entry edit leaves the client cache and totals unchanged
   await expect(page.getByText('400 kcal', { exact: true })).toBeVisible();
 });
 
-test('[J-234] scan results preserve typed metadata and change only the intended draft fields', () => {
+test('[J-234] barcode results preserve typed metadata and change only the barcode draft field', () => {
   // These deterministic draft checks complement cancellation in the browser;
-  // they do not claim to exercise camera decoding or live model inference.
+  // they do not claim to exercise camera decoding.
   const draft = {
     name: 'My typed name', brand: 'My typed brand', barcode: 'old-code',
     unit: 'g' as const, is_temp: true,
     per100: { kcal: 100, protein: 1, carbs: 2, fat: 3 },
   };
-  const label = {
-    name: 'Extracted name', brand: 'Extracted brand', unit: 'ml' as const,
-    per100: { kcal: 250, protein: 4, carbs: 5, fat: 6 },
-  };
   const original = structuredClone(draft);
-  expect(mergeLabelDraft(draft, label)).toEqual({
-    name: 'My typed name', brand: 'My typed brand', barcode: 'old-code',
-    unit: 'ml', is_temp: true, per100: { kcal: 250, protein: 4, carbs: 5, fat: 6 },
-  });
-  expect(mergeLabelDraft({ ...draft, name: '  ', brand: '' }, label)).toEqual({
-    name: 'Extracted name', brand: 'Extracted brand', barcode: 'old-code',
-    unit: 'ml', is_temp: true, per100: { kcal: 250, protein: 4, carbs: 5, fat: 6 },
-  });
   expect(barcodeFillReturnState({ kind: 'barcode-scanner-fill', returnTo: 'new', draftSoFar: draft }, 'new-code'))
     .toEqual({ kind: 'new-product', initial: { ...original, barcode: 'new-code' } });
 

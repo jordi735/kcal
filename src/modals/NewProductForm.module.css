@@ -1,3 +1,6 @@
+.pane { display: contents; }
+.pane[hidden] { display: none; }
+
 .nutField {
   display: flex;
   flex-direction: column;
@@ -72,58 +75,6 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.aiBanner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  border: 1px dashed var(--border-strong);
-  background: var(--bg-elev-2);
-  text-align: left;
-  transition: background 0.3s ease, border-color 0.3s ease;
-}
-
-.aiBanner.aiBannerPrefilled {
-  border-color: var(--accent);
-  background: color-mix(in oklab, var(--accent) 12%, transparent);
-}
-
-.aiIcon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--accent);
-  color: var(--bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.aiTextCol {
-  flex: 1;
-  min-width: 0;
-}
-
-.aiTitle {
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  color: var(--fg);
-}
-
-.aiSubtitle {
-  color: var(--fg-dimmer);
-  margin-top: 2px;
-  letter-spacing: 0.06em;
-}
-
-.aiArrow {
-  color: var(--fg-dim);
-  display: inline-flex;
-  align-items: center;
 }
 
 .barcodeRow {

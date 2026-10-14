@@ -31,18 +31,33 @@ public HTTPS deployment or HTTPS tunnel, with `PUBLIC_ORIGIN` matching it.
 
 ## ChatGPT
 
-1. Enable developer mode where available in ChatGPT's app/connector settings.
-2. Create a custom app/connector with the URL `https://usekcal.com/mcp` and OAuth
-   authentication. Use dynamic client registration (DCR); leave client ID and
-   secret blank so ChatGPT registers them automatically.
-3. Connect, sign into KCAL if prompted, and select **Allow access**.
-4. Ask: “Use KCAL to show my totals for this week and my recent weigh-ins.”
+The in-app **Connect to ChatGPT** guide is available from New Product, Add Temp,
+and Settings. To connect:
+
+1. Open ChatGPT in a browser on a PC or Mac. In **Settings**, enable
+   **Developer mode** where available for your account or workspace.
+2. Open **Plugins** and choose **Add custom MCP server**.
+3. Name it **KCAL**, set the server URL to `https://usekcal.com/mcp`, and choose
+   **OAuth** with dynamic client registration (DCR). Leave the client ID and
+   client secret blank so ChatGPT registers them automatically.
+4. Connect and sign in with your KCAL email code. Approve read/write access to
+   allow ChatGPT to add or edit foods as well as read your logs.
+5. Install/select KCAL in a new conversation (or mention `@KCAL`) and ask:
+   “Use KCAL to show my totals for today.”
+6. Try sharing a photo of a product, including its front packaging. Ask ChatGPT
+   to identify it, look up its EAN barcode and nutrition per 100 g/ml, show you
+   the result for review, and save the confirmed food to KCAL. Check that the
+   product, pack variant, and nutrition match before saving.
+
+If Developer mode or custom plugins are unavailable, check your account and
+workspace access in ChatGPT; availability varies. If KCAL can read but cannot
+add or edit foods, reconnect and approve read/write access. Existing read-only
+connections do not gain write permissions automatically.
 
 ChatGPT registers its exact callback automatically. KCAL uses the SDK's standard
 callback flow and does not advertise the optional issuer-identification extension.
-Availability of custom connectors depends on your ChatGPT account/workspace.
-See [OpenAI's connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt)
-and [OAuth guide](https://developers.openai.com/plugins/build/auth).
+See [OpenAI's connection guide](https://developers.openai.com/api/docs/guides/custom-mcp-server)
+for current setup instructions and availability.
 
 ## Codex
 

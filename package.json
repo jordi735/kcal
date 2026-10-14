@@ -33,22 +33,20 @@
   "homepage": "https://github.com/jordi735/kcal#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@openai/codex": "^0.154.0",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
     "better-sqlite3": "^13.0.3",
     "express": "^5.2.1",
-    "multer": "^2.4.0",
     "postmark": "^5.1.0",
     "preact": "^10.29.8",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@openai/codex": "^0.154.0",
     "@playwright/test": "^1.63.0",
     "@preact/preset-vite": "^2.10.6",
     "@types/better-sqlite3": "^9.6.0",
     "@types/express": "^5.0.6",
-    "@types/multer": "^2.2.0",
     "@types/node": "^24.13.4",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",

@@ -3,6 +3,7 @@ import type { Goals } from '../types';
 import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
 import { cssVars } from '../styles';
 import { Sheet, useSheetClose } from '../components/Sheet';
+import { ChatGPTConnectCard, ChatGPTGuide, useChatGPTGuide } from '../components/ChatGPTGuide';
 import { MinusIcon, PlusIcon } from '../components/Icon';
 import { useFocusClearableNumber } from '../hooks/useFocusClearableNumber';
 import styles from './Settings.module.css';
@@ -16,14 +17,21 @@ type SettingsProps = {
 };
 
 export function Settings(props: SettingsProps) {
+  const { guideOpen, openGuide, closeGuide } = useChatGPTGuide();
   return (
     <Sheet onClose={props.onClose} style={cssVars({ '--sheet-height': '92%' })}>
-      <SettingsInner {...props} />
+      <div className={styles.pane} hidden={guideOpen}>
+        <SettingsInner {...props} active={!guideOpen} onOpenGuide={openGuide} />
+      </div>
+      {guideOpen && <ChatGPTGuide onBack={closeGuide} />}
     </Sheet>
   );
 }
 
-type InnerProps = Omit<SettingsProps, 'onClose'>;
+type InnerProps = Omit<SettingsProps, 'onClose'> & {
+  active: boolean;
+  onOpenGuide: (button: HTMLButtonElement) => void;
+};
 
 type GoalFieldProps = {
   label: string;
@@ -103,7 +111,7 @@ function LegendDot({ macroKey, label }: LegendDotProps) {
   );
 }
 
-function SettingsInner({ goals, onSave, onLogout, userEmail }: InnerProps) {
+function SettingsInner({ goals, onSave, onLogout, userEmail, active, onOpenGuide }: InnerProps) {
   const close = useSheetClose();
   const [kcal, setKcal] = useState(goals.kcal);
   const [p, setP] = useState(goals.protein);
@@ -157,7 +165,7 @@ function SettingsInner({ goals, onSave, onLogout, userEmail }: InnerProps) {
         </button>
       </div>
 
-      <div data-sheet-scroll className={`no-scroll ${styles.content}`}>
+      <div data-sheet-scroll={active ? '' : undefined} className={`no-scroll ${styles.content}`}>
         <div className={styles.section}>
           <div className={`mono tiny caps ${styles.sectionLabel}`}>Daily goals</div>
           {MACRO_KEYS.map((k) => (
@@ -209,6 +217,10 @@ function SettingsInner({ goals, onSave, onLogout, userEmail }: InnerProps) {
           {error !== null && (
             <div className={`mono tiny ${styles.errorText}`}>{error}</div>
           )}
+        </div>
+
+        <div className={styles.connectionSection}>
+          <ChatGPTConnectCard onOpen={onOpenGuide} />
         </div>
 
         <div className={styles.accountSection}>

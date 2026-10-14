@@ -7,7 +7,6 @@ export type {
   EntryGroup,
   EntryWithMacros,
   McpEntry,
-  ExtractedLabel,
   WeightInput,
   WeightEntry,
   OAuthConsent,

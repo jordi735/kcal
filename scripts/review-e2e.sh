@@ -147,7 +147,7 @@ For each spec file (whether created or reviewed), check:
 
 10. **Negative-path assertions are mandatory for negative journeys.** Every journey with a "rejects/clamps/locks/blocks/ignores" verb (J-004 attempt-cap lockout, J-011 kcal cap rejection, J-020 clamp-at-zero, J-039 input drag ignored, J-045 no submit on Enter) MUST also assert that the side effect did NOT happen — the form stays open, the row count is unchanged, the sheet is still mounted, the input value did not advance, the URL did not change.
 
-11. **No external-service mocks.** kcal e2e runs against the real prod build with `TEST_MODE=true` (per `playwright.config.ts:33-51`). The only sanctioned test hatch is `GET /auth/test/last-code/:email`. If a spec stubs Postmark, the Codex runner, or the database, that is a regression — call it out.
+11. **No external-service mocks.** kcal e2e runs against the real prod build with `TEST_MODE=true` (per `playwright.config.ts:33-51`). The only sanctioned test hatch is `GET /auth/test/last-code/:email`. If a spec stubs Postmark or the database, that is a regression — call it out.
 
 12. **Per-spec isolation when needed.** Specs that need a fresh user (sign-out, empty state, first-time onboarding) MUST override `storageState` with `test.use({ storageState: { cookies: [], origins: [] } })` and sign in a per-test unique email like `*-${Date.now()}@test.local`.
 

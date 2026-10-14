@@ -52,7 +52,7 @@ test('[J-254] Login email transport renders both bodies and propagates delivery 
     PATH: process.env.PATH ?? '',
     PORT: '3000', DATABASE_PATH: ':memory:', PUBLIC_ORIGIN: '', TEST_MODE: 'false',
     POSTMARK_SERVER_TOKEN: 'email-transport-test-token', POSTMARK_FROM: 'sender@example.test',
-    SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '13', AI_SCAN_DAILY_CAP: '100', LOG_LEVEL: 'warn',
+    SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '13', LOG_LEVEL: 'warn',
   } });
 
   const result = JSON.parse(stdout);

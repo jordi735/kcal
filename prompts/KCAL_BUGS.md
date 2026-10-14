@@ -6,9 +6,10 @@ realistic inputs — not theoretical weaknesses.
 
 Stack: Preact 10 + Vite 8 + TypeScript 6 (strict, noUncheckedIndexedAccess,
 exactOptionalPropertyTypes, verbatimModuleSyntax) on the client; Express 5 +
-better-sqlite3 + tsx on the server; Postmark for email; @openai/codex for AI
-features. A Playwright E2E suite exists; no unit-test or lint command exists, so
-do not invent one.
+better-sqlite3 + tsx on the server; Postmark for email; MCP for ChatGPT and
+Codex connections. The @openai/codex development dependency powers the E2E
+review script only. A Playwright E2E suite exists; no unit-test or lint command
+exists, so do not invent one.
 
 ================================================================================
 PRAGMATISM GATE — APPLIES TO EVERY FINDING IN EVERY PHASE
@@ -71,6 +72,7 @@ Files in scope (spawn exactly one Codex subagent for each; skip nothing):
   CLIENT — components
     src/components/BrandMark.tsx
     src/components/ClearableField.tsx
+    src/components/ChatGPTGuide.tsx
     src/components/EntryGroupRow.tsx
     src/components/FoodRow.tsx
     src/components/Icon.tsx
@@ -87,7 +89,6 @@ Files in scope (spawn exactly one Codex subagent for each; skip nothing):
     src/modals/NewProductForm.tsx
     src/modals/AddPicker.tsx
     src/modals/BarcodeScanner.tsx
-    src/modals/AILabelScanner.tsx
 
   CLIENT — hooks
     src/hooks/useEntries.ts
@@ -100,8 +101,6 @@ Files in scope (spawn exactly one Codex subagent for each; skip nothing):
     server/db.ts
     server/auth.ts
     server/email.ts
-    server/codex.ts
-    server/codex-runner.ts
     server/log.ts
     server/util.ts
     server/guards.ts
@@ -206,9 +205,6 @@ active concurrency limit. Do not request a provider-specific model:
 
     EXTERNAL APIs
       - Postmark call arguments wrong (from/to swapped, template id wrong)
-      - multer config that doesn't match what the route consumes
-      - Codex CLI arguments, JSONL event handling, output schema, model id,
-        timeout, authentication, or temp-file cleanup shaped incorrectly
       - environment variable read but never defined in .env.example, OR
         defined but never read
 
@@ -269,7 +265,7 @@ PHASE 2 — PER-DOMAIN VALIDATION & CROSS-FILE HUNT
 After all Phase-1 JSON reports are collected, spawn one Codex subagent per domain.
 Domains:
 
-  D1 — server-core:     server/{index,env,db,auth,email,codex,codex-runner,log,
+  D1 — server-core:     server/{index,env,db,auth,email,log,
                         util,guards,types,statements,templates}.ts
   D2 — server-routes:   server/routes/*.ts
   D3 — shared:          shared/{apiPrefixes,normalize,types}.ts

@@ -2,20 +2,15 @@
 // POST /products, PUT /products/:id for creating/editing the authed user's products.
 // POST /products/adopt/:id clones a barcoded cross-user product into the caller's
 // own row (idempotent on barcode).
-// POST /products/from-image runs AI label extraction — multer memory storage scoped
-// to this route, daily per-user cap tracked in memory.
 // Every query scoped by req.userId (created_by). Macros are computed on read via
 // the entries JOIN, so PUT automatically updates past days' totals retroactively.
 
 import { Router } from 'express';
-import multer from 'multer';
 import {
   MAX_PRODUCT_BARCODE_LENGTH, MAX_PRODUCT_BRAND_LENGTH, MAX_PRODUCT_KCAL_PER100,
   MAX_PRODUCT_MACRO_GRAMS_PER100, MAX_PRODUCT_NAME_LENGTH,
 } from '../../shared/constraints.js';
 import { authMiddleware } from '../auth.js';
-import { extractNutrition, InvalidExtractionError } from '../codex.js';
-import { env } from '../env.js';
 import { isObject } from '../guards.js';
 import { log } from '../log.js';
 import { rowToProduct, searchOwnProducts } from '../reads.js';
@@ -31,52 +26,12 @@ import type {
   ProductRowWithOwner,
   ProductSearchRow,
   ProductTemplate,
-  ScanTally,
   UpdateProductBody,
 } from '../types.js';
 
 export const productsRouter: Router = Router();
 
 productsRouter.use(authMiddleware);
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  // Label scanning accepts one image and no multipart text fields.
-  limits: {
-    fileSize: 8 * 1024 * 1024, // 8 MiB — typical phone JPEGs are 2–4 MB.
-    files: 1,
-    fields: 0,
-    parts: 1,
-    fieldNestingDepth: 0,
-  },
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(null, false);
-  },
-});
-
-const scanTally = new Map<number, ScanTally>();
-const DAILY_CAP = env.AI_SCAN_DAILY_CAP;
-
-function utcDateKey(): string {
-  const d = new Date();
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(d.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
-}
-
-function checkAndBumpQuota(userId: number): boolean {
-  const today = utcDateKey();
-  const row = scanTally.get(userId);
-  if (row === undefined || row.date !== today) {
-    scanTally.set(userId, { date: today, count: 1 });
-    return true;
-  }
-  if (row.count >= DAILY_CAP) return false;
-  row.count += 1;
-  return true;
-}
 
 function searchRowToProduct(r: ProductSearchRow): Product {
   return { ...rowToProduct(r), is_mine: r.is_mine === 1 };
@@ -280,28 +235,6 @@ productsRouter.delete('/:id', (req, res) => {
   }
   deleteProduct(req.userId!, id);
   res.json({ ok: true });
-});
-
-productsRouter.post('/from-image', upload.single('image'), async (req, res, next) => {
-  try {
-    if (!req.file) {
-      res.status(400).json({ error: 'missing_image' });
-      return;
-    }
-    if (!checkAndBumpQuota(req.userId!)) {
-      log.warn('ai quota exceeded', { userId: req.userId });
-      res.status(429).json({ error: 'daily_cap_exceeded' });
-      return;
-    }
-    const result = await extractNutrition(req.file.buffer, req.file.mimetype);
-    res.json(result);
-  } catch (err) {
-    if (err instanceof InvalidExtractionError) {
-      res.status(422).json({ error: 'invalid_extraction' });
-      return;
-    }
-    next(err);
-  }
 });
 
 productsRouter.use(handleWriteError);
