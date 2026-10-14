@@ -3,26 +3,28 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Gruvbox dark (hard) */
-  --bg: #1d2021;
-  --bg-elev: #282828;
-  --bg-elev-2: #32302f;
-  --border: #3c3836;
-  --border-strong: #504945;
-  --fg: #fbf1c7;          /* fg0 */
-  --fg-dim: #d5c4a1;       /* fg2 */
-  --fg-dimmer: #928374;    /* gray */
-  --accent: #ebdbb2;       /* fg1 — warm off-white, static */
-  --accent-ink: #1d2021;
-  --danger: #fb4934;       /* bright red — errors + over-threshold only */
+  /* Carbon OLED — true black canvas with charcoal surfaces. */
+  color-scheme: dark;
+  --bg: #000000;
+  --bg-elev: #101214;
+  --bg-elev-2: #191c20;
+  --border: #282d34;
+  --border-strong: #414a56;
+  --fg: #e6e9ee;
+  --fg-dim: #afb7c3;
+  --fg-dimmer: #8993a2;
+  --accent: #c9d5e3;
+  --accent-ink: #000000;
+  --danger: #ff7b86;       /* Errors and over-threshold values only. */
 
-  --macro-p: #83a598;      /* bright blue */
-  --macro-c: #d3869b;      /* bright purple */
-  --macro-f: #8ec07c;      /* bright aqua */
+  --macro-p: #78b7ff;      /* Protein — blue. */
+  --macro-c: #c0a2ff;      /* Carbs — purple. */
+  --macro-f: #68d9b4;      /* Fat — mint. */
 
-  --macro-p-dim: #458588;  /* blue — Gruvbox non-bright pair of --macro-p */
-  --macro-c-dim: #b16286;  /* purple — pair of --macro-c */
-  --macro-f-dim: #689d6a;  /* aqua — pair of --macro-f */
+  /* Existing portions in the amount picker's stacked bars. */
+  --macro-p-dim: #4c7eae;
+  --macro-c-dim: #8268b5;
+  --macro-f-dim: #3c8b73;
 
   --track-height: 6px;
   --track-radius: 3px;
