@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { ArrowLeftIcon, ArrowRightIcon, SparklesIcon } from './Icon';
 import styles from './ChatGPTGuide.module.css';
 
@@ -28,7 +28,9 @@ export function useChatGPTGuide() {
   const [guideOpen, setGuideOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement | null>(null);
 
-  useEffect(() => {
+  // Run during commit so a delayed initial effect cannot clear the trigger
+  // after a quick opening click but before the guide's first render.
+  useLayoutEffect(() => {
     if (!guideOpen && trigger.current !== null) {
       // Inputs clear on focus in these forms; restore the opening button instead.
       trigger.current.focus({ preventScroll: true });
@@ -82,12 +84,13 @@ export function ChatGPTGuide({ onBack }: { onBack: () => void }) {
 
         <ol className={styles.steps}>
           <li>
-            <h2>Enable developer mode</h2>
-            <p>Open ChatGPT on your computer. In Settings, turn on <strong>Developer mode</strong> where available.</p>
+            <h2>Open ChatGPT on the web</h2>
+            <p>Sign in to ChatGPT in a web browser on your PC or Mac.</p>
           </li>
           <li>
             <h2>Add a custom connection</h2>
             <p>Open <strong>Plugins</strong>, select the <strong>+</strong> button, then choose <strong>Add custom MCP server</strong>.</p>
+            <p>If that option is missing, look in ChatGPT’s <strong>Settings</strong> for <strong>Developer mode</strong>. Enable it if available, then return to Plugins.</p>
           </li>
           <li>
             <h2>Enter KCAL’s details</h2>
@@ -108,12 +111,13 @@ export function ChatGPTGuide({ onBack }: { onBack: () => void }) {
               {copyState === 'failed' ? 'Could not copy. Select and copy the URL above.' : copyState === 'copied' ? 'URL copied.' : ''}
             </span>
             <p>Leave <strong>Client ID</strong> and <strong>Client secret</strong> blank. Choose <strong>Dynamic Client Registration (DCR)</strong> if asked.</p>
+            <p>To save foods from photos and log meals, ChatGPT needs <strong>read and write</strong> access. Request <code>kcal:read kcal:write</code>; if a <strong>Scopes</strong> field is shown, enter that full value.</p>
             <p>Review ChatGPT’s connection notice and choose <strong>Create as a plugin</strong>.</p>
           </li>
           <li>
             <h2>Connect your KCAL account</h2>
-            <p>Sign in with your KCAL email and the code from your inbox. Check that the consent page says <strong>read and write</strong> access, then select <strong>Allow access</strong>.</p>
-            <p>This lets ChatGPT read your diary and add, edit, or delete foods and food logs. If asked for scopes, enter <code>kcal:read kcal:write</code>.</p>
+            <p>Sign in with your KCAL email and the code from your inbox. Confirm the consent page includes <strong>read and write</strong> access before selecting <strong>Allow access</strong>.</p>
+            <p>If it only offers read access, cancel and update the connection to request both scopes. Write access lets ChatGPT add, edit, or delete foods and food logs.</p>
           </li>
           <li>
             <h2>Try your connection</h2>
@@ -130,8 +134,8 @@ export function ChatGPTGuide({ onBack }: { onBack: () => void }) {
 
         <aside className={styles.help}>
           <h2>Need a hand?</h2>
-          <p><strong>No developer mode or custom plugins?</strong> Availability depends on your ChatGPT account and workspace. Use the web version on your computer and check with your workspace admin if needed.</p>
-          <p><strong>ChatGPT can read but cannot save?</strong> Reconnect KCAL with read and write permissions. Confirm the new consent page includes adding and editing foods.</p>
+          <p><strong>Still missing Add custom MCP server?</strong> Availability depends on your account and workspace permissions. Use ChatGPT on the web; if you’re in a managed workspace, check with your administrator.</p>
+          <p><strong>ChatGPT can read but cannot save?</strong> Reconnect KCAL and request both scopes: <code>kcal:read kcal:write</code>. Approve only when the consent page includes read and write access.</p>
           <a href="https://developers.openai.com/api/docs/guides/custom-mcp-server" target="_blank" rel="noopener noreferrer">OpenAI’s connection guide <ArrowRightIcon size={14} /></a>
         </aside>
 

@@ -34,14 +34,18 @@ public HTTPS deployment or HTTPS tunnel, with `PUBLIC_ORIGIN` matching it.
 The in-app **Connect to ChatGPT** guide is available from New Product, Add Temp,
 and Settings. To connect:
 
-1. Open ChatGPT in a browser on a PC or Mac. In **Settings**, enable
-   **Developer mode** where available for your account or workspace.
-2. Open **Plugins** and choose **Add custom MCP server**.
+1. Sign in to ChatGPT in a web browser on a PC or Mac.
+2. Open **Plugins**, select **+**, and choose **Add custom MCP server**. If that
+   option is missing, look in ChatGPT’s **Settings** for **Developer mode**.
+   Enable it if available, then return to Plugins.
 3. Name it **KCAL**, set the server URL to `https://usekcal.com/mcp`, and choose
    **OAuth** with dynamic client registration (DCR). Leave the client ID and
-   client secret blank so ChatGPT registers them automatically.
-4. Connect and sign in with your KCAL email code. Approve read/write access to
-   allow ChatGPT to add or edit foods as well as read your logs.
+   client secret blank so ChatGPT registers them automatically. To save foods from
+   photos and log meals, ChatGPT needs **read and write** access. Request
+   `kcal:read kcal:write`; if a **Scopes** field is shown, enter that full value.
+4. Connect and sign in with your KCAL email code. Confirm the consent page includes
+   **read and write** access before approving. If it only offers read access,
+   cancel and update the connection to request both scopes.
 5. Install/select KCAL in a new conversation (or mention `@KCAL`) and ask:
    “Use KCAL to show my totals for today.”
 6. Try sharing a photo of a product, including its front packaging. Ask ChatGPT
@@ -49,10 +53,12 @@ and Settings. To connect:
    the result for review, and save the confirmed food to KCAL. Check that the
    product, pack variant, and nutrition match before saving.
 
-If Developer mode or custom plugins are unavailable, check your account and
-workspace access in ChatGPT; availability varies. If KCAL can read but cannot
-add or edit foods, reconnect and approve read/write access. Existing read-only
-connections do not gain write permissions automatically.
+If **Add custom MCP server** is still missing, check your account and workspace
+permissions. Use ChatGPT on the web; in a managed workspace, check with your
+administrator. If KCAL can read but cannot add or edit foods, reconnect and
+request both scopes: `kcal:read kcal:write`.
+Approve only when the consent page includes read and write access. Existing
+read-only connections do not gain write permissions automatically.
 
 ChatGPT registers its exact callback automatically. KCAL uses the SDK's standard
 callback flow and does not advertise the optional issuer-identification extension.
