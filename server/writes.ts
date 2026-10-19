@@ -2,13 +2,12 @@
 // input and resolve userId from verified credentials. Ownership checks, writes,
 // and follow-up reads stay in one transaction so failures leave no partial work.
 
-import { normalizeBrandName, normalizeProductName } from '../shared/normalize.js';
-import { isEntryAmount, isLocalDate, isLocalTime, parseEntryGroupName, MAX_PRODUCT_NAME_LENGTH, MAX_PRODUCT_BRAND_LENGTH, MAX_PRODUCT_BARCODE_LENGTH } from '../shared/constraints.js';
+import { parseProductBarcode, parseProductBrand, parseProductName, parseProductText } from '../shared/productText.js';
+import { isEntryAmount, isLocalDate, isLocalTime, parseEntryGroupName } from '../shared/constraints.js';
 import { db } from './db.js';
 import { isPositiveInt } from './guards.js';
 import { readGroupEntries, rowToEntry, rowToEntryGroup, rowToProduct, sumMacros } from './reads.js';
 import { statements } from './statements.js';
-import { trimOrNull } from './util.js';
 import type {
   EntryGroupRow, EntryJoinRow, EntryMembershipRow, EntryUpdate, EntryWithMacros,
   EntryGroupResult, UngroupResult, EntryGroupDeleteResult, EntryGroup, Macros,
@@ -231,21 +230,14 @@ export function deleteEntryGroup(
 }
 
 export function createProduct(userId: number, body: NewProductBody): Product {
-  const name = normalizeProductName(body.name);
-  const brand = normalizeBrandName(body.brand);
-  const barcode = trimOrNull(body.barcode);
-  if (body.name.length > MAX_PRODUCT_NAME_LENGTH || name.length === 0 || name.length > MAX_PRODUCT_NAME_LENGTH
-    || (body.brand !== null && body.brand.length > MAX_PRODUCT_BRAND_LENGTH)
-    || (brand !== null && brand.length > MAX_PRODUCT_BRAND_LENGTH)
-    || (body.barcode !== null && body.barcode.length > MAX_PRODUCT_BARCODE_LENGTH)) {
-    throw new WriteError(400, 'invalid_product');
-  }
+  const text = parseProductText(body);
+  if (text === null) throw new WriteError(400, 'invalid_product');
   const product = db.transaction(() => {
     const inserted = statements.products.insert.run(
-      name,
-      brand,
+      text.name,
+      text.brand,
       body.unit,
-      barcode,
+      text.barcode,
       body.per100.kcal,
       body.per100.protein,
       body.per100.carbs,
@@ -267,19 +259,18 @@ export function updateProduct(userId: number, productId: number, body: ProductPa
   const product = db.transaction(() => {
     const current = statements.products.selectById.get(userId, productId) as ProductRow | undefined;
     if (current === undefined) throw new WriteError(404, 'not_found');
-    const name = body.name === undefined ? current.name : normalizeProductName(body.name);
-    const brand = body.brand === undefined ? current.brand : normalizeBrandName(body.brand);
-    const barcode = body.barcode === undefined ? current.barcode : trimOrNull(body.barcode);
-    if ((body.name !== undefined && (body.name.length > MAX_PRODUCT_NAME_LENGTH || name.length === 0 || name.length > MAX_PRODUCT_NAME_LENGTH))
-      || (body.brand !== undefined && body.brand !== null && (body.brand.length > MAX_PRODUCT_BRAND_LENGTH || (brand?.length ?? 0) > MAX_PRODUCT_BRAND_LENGTH))
-      || (body.barcode !== undefined && body.barcode !== null && body.barcode.length > MAX_PRODUCT_BARCODE_LENGTH)) {
+    // Omitted metadata bypasses normalization so legacy values stay unchanged.
+    const name = body.name === undefined ? { value: current.name } : parseProductName(body.name);
+    const brand = body.brand === undefined ? { value: current.brand } : parseProductBrand(body.brand);
+    const barcode = body.barcode === undefined ? { value: current.barcode } : parseProductBarcode(body.barcode);
+    if (name === null || brand === null || barcode === null) {
       throw new WriteError(400, 'invalid_product');
     }
     const result = statements.products.update.run(
-      name,
-      brand,
+      name.value,
+      brand.value,
       body.unit ?? current.unit,
-      barcode,
+      barcode.value,
       body.per100?.kcal ?? current.kcal_per100,
       body.per100?.protein ?? current.protein_per100,
       body.per100?.carbs ?? current.carbs_per100,

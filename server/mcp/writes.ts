@@ -6,8 +6,8 @@ import { z } from 'zod';
 import { db } from '../db.js';
 import { log } from '../log.js';
 import { createWithReceipt } from '../idempotency.js';
-import { normalizeBrandName, normalizeEntryGroupName, normalizeProductName } from '../../shared/normalize.js';
-import { trimOrNull } from '../util.js';
+import { normalizeEntryGroupName } from '../../shared/normalize.js';
+import { parseProductText } from '../../shared/productText.js';
 import {
   createEntries, updateEntry, deleteEntry, createProduct, updateProduct, deleteProduct, WriteError,
   createEntryGroup, updateEntryGroup, ungroupEntries, deleteEntryGroup,
@@ -107,7 +107,8 @@ export function registerWriteTools(server: McpServer, user_id: number, canWrite:
       outputSchema: productCreateSchema,
       annotations: createAnnotations,
     }, ({ idempotency_key, ...input }) => {
-      const normalized = { ...input, name: normalizeProductName(input.name), brand: normalizeBrandName(input.brand), barcode: trimOrNull(input.barcode) };
+      // The input schema has already validated every field through this policy.
+      const normalized = { ...input, ...parseProductText(input)! };
       return createResult('create_product', idempotency_key, normalized, productCreateSchema, (receipt) => ({
         user_id, product: createProduct(user_id, { ...normalized, is_temp: false }), receipt,
       }));

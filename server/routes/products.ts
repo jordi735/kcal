@@ -7,11 +7,11 @@
 
 import { Router } from 'express';
 import {
-  MAX_PRODUCT_BARCODE_LENGTH, MAX_PRODUCT_BRAND_LENGTH, MAX_PRODUCT_KCAL_PER100,
-  MAX_PRODUCT_MACRO_GRAMS_PER100, MAX_PRODUCT_NAME_LENGTH,
+  MAX_PRODUCT_BARCODE_LENGTH, MAX_PRODUCT_KCAL_PER100, MAX_PRODUCT_MACRO_GRAMS_PER100,
 } from '../../shared/constraints.js';
 import { authMiddleware } from '../auth.js';
-import { foldProductSearchText, normalizeBrandName, normalizeProductName } from '../../shared/normalize.js';
+import { foldProductSearchText } from '../../shared/normalize.js';
+import { parseProductText } from '../../shared/productText.js';
 import { isObject } from '../guards.js';
 import { log } from '../log.js';
 import { searchOwnProducts } from '../reads.js';
@@ -172,12 +172,11 @@ function isPer100(v: unknown): v is { kcal: number; protein: number; carbs: numb
 function isProductBaseBody(v: unknown): v is UpdateProductBody {
   if (!isObject(v)) return false;
   const { name, brand, unit, barcode } = v;
-  if (typeof name !== 'string' || name.trim().length === 0 || name.length > MAX_PRODUCT_NAME_LENGTH) return false;
-  if (brand !== null && (typeof brand !== 'string' || brand.length > MAX_PRODUCT_BRAND_LENGTH)) return false;
-  if (normalizeProductName(name).length > MAX_PRODUCT_NAME_LENGTH) return false;
-  if ((normalizeBrandName(brand)?.length ?? 0) > MAX_PRODUCT_BRAND_LENGTH) return false;
+  if (typeof name !== 'string') return false;
+  if (brand !== null && typeof brand !== 'string') return false;
   if (unit !== 'g' && unit !== 'ml') return false;
-  if (barcode !== null && (typeof barcode !== 'string' || barcode.length > MAX_PRODUCT_BARCODE_LENGTH)) return false;
+  if (barcode !== null && typeof barcode !== 'string') return false;
+  if (parseProductText({ name, brand, barcode }) === null) return false;
   if (!isPer100(v.per100)) return false;
   return true;
 }
