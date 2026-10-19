@@ -7,7 +7,8 @@ import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
 import { cssVars } from '../styles';
 import { Sheet, useSheetClose } from '../components/Sheet';
 import { ClearableField } from '../components/ClearableField';
-import { ChatGPTConnectCard, ChatGPTGuide, useChatGPTGuide } from '../components/ChatGPTGuide';
+import { ChatGPTConnectCard, ChatGPTGuide } from '../components/ChatGPTGuide';
+import { useSheetSubview } from '../hooks/useSheetSubview';
 import { ArrowRightIcon, BarcodeIcon, ExclamationTriangleIcon, TrashIcon } from '../components/Icon';
 import styles from './NewProductForm.module.css';
 
@@ -79,7 +80,7 @@ function toField(n: number | undefined): NumField {
 }
 
 export function NewProductForm(props: NewProductFormProps) {
-  const { guideOpen, openGuide, closeGuide } = useChatGPTGuide();
+  const guide = useSheetSubview();
   // Forward `onDismiss` only when the parent provided it — Sheet's prop is
   // optional and exactOptionalPropertyTypes forbids passing `undefined`
   // explicitly. Spread keeps the spread shape narrow.
@@ -89,12 +90,12 @@ export function NewProductForm(props: NewProductFormProps) {
     <Sheet
       onClose={props.onClose}
       {...dismissProp}
-      style={cssVars({ '--sheet-max-height': '100%', '--sheet-height': guideOpen ? '92%' : 'auto' })}
+      style={cssVars({ '--sheet-max-height': '100%', '--sheet-height': guide.isOpen ? '92%' : 'auto' })}
     >
-      <div className={styles.pane} hidden={guideOpen}>
-        <NewProductFormInner {...props} active={!guideOpen} onOpenGuide={openGuide} />
+      <div className={styles.pane} hidden={guide.isOpen}>
+        <NewProductFormInner {...props} active={!guide.isOpen} onOpenGuide={guide.open} />
       </div>
-      {guideOpen && <ChatGPTGuide onBack={closeGuide} />}
+      {guide.isOpen && <ChatGPTGuide onBack={guide.close} />}
     </Sheet>
   );
 }

@@ -11,7 +11,7 @@ function readSession(): AuthenticatedSession | null {
   return scope.token !== null && user !== null ? { scope, user } : null;
 }
 
-// Tracker is keyed by generation, so every login/logout (including another tab)
+// Tracker's generation key ensures every login/logout (including another tab)
 // discards account-owned data, queued work, selections, and open forms together.
 export function useSessionState(): AuthenticatedSession | null {
   const [session, setSession] = useState(readSession);

@@ -1,4 +1,4 @@
-import { SESSION_TOKEN_KEY, USER_KEY } from './api';
+import { USER_KEY } from './api';
 import type { Goals, User } from './types';
 
 export function readStoredUser(): User | null {
@@ -9,12 +9,6 @@ export function readStoredUser(): User | null {
   } catch {
     return null;
   }
-}
-
-export function readStoredToken(): string | null {
-  const raw = localStorage.getItem(SESSION_TOKEN_KEY);
-  if (raw === null || raw === '') return null;
-  return raw;
 }
 
 export function userToGoals(user: User): Goals {

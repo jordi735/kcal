@@ -18,7 +18,7 @@ import { TransientErrorToast } from './components/TransientErrorToast';
 import { useEntries } from './hooks/useEntries';
 import { useAppRefresh } from './hooks/useAppRefresh';
 import { useTransientError } from './hooks/useTransientError';
-import { useSessionState, type AuthenticatedSession } from './hooks/useSessionGoals';
+import { useSessionState, type AuthenticatedSession } from './hooks/useSessionState';
 import { useSettings } from './hooks/useSettings';
 import { resolveGoals } from '../shared/goals';
 import { barcodeFillReturnState, isSheetModal, type ModalState } from './modalState';

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { ArrowLeftIcon, ArrowRightIcon, SparklesIcon } from './Icon';
 import styles from './ChatGPTGuide.module.css';
 
@@ -20,32 +20,6 @@ export function ChatGPTConnectCard({ onOpen }: { onOpen: (button: HTMLButtonElem
       <ArrowRightIcon className={styles.cardArrow} />
     </button>
   );
-}
-
-// A guide is a local view of its host sheet. Keep the host's fields mounted so
-// returning never serializes a draft or resets an unfinished numeric field.
-export function useChatGPTGuide(initialOpen = false) {
-  const [guideOpen, setGuideOpen] = useState(initialOpen);
-  const trigger = useRef<HTMLButtonElement | null>(null);
-
-  // Run during commit so a delayed initial effect cannot clear the trigger
-  // after a quick opening click but before the guide's first render.
-  useLayoutEffect(() => {
-    if (!guideOpen && trigger.current !== null) {
-      // Inputs clear on focus in these forms; restore the opening button instead.
-      trigger.current.focus({ preventScroll: true });
-      trigger.current = null;
-    }
-  }, [guideOpen]);
-
-  return {
-    guideOpen,
-    openGuide: (button: HTMLButtonElement) => {
-      trigger.current = button;
-      setGuideOpen(true);
-    },
-    closeGuide: () => setGuideOpen(false),
-  };
 }
 
 export function ChatGPTGuide({ onBack }: { onBack: () => void }) {

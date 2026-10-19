@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, requestLoginCode, verifyLoginCode, type SessionScope } from '../api';
-import { useSessionState } from '../hooks/useSessionGoals';
+import { useSessionState } from '../hooks/useSessionState';
 import type { OAuthConsent, OAuthDecision } from '../types';
 import { BrandMark } from '../components/BrandMark';
 import { Login } from './Login';

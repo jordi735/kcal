@@ -37,7 +37,6 @@ export type UseEntriesReturn = {
   loadedDates: Set<string>;
   load: (date: string) => Promise<void>;
   loadWeek: (start: string) => Promise<void>;
-  invalidateReads: () => void;
   queueFoodMutation: MutationQueue;
   refreshAll: () => Promise<void>;
   add: (params: { product_id: number; grams: number; local_date: string; local_time: string }) => Promise<EntryWithMacros>;
@@ -209,6 +208,6 @@ export function useEntries(session: SessionScope, onRefreshError: () => void): U
     ) }));
   }), [queue, session, reconcile, changeCache]);
 
-  return { entriesByDate, weekTotals, loadedDates, load, loadWeek, invalidateReads,
+  return { entriesByDate, weekTotals, loadedDates, load, loadWeek,
     queueFoodMutation: queue, refreshAll, add, update, remove, createGroup, renameGroup, toggleGroupTagged, ungroup };
 }

@@ -4,7 +4,8 @@ import type { Goals, GoalHistoryItem } from '../types';
 import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
 import { cssVars } from '../styles';
 import { Sheet, useSheetClose } from '../components/Sheet';
-import { ChatGPTConnectCard, ChatGPTGuide, useChatGPTGuide } from '../components/ChatGPTGuide';
+import { ChatGPTConnectCard, ChatGPTGuide } from '../components/ChatGPTGuide';
+import { useSheetSubview } from '../hooks/useSheetSubview';
 import { McpNotice } from '../components/McpNotice';
 import { MinusIcon, PlusIcon } from '../components/Icon';
 import { useFocusClearableNumber } from '../hooks/useFocusClearableNumber';
@@ -26,15 +27,15 @@ type SettingsProps = {
 };
 
 export function Settings(props: SettingsProps) {
-  const { guideOpen, openGuide, closeGuide } = useChatGPTGuide(props.initialGuide);
-  const { guideOpen: historyOpen, openGuide: openHistory, closeGuide: closeHistory } = useChatGPTGuide();
+  const guide = useSheetSubview(props.initialGuide);
+  const history = useSheetSubview();
   return (
     <Sheet onClose={props.onClose} style={cssVars({ '--sheet-height': '92%' })}>
-      <div className={styles.pane} hidden={guideOpen || historyOpen}>
-        <SettingsInner {...props} active={!guideOpen && !historyOpen} onOpenGuide={openGuide} onOpenHistory={openHistory} />
+      <div className={styles.pane} hidden={guide.isOpen || history.isOpen}>
+        <SettingsInner {...props} active={!guide.isOpen && !history.isOpen} onOpenGuide={guide.open} onOpenHistory={history.open} />
       </div>
-      {guideOpen && <ChatGPTGuide onBack={closeGuide} />}
-      {historyOpen && <GoalHistory history={props.goalHistory} onBack={closeHistory} />}
+      {guide.isOpen && <ChatGPTGuide onBack={guide.close} />}
+      {history.isOpen && <GoalHistory history={props.goalHistory} onBack={history.close} />}
     </Sheet>
   );
 }

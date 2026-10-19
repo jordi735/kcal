@@ -48,7 +48,7 @@ test('[J-167] goals updated on another device appear after page reload (boot rev
   expect(cachedBefore.goal_kcal).toBe(2400);
 
   // Reload — this triggers the `useEffect(..., [user?.id])` boot revalidation
-  // path under test. useSessionGoals supplies cached goals first (still 2400), then
+  // path under test. The app retains cached user goals (still 2400), then
   // the GET resolves and setGoals(fresh) swaps in the server values.
   await page.reload();
 

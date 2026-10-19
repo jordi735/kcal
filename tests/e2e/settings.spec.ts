@@ -39,7 +39,7 @@ test('[J-018] change daily kcal goal persists and updates MacroSummary', async (
   await expect(page.getByText(/^\/ 1800$/)).toBeVisible();
 
   // Reload to confirm server-persistence path round-trips through localStorage
-  // (useSessionGoals.ts applyGoals stores the saved goals back into the User record).
+  // (useSettings stores the saved goals back into the User record).
   await page.reload();
   await expect(page.getByText(/^\/ 1800$/)).toBeVisible();
 });
@@ -284,7 +284,7 @@ test.describe('advanced', () => {
 
     // Reload + reopen → every input reads back the saved value. The kcal bar
     // also re-renders /1888 from cold cache, proving the User record in
-    // localStorage was synced (useSessionGoals.ts applyGoals).
+    // localStorage was synced by useSettings.
     await page.reload();
     await expect(page.getByText(/^\/ 1888$/)).toBeVisible();
     await page.getByRole('button', { name: 'Settings' }).tap();
