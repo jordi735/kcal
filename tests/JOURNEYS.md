@@ -409,7 +409,8 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-434 · Product and summary cleanup preserves published MCP schemas and discovery
 - J-435 · Summary output preserves unknown/zero goals, missing logs, legacy filtering and weights
 - J-436 · Old entry receipts retain their original floating-point snapshots after resource deletion
-- J-437 · Instrumented MCP summary reads enforce the aggregate and history query budget
+- J-437 · Instrumented MCP summaries read daily aggregates, goal history and weights once each
+- J-438 · Product validation preserves separate raw-length and normalized-length diagnostics
 
 # Verification
 

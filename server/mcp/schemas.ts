@@ -6,7 +6,7 @@ import {
   MAX_PRODUCT_BRAND_LENGTH, MAX_PRODUCT_KCAL_PER100, MAX_PRODUCT_MACRO_GRAMS_PER100,
   MAX_PRODUCT_NAME_LENGTH, MAX_ENTRY_AMOUNT, isLocalTime,
 } from '../../shared/constraints.js';
-import { parseProductBrand, parseProductName } from '../../shared/productText.js';
+import { parseNormalizedProductBrand, parseNormalizedProductName } from '../../shared/productText.js';
 import { DATE_RE, TIME_RE } from '../guards.js';
 import type {
   McpEntry, McpEntryWriteResult, McpEntryDeleteResult, McpProductWriteResult, McpProductDeleteResult,
@@ -90,10 +90,13 @@ export const per100Input = z.strictObject({
   fat: z.number().min(0).max(MAX_PRODUCT_MACRO_GRAMS_PER100),
 });
 export const productFields = {
-  name: z.string().max(MAX_PRODUCT_NAME_LENGTH).refine((name) => parseProductName(name) !== null,
+  // Zod's max() owns raw-length diagnostics. Refine only adds stored-length or
+  // blank-name issues, preserving the existing public validation messages.
+  name: z.string().max(MAX_PRODUCT_NAME_LENGTH).refine((name) => parseNormalizedProductName(name) !== null,
     'Use a nonblank name within the normalized length limit'),
   brand: z.string().max(MAX_PRODUCT_BRAND_LENGTH).nullable()
-    .refine((brand) => parseProductBrand(brand) !== null, 'Brand exceeds the normalized length limit'),
+    .refine((brand) => parseNormalizedProductBrand(brand) !== null,
+      'Brand exceeds the normalized length limit'),
   unit: z.enum(['g', 'ml']),
   barcode: z.string().max(MAX_PRODUCT_BARCODE_LENGTH).nullable(),
 };

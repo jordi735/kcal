@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import Database from 'better-sqlite3';
+import { productFields } from '../../server/mcp/schemas';
 import type {
   EntryWithMacros, McpDayResult, McpEntriesCreateResult, McpMealsResult,
   McpProductCreateResult, McpSummaryResult, McpWeekResult, Product,
@@ -215,4 +216,20 @@ test('[J-437] summary reads aggregate totals goal history and weights once each'
   // Before query reuse, this same public call executed 3 aggregate + 2 history
   // queries. The budget ensures comparisons reuse the data behind the summary.
   expect(JSON.parse(result.stdout)).toEqual({ aggregate: 1, history: 1, weights: 1 });
+});
+
+test('[J-438] product schema reports raw and normalized length failures without duplicate misleading issues', () => {
+  for (const [schema, limit] of [[productFields.name, 200], [productFields.brand, 120]] as const) {
+    const rawOversize = schema.safeParse(`     ${'a'.repeat(limit)}`);
+    expect(rawOversize.success).toBe(false);
+    expect(rawOversize.error?.issues.map((issue) => issue.code)).toEqual(['too_big']);
+
+    const normalizedOversize = schema.safeParse(`ß${'a'.repeat(limit - 1)}`);
+    expect(normalizedOversize.success).toBe(false);
+    expect(normalizedOversize.error?.issues.map((issue) => issue.code)).toEqual(['custom']);
+
+    const bothOversize = schema.safeParse('a'.repeat(limit + 1));
+    expect(bothOversize.success).toBe(false);
+    expect(bothOversize.error?.issues.map((issue) => issue.code)).toEqual(['too_big', 'custom']);
+  }
 });
