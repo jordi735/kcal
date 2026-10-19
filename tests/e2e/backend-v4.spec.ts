@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { runServerFixture } from './server-fixture';
 import { AuthThrottle } from '../../server/auth-limits';
 import { resolveGoals, goalPeriods } from '../../shared/goals';
 import { rangeDates, weekDates } from '../../shared/dates';
@@ -201,36 +201,8 @@ test('[J-387] initialization racing a save preserves new goals and login compati
 
 test('[J-388] server-clock goal dates honor timezone boundaries, no-op saves and backward travel', () => {
   const directory = mkdtempSync(join(tmpdir(), 'kcal-goal-clock-'));
-  const script = `
-    import assert from 'node:assert/strict';
-    const { db } = await import('./server/db.ts');
-    const { initializeGoalHistory, saveGoals, localDateInTimeZone } = await import('./server/goals.ts');
-    let now = Date.parse('2024-03-30T23:30:00Z');
-    Date.now = () => now;
-    const user = Number(db.prepare('INSERT INTO users (email,created_at) VALUES (?,?)').run('clock@test.local', now).lastInsertRowid);
-    assert.equal(localDateInTimeZone('Europe/Amsterdam'), '2024-03-31');
-    assert.equal(localDateInTimeZone('America/Los_Angeles'), '2024-03-30');
-    const baseline = initializeGoalHistory(user, 'Europe/Amsterdam');
-    assert.equal(baseline.goal_history[0].effective_date, '2024-03-31');
-    const original = baseline.goal_history[0].goals;
-    now = Date.parse('2024-04-01T12:00:00Z');
-    assert.equal(saveGoals(user, original, 'Europe/Amsterdam').goal_history.length, 1);
-    const zero = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
-    const saved = saveGoals(user, zero, 'Europe/Amsterdam');
-    assert.deepEqual(saved.goal_history, [{ effective_date: '2024-03-31', goals: original }, { effective_date: '2024-04-01', goals: zero }]);
-    now = Date.parse('2024-04-01T23:30:00Z');
-    saveGoals(user, original, 'Europe/Amsterdam');
-    assert.throws(() => saveGoals(user, zero, 'America/Los_Angeles'), { message: 'goal_date_before_latest' });
-    db.close();
-    process.stdout.write('goal-clock-ok');
-  `;
   try {
-    const child = spawnSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', script], {
-      cwd: process.cwd(), encoding: 'utf8', timeout: 20_000,
-      env: { ...process.env, PORT: '3000', DATABASE_PATH: join(directory, 'app.db'), TEST_MODE: 'true',
-        POSTMARK_SERVER_TOKEN: 'unused', POSTMARK_FROM: 'test@test.local', SESSION_EXPIRY_DAYS: '7',
-        LOGIN_CODE_EXPIRY_MINUTES: '10', LOG_LEVEL: 'error', PUBLIC_ORIGIN: '' },
-    });
+    const child = runServerFixture(new URL('./fixtures/goal-clock.ts', import.meta.url), join(directory, 'app.db'));
     expect(child.status, child.stderr).toBe(0);
     expect(child.stdout).toContain('goal-clock-ok');
   } finally { rmSync(directory, { recursive: true, force: true }); }
