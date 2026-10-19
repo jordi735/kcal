@@ -319,7 +319,7 @@ test.describe('advanced', () => {
     for (const [label, body] of cases) {
       const res = await request.put('/settings', {
         headers,
-        data: body as Record<string, unknown>,
+        data: { ...(body as Record<string, unknown>), time_zone: 'UTC' },
       });
       expect(res.status(), `${label}: status`).toBe(400);
       const json = (await res.json()) as { error: string };

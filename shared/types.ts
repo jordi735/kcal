@@ -9,6 +9,19 @@ export type Macros = {
   fat: number;
 };
 
+export type GoalHistoryItem = { effective_date: string; goals: Macros };
+export type GoalPeriod = { start_date: string; end_date: string; daily_goals: Macros | null };
+export type GoalComparison = {
+  days_compared: number;
+  logged_totals: Macros | null;
+  goal_totals: Macros | null;
+};
+export type SettingsSnapshot = Macros & {
+  goal_history: GoalHistoryItem[];
+  mcp_notice_version: number | null;
+};
+export type SettingsSaveResult = SettingsSnapshot & { effective_date: string };
+
 export type Product = {
   id: number;
   name: string;
@@ -77,8 +90,8 @@ export type OAuthConsent = {
 
 export type OAuthDecision = { redirect_url: string };
 
-// Read-only MCP results. Goals always describe the current settings;
-// recorded totals use current product nutrition, as the app does.
+// Goals resolve for each recorded date; null means history is unknown.
+// Recorded totals use current product nutrition, as the app does.
 // Food checkmarks are an app-only aid, not a record of actual consumption.
 export type McpEntry = Omit<EntryWithMacros, 'tagged'>;
 
@@ -87,7 +100,7 @@ export type McpDayResult = {
   date: string;
   entries: McpEntry[];
   totals: Macros;
-  current_daily_goals: Macros;
+  daily_goals: Macros | null;
 };
 
 export type McpMealsResult = {
@@ -97,6 +110,7 @@ export type McpMealsResult = {
   days: Record<string, {
     entries: McpEntry[];
     totals: Macros;
+    daily_goals: Macros | null;
   }>;
 };
 
@@ -104,9 +118,8 @@ export type McpWeekResult = {
   user_id: number;
   start_date: string;
   end_date: string;
-  days: Record<string, Macros>;
+  days: Record<string, { totals: Macros; daily_goals: Macros | null }>;
   totals: Macros;
-  current_daily_goals: Macros;
 };
 
 export type McpWeighinsResult = {
@@ -138,13 +151,28 @@ export type McpSummaryResult = SummaryResult & {
   user_id: number;
   start_date: string;
   end_date: string;
-  current_daily_goals: Macros;
+  goal_periods: GoalPeriod[];
+  goal_comparison: GoalComparison;
 };
 
 export type McpProductSearchResult = {
   user_id: number;
-  query: string;
   products: Product[];
+  template: ProductTemplate | null;
+  next_offset: number | null;
+};
+
+export type McpCreationReceipt = {
+  idempotency_key: string;
+  applied_at: string;
+  replayed: boolean;
+};
+export type McpEntriesCreateResult = {
+  user_id: number;
+  entries: McpEntry[];
+  group: EntryGroup | null;
+  totals: Macros;
+  receipt: McpCreationReceipt;
 };
 
 // MCP mutation results omit app-only food checkmarks and report deletion effects.
@@ -164,6 +192,7 @@ export type McpProductWriteResult = {
   user_id: number;
   product: Product;
 };
+export type McpProductCreateResult = McpProductWriteResult & { receipt: McpCreationReceipt };
 
 export type McpProductDeleteResult = {
   user_id: number;
@@ -178,6 +207,7 @@ export type EntryGroupResult = {
 };
 
 export type McpEntryGroupResult = Omit<EntryGroupResult, 'entries'> & { user_id: number; entries: McpEntry[] };
+export type McpEntryGroupCreateResult = McpEntryGroupResult & { receipt: McpCreationReceipt };
 
 export type UngroupResult = {
   ok: true;

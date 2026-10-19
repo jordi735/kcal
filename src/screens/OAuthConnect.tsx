@@ -1,34 +1,34 @@
-import { useEffect, useState } from 'preact/hooks';
-import { api, requestLoginCode, verifyLoginCode, SESSION_TOKEN_KEY } from '../api';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { api, requestLoginCode, verifyLoginCode, type SessionScope } from '../api';
+import { useSessionState } from '../hooks/useSessionGoals';
 import type { OAuthConsent, OAuthDecision } from '../types';
 import { BrandMark } from '../components/BrandMark';
 import { Login } from './Login';
 import styles from './OAuthConnect.module.css';
 
 export function OAuthConnect({ request }: { request: string }) {
-  const [signedIn, setSignedIn] = useState(() => Boolean(localStorage.getItem(SESSION_TOKEN_KEY)));
+  const session = useSessionState();
+  return session === null
+    ? <Login onRequestCode={requestLoginCode} onVerifyCode={async (email, code) => { await verifyLoginCode(email, code); }} />
+    : <Consent key={session.scope.generation} request={request} session={session.scope} />;
+}
+
+function Consent({ request, session }: { request: string; session: SessionScope }) {
+  const scope = useRef(session).current;
   const [consent, setConsent] = useState<OAuthConsent | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const canWrite = consent?.scopes.includes('kcal:write') === true;
 
   useEffect(() => {
-    if (!signedIn) return;
     let cancelled = false;
-    void api<OAuthConsent>(`/oauth/consent?request=${request}`).then((data) => {
+    void api<OAuthConsent>(`/oauth/consent?request=${request}`, { session: scope }).then((data) => {
       if (!cancelled) setConsent(data);
     }).catch((err: unknown) => {
       if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load this connection.');
     });
     return () => { cancelled = true; };
-  }, [request, signedIn]);
-
-  if (!signedIn) {
-    return <Login onRequestCode={requestLoginCode} onVerifyCode={async (email, code) => {
-      await verifyLoginCode(email, code);
-      setSignedIn(true);
-    }} />;
-  }
+  }, [request, scope]);
 
   const decide = async (allow: boolean) => {
     if (busy) return;
@@ -36,7 +36,7 @@ export function OAuthConnect({ request }: { request: string }) {
     setError('');
     try {
       const result = await api<OAuthDecision>('/oauth/consent', {
-        method: 'POST', body: { request, allow },
+        method: 'POST', body: { request, allow }, session: scope,
       });
       window.location.assign(result.redirect_url);
     } catch (err) {

@@ -108,7 +108,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-094 · Protein/carbs/fat GoalRow projections render with one-decimal formatting (not integer)
 - J-168 · Future-day entries stay in insertion order: a pre-log remains above next-morning and later additions before and after reload
 
-- J-231 · Reversed entry responses retain insertion order and totals across reload
+- J-231 · Serialized entry requests preserve insertion order and totals across reload
 - J-232 · Adding before a day loads does not overwrite its already loaded week total
 - J-233 · A rejected entry edit leaves client entries and totals unchanged
 - J-270 · Portion nutrition stays separate from daily totals, rounds fractional ml amounts correctly, keeps zero nutrients in grams, and retains the last valid preview during blank input
@@ -265,7 +265,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 # 16. MCP and OAuth
 
 - J-188 · MCP discovers six account-scoped read-only tools with output schemas, requires boolean weigh-in flags, and rejects user discovery
-- J-189 · Food reads and summaries isolate connected accounts and match app totals across groups, year boundaries, product edits, and current goals
+- J-189 · Food reads and summaries isolate connected accounts and match app totals across groups, year boundaries, product edits, and date-effective goals
 - J-190 · Weigh-in tools match REST checkbox combinations and edits, preserve notes, and support inclusive date filters and newest-first pagination
 - J-191 · MCP validates dates and pagination, preserves text-only errors, rejects user selection and arbitrary queries, and never changes stored records
 - J-192 · MCP requires OAuth tokens, rejects app sessions and browser origins, and advertises discovery when unauthenticated
@@ -280,10 +280,10 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-201 · Summaries compare first and last in-range weigh-ins, include measurement dates, and handle empty, single-point, rising, falling, and unchanged weights
 - J-202 · Summaries support calendar boundaries and 366-day periods without truncating weight history to a page
 - J-203 · MCP product search matches owned saved foods by name and brand, preserves nutrition and units, and excludes temporary and cross-user products
-- J-204 · MCP product search caps broad queries at 50 alphabetically ordered results and supports narrowing the query
+- J-204 · MCP product search defaults to 50 alphabetically ordered results with a continuation offset and supports narrowing the query
 - J-205 · MCP write scopes advertise mutation schemas and deny writes to read-only tokens
 - J-206 · MCP product creates and partial edits match REST and recalculate logged nutrition
-- J-207 · MCP entry create/update/delete matches REST, hides and preserves app checkmarks, and preserves or dissolves groups
+- J-207 · One-item MCP batch creation and entry update/delete match REST, hide and preserve app checkmarks, and preserve or dissolve groups
 - J-208 · MCP writes reject foreign and missing products and entries without mutation
 - J-209 · MCP write validation rejects malformed and unsupported inputs without mutation
 - J-210 · MCP product deletion cascades through owned history and cleans groups while preserving adopted copies
@@ -325,6 +325,55 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-267 · The guide scrolls on mobile, a downward touch while scrolled does not dismiss, and a downward touch at the top closes the whole sheet
 - J-268 · Backdrop dismissal closes the guide and its underlying product form together
 - J-269 · Keyboard navigation opens the guide, reaches its visible controls, and returns focus to the originating button on desktop
+
+# 19. MCP v4, product discovery, and dated goals
+
+- J-300 · Historical goals carry forward while unknown days omit targets and progress
+- J-301 · An old account's unauthorized response cannot clear a newly signed-in account or restore old rows
+- J-302 · A late goal save cannot replace another account's cached user or goals
+- J-303 · Tag and amount writes serialize and leave the row and totals consistent
+- J-304 · A delayed write reconciles instead of replacing a newer refreshed food row
+- J-305 · The ChatGPT reminder dismisses persistently and goal cache updates do not loop reads
+- J-306 · Sign-in respects Retry-After and permits retry when the countdown expires
+- J-307 · First app open initializes the baseline once and never invents earlier goals
+- J-308 · Signing back into the same account drops its old session requests
+- J-309 · Queued food writes never start under a replacement session bearer
+- J-310 · A delayed product save refreshes data without closing a newer modal
+- J-311 · A delayed initialization cannot overwrite a newer settings refresh
+- J-312 · A recorded zero target remains a known goal
+- J-313 · A committed product save stays successful when its follow-up refresh fails
+- J-314 · A settings reconciliation invalidates delayed refreshes so they cannot restore older goals
+- J-315 · Settings uses the latest editable defaults while historical day views resolve their own targets
+- J-330 · Every MCP create requires a bounded valid operation key and singular logging is removed
+- J-331 · Product receipts replay canonical input snapshots after edits and deletion and reject key conflicts
+- J-332 · Group receipts normalize names and membership order and replay after ungrouping
+- J-333 · Batch logging preserves duplicate input order and group totals and replays the original logs
+- J-334 · Invalid batch members and bounds roll back all rows and failed attempts leave keys reusable
+- J-335 · Batch output validation rolls back entries, group, and receipt before an identical retry succeeds
+- J-336 · Damaged or unsupported receipts fail closed without repeating creation
+- J-337 · Concurrent creates share one receipt while another account can reuse the same key
+- J-338 · Dated goals and comparisons distinguish unknown history, missing logs, and zero-calorie logs
+- J-339 · Accounts without initialized goal history can read and create, and calendar overflow fails cleanly
+- J-340 · Receipts survive process restart and success logging follows the outer transaction
+- J-360 · MCP browses and paginates the complete owned saved library with stable name ties
+- J-361 · App and MCP product searches match literal symbols and Unicode name or brand casing
+- J-362 · Recent product pages use log creation time with stable ties and exclude unlogged or temporary foods
+- J-363 · Barcode lookup prefers the newest owned saved copy and returns safe shared templates without writes
+- J-364 · Global search does not merge private IDs with real barcode strings
+- J-365 · Adopting a saved barcode skips owned temporary copies and rejects temporary sources
+- J-366 · Product normalization is stable for Unicode expansions and enforces final stored length
+- J-367 · Partial MCP product updates preserve omitted legacy metadata and reject expanded oversized text
+- J-368 · Product discovery rejects conflicting barcode modes and invalid pagination
+- J-369 · Failed barcode lookup returns to Add Food with an error and permits a new scan
+- J-380 · Goal history initializes once from server values and same-day saves replace the full vector
+- J-381 · Goal saves reject old clients, invalid timezones and backdating without changing history
+- J-382 · Sparse goals resolve unknown periods and civil dates across leap years and DST
+- J-383 · The v4 migration flags only usable existing OAuth connections and leaves goal history unknown
+- J-384 · Reminder dismissal is account-scoped, version-specific and persistent
+- J-385 · Auth limits enforce cooldown and independent email/IP budgets with expiry
+- J-386 · REST rejects overflowing amounts and impossible new food and weight dates
+- J-387 · Initialization racing a save preserves new goals, ignores client effective dates, and login compatibility reads current history
+- J-388 · Server-clock goal dates honor timezone boundaries and DST, unchanged saves stay sparse, zero goals remain valid, and backward travel is rejected
 
 # Verification
 

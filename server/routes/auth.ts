@@ -14,9 +14,12 @@ import { sendLoginCode } from '../email.js';
 import { env } from '../env.js';
 import { EMAIL_RE, isObject, LOGIN_CODE_RE } from '../guards.js';
 import { statements } from '../statements.js';
+import { readCurrentGoals } from '../goals.js';
+import { AuthThrottle } from '../auth-limits.js';
 import type { UserRow } from '../types.js';
 
 export const authRouter: Router = Router();
+const throttle = new AuthThrottle({ testMode: env.TEST_MODE });
 
 function isEmailBody(v: unknown): v is { email: string } {
   return isObject(v) && typeof v.email === 'string' && EMAIL_RE.test(v.email);
@@ -38,6 +41,12 @@ authRouter.post('/request-code', async (req, res) => {
     return;
   }
   const email = req.body.email.trim().toLowerCase();
+  const retryAfter = throttle.check('issue', email, req.ip ?? 'unknown');
+  if (retryAfter > 0) {
+    res.setHeader('Retry-After', retryAfter);
+    res.status(429).json({ error: 'too_many_requests' });
+    return;
+  }
   statements.users.upsert.run(email, Date.now());
   const code = issueLoginCode(email);
   await sendLoginCode(email, code);
@@ -50,6 +59,12 @@ authRouter.post('/verify-code', (req, res) => {
     return;
   }
   const email = req.body.email.trim().toLowerCase();
+  const retryAfter = throttle.check('verify', email, req.ip ?? 'unknown');
+  if (retryAfter > 0) {
+    res.setHeader('Retry-After', retryAfter);
+    res.status(429).json({ error: 'too_many_requests' });
+    return;
+  }
   const result = consumeLoginCode(email, req.body.code);
   if (result === 'exhausted') {
     res.status(400).json({ error: 'too_many_attempts' });
@@ -65,15 +80,16 @@ authRouter.post('/verify-code', (req, res) => {
     return;
   }
   const session = createSession(user.id);
+  const goals = readCurrentGoals(user.id)!;
   res.json({
     session_token: session.token,
     user: {
       id: user.id,
       email: user.email,
-      goal_kcal: user.goal_kcal,
-      goal_protein: user.goal_protein,
-      goal_carbs: user.goal_carbs,
-      goal_fat: user.goal_fat,
+      goal_kcal: goals.kcal,
+      goal_protein: goals.protein,
+      goal_carbs: goals.carbs,
+      goal_fat: goals.fat,
     },
   });
 });

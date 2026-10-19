@@ -5,7 +5,6 @@ import type {
   BarcodeLookupResponse,
   EntryGroup,
   EntryWithMacros,
-  Goals,
   Product,
 } from './types';
 import { getMonday, toLocalDateString, toLocalTimeString } from './dates';
@@ -19,25 +18,38 @@ import { TransientErrorToast } from './components/TransientErrorToast';
 import { useEntries } from './hooks/useEntries';
 import { useAppRefresh } from './hooks/useAppRefresh';
 import { useTransientError } from './hooks/useTransientError';
-import { useGoalRevalidation, useSessionGoals } from './hooks/useSessionGoals';
+import { useSessionState, type AuthenticatedSession } from './hooks/useSessionGoals';
+import { useSettings } from './hooks/useSettings';
+import { resolveGoals } from '../shared/goals';
 import { barcodeFillReturnState, isSheetModal, type ModalState } from './modalState';
 import { userToGoals } from './session';
 import { api, ApiError, clearStoredSession, oauthRequestId, requestLoginCode, verifyLoginCode } from './api';
 
 export function App() {
   const request = oauthRequestId();
-  return request === null ? <Tracker /> : <OAuthConnect request={request} />;
+  return request === null ? <SessionTracker /> : <OAuthConnect request={request} />;
 }
 
-function Tracker() {
-  const { user, setUser, goals, setGoals, applyGoals, goalSaveVersion } = useSessionGoals();
+function SessionTracker() {
+  const session = useSessionState();
+  return session === null
+    ? <Login onRequestCode={requestLoginCode} onVerifyCode={async (email, code) => { await verifyLoginCode(email, code); }} />
+    : <Tracker key={session.scope.generation} session={session} />;
+}
+
+function Tracker({ session }: { session: AuthenticatedSession }) {
+  const scope = useRef(session.scope).current;
+  const user = session.user;
+  const { transientError, errorExiting, reportError } = useTransientError();
+  const { refreshVersion, onRefreshError } = useAppRefresh(user.id, reportError);
   const {
     entriesByDate,
     weekTotals,
     loadedDates,
     load: loadEntries,
     loadWeek,
-    invalidateReads,
+    queueFoodMutation,
+    refreshAll,
     add: addEntry,
     update: updateEntry,
     remove: removeEntry,
@@ -45,7 +57,7 @@ function Tracker() {
     renameGroup,
     toggleGroupTagged,
     ungroup,
-  } = useEntries();
+  } = useEntries(scope, onRefreshError);
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
   const [modal, setModalState] = useState<ModalState>({ kind: 'none' });
@@ -58,8 +70,6 @@ function Tracker() {
     flowGenRef.current++;
     setModalState(next);
   }, []);
-  const { transientError, errorExiting, reportError } = useTransientError();
-  const { refreshVersion, onRefreshError } = useAppRefresh(user?.id, reportError);
   const activeSheetCloseRef = useRef<(() => void) | null>(null);
   const registerSheetClose = useCallback((fn: (() => void) | null) => {
     activeSheetCloseRef.current = fn;
@@ -88,19 +98,17 @@ function Tracker() {
   // user dependency on identity, not the cached object: goal revalidation
   // replaces that object and must not emit a duplicate round of entry reads.
   useEffect(() => {
-    if (user === null) return;
     let cancelled = false;
     const onError = () => { if (!cancelled) onRefreshError(); };
     void loadEntries(selectedKey).catch(onError);
     if (selectedKey !== todayKey) void loadEntries(todayKey).catch(onError);
     return () => { cancelled = true; };
-  }, [user?.id, selectedKey, todayKey, loadEntries, refreshVersion, onRefreshError]);
+  }, [user.id, selectedKey, todayKey, loadEntries, refreshVersion, onRefreshError]);
 
   // Load week totals for the visible week and both neighbors, so the
   // week-strip carousel can show real progress dots on swipe-in weeks. As with
   // day entries, goal-only user-object refreshes do not require another load.
   useEffect(() => {
-    if (user === null) return;
     const prev = new Date(weekStart);
     prev.setDate(weekStart.getDate() - 7);
     const next = new Date(weekStart);
@@ -111,20 +119,11 @@ function Tracker() {
     void loadWeek(toLocalDateString(prev)).catch(onError);
     void loadWeek(toLocalDateString(next)).catch(onError);
     return () => { cancelled = true; };
-  }, [user?.id, weekStart, loadWeek, refreshVersion, onRefreshError]);
+  }, [user.id, weekStart, loadWeek, refreshVersion, onRefreshError]);
 
-  useGoalRevalidation(user, setUser, setGoals, refreshVersion, goalSaveVersion, onRefreshError);
-
-  // Verify the 6-digit code and persist the session.
-  const onVerifyCode = async (email: string, code: string): Promise<void> => {
-    const user = await verifyLoginCode(email, code);
-    setGoals(userToGoals(user));
-    setUser(user);
-  };
-
-  if (user === null) {
-    return <Login onRequestCode={requestLoginCode} onVerifyCode={onVerifyCode} />;
-  }
+  const { snapshot, save: onSaveGoals, dismissNotice } = useSettings(scope, user, refreshVersion, onRefreshError);
+  const goals = snapshot === undefined ? undefined : resolveGoals(snapshot.goal_history, selectedKey);
+  const currentGoals = snapshot ?? userToGoals(user);
 
   const closeModal = () => setModal({ kind: 'none' });
 
@@ -215,7 +214,7 @@ function Tracker() {
       // as a normal owned product.
       const owned =
         product.is_mine === false
-          ? await api<Product>(`/products/adopt/${product.id}`, { method: 'POST' })
+          ? await queueFoodMutation(() => api<Product>(`/products/adopt/${product.id}`, { method: 'POST', session: scope }))
           : product;
       if (myGen !== flowGenRef.current) return;
       setModal({ kind: 'grams-picker', product: owned, entry: undefined });
@@ -247,7 +246,7 @@ function Tracker() {
     const myGen = flowGenRef.current;
     try {
       const result = await api<BarcodeLookupResponse>(
-        `/products/barcode/${encodeURIComponent(code)}`,
+        `/products/barcode/${encodeURIComponent(code)}`, { session: scope },
       );
       if (myGen !== flowGenRef.current) return;
       if (result.kind === 'own') {
@@ -261,8 +260,10 @@ function Tracker() {
       if (myGen !== flowGenRef.current) return;
       if (err instanceof ApiError && err.status === 404) {
         setModal({ kind: 'new-product', initial: { barcode: code } });
+      } else {
+        setModal({ kind: 'add-picker' });
+        reportError(err instanceof Error ? err.message : "Couldn't look up barcode");
       }
-      // Other errors: leave the scanner closed; api.ts already handles 401.
     }
   };
 
@@ -299,7 +300,7 @@ function Tracker() {
   const onProductSave = async (draft: ProductDraft): Promise<void> => {
     const myGen = flowGenRef.current;
     try {
-      const saved = await api<Product>('/products', { method: 'POST', body: draft });
+      const saved = await queueFoodMutation(() => api<Product>('/products', { method: 'POST', body: draft, session: scope }));
       if (myGen !== flowGenRef.current) return;
       setModal({ kind: 'grams-picker', product: saved, entry: undefined });
     } catch (err) {
@@ -322,35 +323,33 @@ function Tracker() {
   const onProductEditSave = async (draft: ProductDraft): Promise<void> => {
     if (modal.kind !== 'edit-product') return;
     const productId = modal.product.id;
+    const myGen = flowGenRef.current;
     const { is_temp: _unused, ...putBody } = draft;
     try {
-      await api<Product>(`/products/${productId}`, { method: 'PUT', body: putBody });
-      invalidateReads();
-      await loadEntries(selectedKey);
-      await loadWeek(toLocalDateString(weekStart));
-      setModal({ kind: 'none' });
+      await queueFoodMutation(async () => {
+        await api<Product>(`/products/${productId}`, { method: 'PUT', body: putBody, session: scope });
+        await refreshAll();
+      });
+      if (myGen === flowGenRef.current) setModal({ kind: 'none' });
     } catch (err) {
+      if (myGen !== flowGenRef.current) return;
       reportError(err instanceof Error ? err.message : "Couldn't save product");
-      // Leave modal open so user can retry.
     }
   };
 
-  // Destructive: server cascades to every entry this user logged against the
-  // product (macros are computed at read time, so we can't just null them out).
-  // Reload selected day + today + week to clear any cached rows that had it.
   const onProductDelete = async (): Promise<void> => {
     if (modal.kind !== 'edit-product') return;
     const productId = modal.product.id;
+    const myGen = flowGenRef.current;
     try {
-      await api<{ ok: true }>(`/products/${productId}`, { method: 'DELETE' });
-      invalidateReads();
-      setModal({ kind: 'none' });
-      await loadEntries(selectedKey);
-      if (selectedKey !== todayKey) await loadEntries(todayKey);
-      await loadWeek(toLocalDateString(weekStart));
+      await queueFoodMutation(async () => {
+        await api<{ ok: true }>(`/products/${productId}`, { method: 'DELETE', session: scope });
+        await refreshAll();
+      });
+      if (myGen === flowGenRef.current) setModal({ kind: 'none' });
     } catch (err) {
+      if (myGen !== flowGenRef.current) return;
       reportError(err instanceof Error ? err.message : "Couldn't delete product");
-      // Leave modal open so user can retry.
     }
   };
 
@@ -386,20 +385,10 @@ function Tracker() {
     closeModal();
   };
 
-  // Settings handlers
-  const onSaveGoals = async (next: Goals): Promise<void> => {
-    const saved = await api<Goals>('/settings', { method: 'PUT', body: next });
-    applyGoals(saved);
-  };
   const onLogout = async () => {
-    try {
-      await api<{ ok: true }>('/auth/logout', { method: 'POST' });
-    } catch {
-      // Even if logout fails server-side, clear local state.
-    }
+    // Start with this session's bearer, then immediately unmount its caches.
+    void api<{ ok: true }>('/auth/logout', { method: 'POST', session: scope }).catch(() => {});
     clearStoredSession();
-    setModal({ kind: 'none' });
-    setUser(null);
   };
 
   return (
@@ -415,6 +404,9 @@ function Tracker() {
         loaded={selectedLoaded}
         totalsByDate={weekTotals}
         goals={goals}
+        goalHistory={snapshot?.goal_history}
+        noticeVersion={snapshot?.mcp_notice_version ?? null}
+        onDismissNotice={dismissNotice}
         onAddEntry={onAddEntry}
         onEditEntry={onEditEntry}
         onDeleteEntries={onDeleteEntries}
@@ -424,6 +416,7 @@ function Tracker() {
         onEditGroup={onEditEntryGroup}
         selectionResetVersion={selectionResetVersion}
         onOpenSettings={() => setModal({ kind: 'settings' })}
+        onOpenConnectionGuide={() => setModal({ kind: 'settings', initialGuide: true })}
         onOpenWeights={() => setModal({ kind: 'weights' })}
       />
 
@@ -437,7 +430,11 @@ function Tracker() {
         modal={modal}
         refreshVersion={refreshVersion}
         onRefreshError={onRefreshError}
-        goals={goals}
+        dayGoals={goals}
+        currentGoals={currentGoals}
+        goalHistory={snapshot?.goal_history}
+        noticeVersion={snapshot?.mcp_notice_version ?? null}
+        onDismissNotice={dismissNotice}
         entriesForSelected={entriesForSelected}
         addedProductIds={addedProductIds}
         userEmail={user.email}

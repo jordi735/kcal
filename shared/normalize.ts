@@ -11,17 +11,32 @@ function cleanWhitespace(s: string): string {
   return s.trim().replace(/\s+/g, ' ');
 }
 
+// Unicode uppercase mappings can expand one character (ß → SS, ﬃ → FFI).
+// Lowercase the expansion's tail so normalizing its result again is stable.
+function capitalizeFirst(s: string): string {
+  const first = [...s][0];
+  if (first === undefined) return s;
+  const upper = first.toUpperCase();
+  const capital = [...upper][0]!;
+  return (capital + upper.slice(capital.length).toLowerCase() + s.slice(first.length)).normalize('NFC');
+}
+
 export function normalizeProductName(raw: string): string {
-  const s = cleanWhitespace(raw).toLowerCase();
-  if (s.length === 0) return s;
-  return s[0]!.toUpperCase() + s.slice(1);
+  const s = cleanWhitespace(raw).normalize('NFC').toLowerCase();
+  return capitalizeFirst(s);
 }
 
 export function normalizeBrandName(raw: string | null): string | null {
   if (raw === null) return null;
-  const s = cleanWhitespace(raw).toLowerCase();
+  const s = cleanWhitespace(raw).normalize('NFC').toLowerCase();
   if (s.length === 0) return null;
-  return s.replace(/(^|\s)(\S)/g, (_m, ws: string, ch: string) => ws + ch.toUpperCase());
+  return s.split(' ').map(capitalizeFirst).join(' ');
+}
+
+// Literal product search is case-insensitive, keeps accents, and treats canonically
+// equivalent Unicode text alike. It deliberately has no wildcard syntax.
+export function foldProductSearchText(value: string): string {
+  return value.normalize('NFC').toLowerCase().normalize('NFC');
 }
 
 // Entry-group labels are user-authored display text. Preserve their casing,

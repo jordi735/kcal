@@ -292,3 +292,51 @@ duplicate/backlink checks and `git diff --check` pass. The confirmed carousel
 child-transition issue remains a separate follow-up. Live camera decoding was
 not exercised; this campaign's automated barcode checks cover cancellation and
 draft behavior, as described above.
+
+## MCP v4 and dated-goal follow-up
+
+This follow-up changes behavior and public contracts; it is not another parity-only
+cleanup. MCP v4 replaces single-entry creation with atomic `create_entries`, adds
+durable account-scoped create receipts, and expands the existing product discovery
+tool. The app and MCP now use one effective-date goal model. Detailed client
+contracts and migration behavior are in [mcp.md](mcp.md).
+
+- Goal history stores complete macro vectors, one row per user/effective date.
+  Initialization records existing editable values only from the server-derived
+  local day when the authenticated app supplies its timezone. Older dates stay
+  unknown. Same-day saves replace the row, unchanged saves stay sparse, and saves
+  before the newest row fail. GETs and MCP never initialize history. Historical
+  progress and comparisons use effective goals; summary comparisons pair the same
+  logged, known-goal dates on both sides.
+- Creation receipts commit with business mutations under an immediate SQLite
+  transaction. Tool output is validated before commit. Retries replay the original
+  snapshot even if records later change or disappear; conflicting reuse and
+  unreadable receipts fail without writing. Mutation success logs happen after
+  commit. Batch entries retain input order; existing group membership IDs are
+  compared as a sorted set. Optional batch grouping is atomic.
+- Saved-food browsing/search/recents and barcode lookup share one service.
+  Literal NFC/lowercase matching fixes wildcard and accented-case mismatches;
+  deterministic tie-breakers support pagination. Separate global deduplication
+  dimensions prevent private-ID/barcode collisions. Barcode/adoption paths exclude
+  temporary rows, and shared templates retain their explicit safe projection.
+  Normalized text limits account for Unicode expansion; omitted product fields
+  keep their exact legacy values. Failed scanner lookup returns to a usable picker.
+- The migration seeds a dismissible account notice only for existing grants with
+  usable credentials. It does not revoke tokens, widen scopes, or gate access.
+  Settings snapshots carry history and notice state; old timezone-free goal saves
+  receive an explicit refresh error. Client session and mutation generations guard
+  late responses, including goal reads and reminder dismissal.
+- Related validation fixes share real-calendar date and bounded amount rules
+  across interfaces. Authentication throttles use independent issuance and
+  verification budgets. `TEST_MODE` relaxes throttles for suite fixtures; separate
+  injected-clock limiter tests exercise production limits and expiry. Shared
+  civil-date helpers keep range calculations independent of timezone and DST.
+
+Verification completed on 2026-10-19: all three TypeScript checks, the production
+build, the full Playwright suite, journey duplicate/backlink checks, and
+`git diff --check` passed. The full run is recorded in
+`/tmp/kcal-v4-complete.log`. Focused session/history checks also passed, including
+delayed settings reconciliation and the distinction between latest editable
+defaults and dated targets. Mobile previews verified the reminder, history
+subview, and connection guide without horizontal overflow. Fresh and upgraded
+test databases were exercised; production data was untouched.

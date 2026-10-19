@@ -4,16 +4,19 @@ import { z } from 'zod';
 import {
   isLocalDate, MIN_ENTRY_AMOUNT, parseEntryGroupName, MAX_PRODUCT_BARCODE_LENGTH,
   MAX_PRODUCT_BRAND_LENGTH, MAX_PRODUCT_KCAL_PER100, MAX_PRODUCT_MACRO_GRAMS_PER100,
-  MAX_PRODUCT_NAME_LENGTH,
+  MAX_PRODUCT_NAME_LENGTH, MAX_ENTRY_AMOUNT, isLocalTime,
 } from '../../shared/constraints.js';
+import { normalizeBrandName, normalizeProductName } from '../../shared/normalize.js';
 import { DATE_RE, TIME_RE } from '../guards.js';
 import type {
   McpEntry, McpEntryWriteResult, McpEntryDeleteResult, McpProductWriteResult, McpProductDeleteResult,
   McpEntryGroupResult, McpUngroupResult, McpEntryGroupDeleteResult,
+  McpCreationReceipt, McpEntriesCreateResult, McpProductCreateResult, McpEntryGroupCreateResult,
 } from '../types.js';
 
 export const dateString = z.string().regex(DATE_RE);
 export const localDate = dateString.refine(isLocalDate, 'Use a valid YYYY-MM-DD calendar date');
+export const localTime = z.string().refine(isLocalTime, 'Use a valid HH:MM time');
 export const macrosSchema = z.object({
   kcal: z.number(),
   protein: z.number(),
@@ -29,7 +32,8 @@ export const productSchema = z.object({
   per100: macrosSchema,
   is_temp: z.boolean(),
 });
-const entryGroupSchema = z.object({
+export const productTemplateSchema = productSchema.omit({ id: true, is_temp: true });
+export const entryGroupSchema = z.object({
   id: z.number().int(), name: z.string(), local_date: dateString,
 });
 export const entrySchema = z.object({
@@ -61,14 +65,21 @@ export const annotations = {
   openWorldHint: false,
 };
 export const createAnnotations = {
-  readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false,
+  readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false,
 };
 export const changeAnnotations = {
   readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false,
 };
 export const positiveId = z.number().int().positive();
 // Keep SQLite's grams * per100 arithmetic finite as well as entry serialization.
-export const amount = z.number().min(MIN_ENTRY_AMOUNT).max(Number.MAX_SAFE_INTEGER);
+export const amount = z.number().min(MIN_ENTRY_AMOUNT).max(MAX_ENTRY_AMOUNT);
+export const idempotencyKey = z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/)
+  .describe('Unique operation key for this account; a UUID is recommended. Reuse the same key and arguments only when retrying this operation.');
+export const receiptSchema = z.object({
+  idempotency_key: idempotencyKey,
+  applied_at: z.iso.datetime(),
+  replayed: z.boolean(),
+}) satisfies z.ZodType<McpCreationReceipt>;
 export const entryGroupName = z.string()
   .refine((name) => parseEntryGroupName(name) !== null, 'Use a group name of 1–64 characters after whitespace normalization')
   .describe('Group name; trim and collapse whitespace, preserve casing, 1–64 characters after normalization');
@@ -79,13 +90,22 @@ export const per100Input = z.strictObject({
   fat: z.number().min(0).max(MAX_PRODUCT_MACRO_GRAMS_PER100),
 });
 export const productFields = {
-  name: z.string().max(MAX_PRODUCT_NAME_LENGTH).refine((name) => name.trim().length > 0, 'Name must not be blank'),
-  brand: z.string().max(MAX_PRODUCT_BRAND_LENGTH).nullable(),
+  name: z.string().max(MAX_PRODUCT_NAME_LENGTH).refine((name) => {
+    const normalized = normalizeProductName(name);
+    return normalized.length > 0 && normalized.length <= MAX_PRODUCT_NAME_LENGTH;
+  }, 'Use a nonblank name within the normalized length limit'),
+  brand: z.string().max(MAX_PRODUCT_BRAND_LENGTH).nullable()
+    .refine((brand) => (normalizeBrandName(brand)?.length ?? 0) <= MAX_PRODUCT_BRAND_LENGTH, 'Brand exceeds the normalized length limit'),
   unit: z.enum(['g', 'ml']),
   barcode: z.string().max(MAX_PRODUCT_BARCODE_LENGTH).nullable(),
 };
 export const entryWriteSchema = z.object({ user_id: z.number().int(), entry: entrySchema }) satisfies z.ZodType<McpEntryWriteResult>;
 export const productWriteSchema = z.object({ user_id: z.number().int(), product: productSchema }) satisfies z.ZodType<McpProductWriteResult>;
+export const productCreateSchema = productWriteSchema.extend({ receipt: receiptSchema }) satisfies z.ZodType<McpProductCreateResult>;
+export const entriesCreateSchema = z.object({
+  user_id: z.number().int(), entries: z.array(entrySchema), group: entryGroupSchema.nullable(),
+  totals: macrosSchema, receipt: receiptSchema,
+}) satisfies z.ZodType<McpEntriesCreateResult>;
 export const entryDeleteSchema = z.object({
   user_id: z.number().int(), ok: z.literal(true), entry_id: z.number().int(),
   dissolved_group_id: z.number().int().nullable(),
@@ -97,6 +117,7 @@ export const productDeleteSchema = z.object({
 export const entryGroupResultSchema = z.object({
   user_id: z.number().int(), group: entryGroupSchema, entries: z.array(entrySchema),
 }) satisfies z.ZodType<McpEntryGroupResult>;
+export const entryGroupCreateSchema = entryGroupResultSchema.extend({ receipt: receiptSchema }) satisfies z.ZodType<McpEntryGroupCreateResult>;
 export const ungroupResultSchema = z.object({
   user_id: z.number().int(), ok: z.literal(true), group_id: z.number().int(), entries: z.array(entrySchema),
 }) satisfies z.ZodType<McpUngroupResult>;

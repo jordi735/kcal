@@ -1,3 +1,4 @@
+import { resolveGoals } from '../../shared/goals';
 // Week strip: week number, prev/next, 7 day pills with dots for progress.
 // Layout is a 3-week carousel track (prev / current / next) inside .days,
 // so a horizontal swipe reveals neighbors 1:1 and commits animate the
@@ -6,7 +7,7 @@
 
 import type { JSX } from 'preact';
 import { useLayoutEffect, useRef } from 'preact/hooks';
-import type { Macros } from '../types';
+import type { GoalHistoryItem, Macros } from '../types';
 import { cssVars } from '../styles';
 import {
   DAY_LETTERS,
@@ -34,7 +35,7 @@ type WeekStripProps = {
   weekStart: Date;
   onChangeWeek: (monday: Date) => void;
   totalsByDate: Record<string, Macros>;
-  goalKcal: number;
+  goalHistory: GoalHistoryItem[] | undefined;
 };
 
 type DayPillProps = {
@@ -51,7 +52,7 @@ type WeekGridProps = {
   selectedDate: Date;
   today: Date;
   totalsByDate: Record<string, Macros>;
-  goalKcal: number;
+  goalHistory: GoalHistoryItem[] | undefined;
   onSelect: (d: Date) => void;
 };
 
@@ -93,7 +94,7 @@ function WeekGrid({
   selectedDate,
   today,
   totalsByDate,
-  goalKcal,
+  goalHistory,
   onSelect,
 }: WeekGridProps) {
   const days = weekDays(monday);
@@ -103,7 +104,8 @@ function WeekGrid({
         const isSelected = isSameDay(d, selectedDate);
         const isToday = isSameDay(d, today);
         const totals = totalsByDate[toLocalDateString(d)];
-        const progress = totals ? Math.min(1, totals.kcal / goalKcal) : 0;
+        const goal = goalHistory === undefined ? null : resolveGoals(goalHistory, toLocalDateString(d));
+        const progress = totals && goal !== null && goal.kcal > 0 ? Math.min(1, totals.kcal / goal.kcal) : 0;
         const dayLetter = DAY_LETTERS[i] ?? '';
         return (
           <DayPill
@@ -127,7 +129,7 @@ export function WeekStrip({
   weekStart,
   onChangeWeek,
   totalsByDate,
-  goalKcal,
+  goalHistory,
 }: WeekStripProps) {
   const trackRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -295,7 +297,7 @@ export function WeekStrip({
               selectedDate={selectedDate}
               today={today}
               totalsByDate={totalsByDate}
-              goalKcal={goalKcal}
+              goalHistory={goalHistory}
               onSelect={onSelectDate}
             />
             <WeekGrid
@@ -303,7 +305,7 @@ export function WeekStrip({
               selectedDate={selectedDate}
               today={today}
               totalsByDate={totalsByDate}
-              goalKcal={goalKcal}
+              goalHistory={goalHistory}
               onSelect={onSelectDate}
             />
             <WeekGrid
@@ -311,7 +313,7 @@ export function WeekStrip({
               selectedDate={selectedDate}
               today={today}
               totalsByDate={totalsByDate}
-              goalKcal={goalKcal}
+              goalHistory={goalHistory}
               onSelect={onSelectDate}
             />
           </div>

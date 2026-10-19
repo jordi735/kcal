@@ -25,7 +25,7 @@ export type ModalState =
       entry: EntryWithMacros | undefined;
       initialOverride?: Partial<ProductDraft>;
     }
-  | { kind: 'settings' }
+  | { kind: 'settings'; initialGuide?: boolean }
   | { kind: 'weights' }
   | { kind: 'entry-group-create'; entryIds: number[] }
   | { kind: 'entry-group-edit'; group: EntryGroup };

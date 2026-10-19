@@ -19,7 +19,7 @@ const test = createMcpTest({ emailPrefix: 'mcp', scope: 'kcal:read' });
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test('[J-188] MCP discovers six account-scoped read-only tools with output schemas', async ({ mcp }) => {
-  expect(mcp.getServerVersion()).toEqual({ name: 'kcal', version: '3.0.0' });
+  expect(mcp.getServerVersion()).toEqual({ name: 'kcal', version: '4.0.0' });
   expect(mcp.getInstructions()).not.toMatch(/tagged|\btags\b|\beaten\b/);
   const { tools } = await mcp.listTools();
   expect(tools.map((tool) => tool.name).sort()).toEqual([
@@ -28,13 +28,13 @@ test('[J-188] MCP discovers six account-scoped read-only tools with output schem
   expect(tools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true);
   expect(tools.every((tool) => !('user_id' in (tool.inputSchema.properties ?? {})))).toBe(true);
   const outputFields: Record<string, string[]> = {
-    get_day: ['user_id', 'date', 'entries', 'totals', 'current_daily_goals'],
+    get_day: ['user_id', 'date', 'entries', 'totals', 'daily_goals'],
     get_meals: ['user_id', 'start_date', 'end_date', 'days'],
-    get_week: ['user_id', 'start_date', 'end_date', 'days', 'totals', 'current_daily_goals'],
+    get_week: ['user_id', 'start_date', 'end_date', 'days', 'totals'],
     get_weighins: ['user_id', 'weighins', 'next_offset'],
     get_summary: ['user_id', 'start_date', 'end_date', 'days_total', 'days_logged', 'days_without_entries',
-      'totals', 'average_on_logged_days', 'current_daily_goals', 'weight'],
-    search_products: ['user_id', 'query', 'products'],
+      'totals', 'average_on_logged_days', 'goal_periods', 'goal_comparison', 'weight'],
+    search_products: ['user_id', 'products', 'template', 'next_offset'],
   };
   for (const tool of tools) {
     expect(JSON.stringify(tool)).not.toMatch(/tagged|\btags\b|\beaten\b/);
@@ -60,7 +60,7 @@ test('[J-188] MCP discovers six account-scoped read-only tools with output schem
 test('[J-189] MCP food reads and summaries match app totals across users, groups, and product edits', async ({ request, browser, mcp, account: a }) => {
   const headers = { Authorization: `Bearer ${a.token}` };
   const goals = { kcal: 2300, protein: 150, carbs: 250, fat: 75 };
-  await write(request, a.token, 'put', '/settings', goals);
+  await write(request, a.token, 'put', '/settings', { ...goals, time_zone: 'UTC' });
   const productBody = {
     name: `MCP food ${a.user.id}`, brand: null, unit: 'g', barcode: null, is_temp: false,
     per100: { kcal: 200, protein: 10, carbs: 20, fat: 5 },
@@ -85,15 +85,16 @@ test('[J-189] MCP food reads and summaries match app totals across users, groups
   expect(day.entries.map((row) => row.group?.id)).toEqual([group.id, group.id]);
   expect(appEntries.map((row) => row.tagged)).toEqual([true, false]);
   expect(day.totals).toEqual({ kcal: 400, protein: 20, carbs: 40, fat: 10 });
-  expect(day.current_daily_goals).toEqual(await (await request.get('/settings', { headers })).json());
+  expect(day.daily_goals).toBeNull();
   const week = await call<McpWeekResult>(mcp, 'get_week', { date: '2025-01-05' });
   expect(week.start_date).toBe('2024-12-30');
   expect(week.end_date).toBe('2025-01-05');
   expect(Object.keys(week.days)).toHaveLength(7);
-  expect(week.days).toEqual(await (await request.get('/entries/week?start=2024-12-30', { headers })).json());
-  expect(week.days['2024-12-31']).toEqual(ZERO);
+  expect(Object.fromEntries(Object.entries(week.days).map(([date, value]) => [date, value.totals])))
+    .toEqual(await (await request.get('/entries/week?start=2024-12-30', { headers })).json());
+  expect(week.days['2024-12-31']).toEqual({ totals: ZERO, daily_goals: null });
   expect(week.totals).toEqual({ kcal: 600, protein: 30, carbs: 60, fat: 15 });
-  expect(week.current_daily_goals).toEqual(goals);
+  expect(Object.values(week.days).every((value) => value.daily_goals === null)).toBe(true);
   expect(await call(mcp, 'get_week', { date: '2024-12-30' })).toEqual(week);
   const range = { start_date: '2024-12-30', end_date: '2025-01-05' };
   const meals = await call<McpMealsResult>(mcp, 'get_meals', range);
@@ -101,19 +102,20 @@ test('[J-189] MCP food reads and summaries match app totals across users, groups
   expect(meals.start_date).toBe(range.start_date);
   expect(meals.end_date).toBe(range.end_date);
   expect(Object.keys(meals.days)).toEqual(Object.keys(week.days));
-  expect(meals.days['2024-12-30']).toEqual({ entries: day.entries, totals: day.totals });
+  expect(meals.days['2024-12-30']).toEqual({ entries: day.entries, totals: day.totals, daily_goals: day.daily_goals });
   expect(meals.days['2024-12-30']!.entries.map((row) => row.id)).toEqual([first.id, second.id]);
-  expect(meals.days['2024-12-31']).toEqual({ entries: [], totals: ZERO });
+  expect(meals.days['2024-12-31']).toEqual({ entries: [], totals: ZERO, daily_goals: null });
   const lastDay = await call<McpDayResult>(mcp, 'get_day', { date: range.end_date });
-  expect(meals.days[range.end_date]).toEqual({ entries: lastDay.entries, totals: lastDay.totals });
-  expect(Object.fromEntries(Object.entries(meals.days).map(([date, value]) => [date, value.totals]))).toEqual(week.days);
+  expect(meals.days[range.end_date]).toEqual({ entries: lastDay.entries, totals: lastDay.totals, daily_goals: lastDay.daily_goals });
+  expect(Object.fromEntries(Object.entries(meals.days).map(([date, value]) => [date, { totals: value.totals, daily_goals: value.daily_goals }]))).toEqual(week.days);
   for (const [local_date, weight_kg] of [['2024-12-30', 82.4], ['2025-01-05', 81.9]] as const) {
     await write(request, a.token, 'post', '/weights', { local_date, weight_kg, note: null });
   }
   const summary = await call<McpSummaryResult>(mcp, 'get_summary', range);
   expect(summary).toMatchObject({
     user_id: a.user.id, ...range, days_total: 7, days_logged: 2, days_without_entries: 5,
-    totals: week.totals, current_daily_goals: goals,
+    totals: week.totals, goal_periods: [{ ...range, daily_goals: null }],
+    goal_comparison: { days_compared: 0, logged_totals: null, goal_totals: null },
     average_on_logged_days: { kcal: 300, protein: 15, carbs: 30, fat: 7.5 },
     weight: { weighin_count: 2, change_kg: -0.5 },
   });
@@ -154,15 +156,16 @@ test('[J-189] MCP food reads and summaries match app totals across users, groups
   expect(edited.entries).toEqual((await write<EntryWithMacros[]>(request, a.token, 'get', '/entries?date=2024-12-30')).map(mcpEntry));
   expect(edited.totals).toEqual({ kcal: 600, protein: 40, carbs: 60, fat: 20 });
   const editedMeals = await call<McpMealsResult>(mcp, 'get_meals', range);
-  expect(editedMeals.days['2024-12-30']).toEqual({ entries: edited.entries, totals: edited.totals });
+  expect(editedMeals.days['2024-12-30']).toEqual({ entries: edited.entries, totals: edited.totals, daily_goals: edited.daily_goals });
   const editedWeek = await call<McpWeekResult>(mcp, 'get_week', { date: '2025-01-02' });
   expect(editedWeek.totals).toEqual({ kcal: 900, protein: 60, carbs: 90, fat: 30 });
   const newGoals = { kcal: 2500, protein: 170, carbs: 260, fat: 80 };
-  await write(request, a.token, 'put', '/settings', newGoals);
+  await write(request, a.token, 'put', '/settings', { ...newGoals, time_zone: 'UTC' });
   const editedSummary = await call<McpSummaryResult>(mcp, 'get_summary', range);
   expect(editedSummary.totals).toEqual(editedWeek.totals);
   expect(editedSummary.average_on_logged_days).toEqual({ kcal: 450, protein: 30, carbs: 45, fat: 15 });
-  expect(editedSummary.current_daily_goals).toEqual(newGoals);
+  expect(editedSummary.goal_periods).toEqual(summary.goal_periods);
+  expect(editedSummary.goal_comparison).toEqual(summary.goal_comparison);
 });
 
 test('[J-261] MCP includes every logged meal regardless of app checkmarks', async ({ request, mcp, account }) => {
@@ -202,8 +205,8 @@ test('[J-261] MCP includes every logged meal regardless of app checkmarks', asyn
   expect(day.entries).toEqual(appEntries.map(mcpEntry));
   expect(day.entries.map((entry) => entry.id)).toEqual(entries.map((entry) => entry.id));
   expect(day.totals).toEqual(totals);
-  expect(meals.days[date]).toEqual({ entries: day.entries, totals });
-  expect(week.days[date]).toEqual(totals);
+  expect(meals.days[date]).toEqual({ entries: day.entries, totals, daily_goals: day.daily_goals });
+  expect(week.days[date]).toEqual({ totals, daily_goals: day.daily_goals });
   expect(week.totals).toEqual(totals);
   expect(summary).toMatchObject({ totals, average_on_logged_days: totals, days_logged: 1 });
 
@@ -229,7 +232,7 @@ test('[J-199] MCP meals include empty days and handle calendar boundaries throug
     const range = { start_date: dates[0]!, end_date: dates.at(-1)! };
     const meals = await call<McpMealsResult>(mcp, 'get_meals', range);
     expect(Object.keys(meals.days)).toEqual(dates);
-    for (const day of Object.values(meals.days)) expect(day).toEqual({ entries: [], totals: ZERO });
+    for (const day of Object.values(meals.days)) expect(day).toMatchObject({ entries: [], totals: ZERO });
   }
   const month = await call<McpMealsResult>(mcp, 'get_meals', { start_date: '2025-01-01', end_date: '2025-01-31' });
   expect(Object.keys(month.days)).toHaveLength(31);
@@ -296,13 +299,17 @@ test('[J-200] MCP summaries distinguish missing days from zero-calorie logged da
   for (const [local_date, grams] of [
     ['2024-02-28', 100], ['2024-03-01', 100], ['2024-02-28', 50],
     ['2024-02-27', 999], ['2024-03-02', 999],
-    // Existing REST guards allow impossible date-shaped strings. Summary reads
-    // must ignore these just as the calendar-based day/week reads do.
-    ['2024-02-30', 999],
   ] as const) {
     await write(request, token, 'post', '/entries', { product_id: product.id, grams, local_date, local_time: '12:30' });
   }
-  await write(request, token, 'post', '/weights', { local_date: '2024-02-30', weight_kg: 82, note: null });
+  // Legacy impossible dates remain readable but never count as calendar days.
+  const legacyDb = new Database('/tmp/kcal-e2e.db');
+  try {
+    legacyDb.prepare('INSERT INTO entries (user_id, product_id, grams, local_date, local_time, created_at) VALUES (?, ?, ?, ?, ?, 0)')
+      .run(user.id, product.id, 999, '2024-02-30', '12:30');
+    legacyDb.prepare('INSERT INTO weights (user_id, local_date, weight_kg, created_at) VALUES (?, ?, ?, 0)')
+      .run(user.id, '2024-02-30', 82);
+  } finally { legacyDb.close(); }
   const full = await call<McpSummaryResult>(mcp, 'get_summary', range);
   expect(full).toMatchObject({
     days_total: 3, days_logged: 3, days_without_entries: 0,
@@ -396,7 +403,7 @@ test('[J-203] MCP product search matches the owned saved library by name and bra
     expect(global.some((product: { id: number }) => product.id === shared.id)).toBe(true);
 
     const result = await call<McpProductSearchResult>(mcp, 'search_products', { query: `  ${query.toUpperCase()}  ` });
-    expect(result).toEqual({ user_id: a.user.id, query: query.toUpperCase(), products: [branded, alpha, zebra] });
+    expect(result).toEqual({ user_id: a.user.id, products: [branded, alpha, zebra], template: null, next_offset: null });
     expect(result.products).toEqual(await (await request.get(`/products/search?q=${encodeURIComponent(query)}`, { headers })).json());
     expect((await call<McpProductSearchResult>(mcp, 'search_products', { query: `${query} Maker` })).products).toEqual([branded]);
     expect((await call<McpProductSearchResult>(mcp, 'search_products', { query: `${query} Missing` })).products).toEqual([]);
@@ -416,7 +423,7 @@ test('[J-203] MCP product search matches the owned saved library by name and bra
   }
 });
 
-test('[J-204] MCP product search caps broad queries at 50 alphabetically ordered results', async ({ request, mcp, account: { user, token } }) => {
+test('[J-204] MCP product search defaults to 50 alphabetically ordered results', async ({ request, mcp, account: { user, token } }) => {
   const query = `MCP capped ${user.id}`;
   const names: string[] = [];
   for (let i = 50; i >= 0; i--) {
@@ -428,6 +435,7 @@ test('[J-204] MCP product search caps broad queries at 50 alphabetically ordered
   }
   const result = await call<McpProductSearchResult>(mcp, 'search_products', { query });
   expect(result.products).toHaveLength(50);
+  expect(result.next_offset).toBe(50);
   expect(result.products.map((product) => product.name)).toEqual(names.reverse().slice(0, 50));
   expect((await call<McpProductSearchResult>(mcp, 'search_products', { query: `${query} 50` })).products).toHaveLength(1);
 });
@@ -439,7 +447,7 @@ test('[J-191] MCP rejects invalid inputs without changing any stored records', a
   // Snapshot all test DB tables, including sessions. MCP must not slide app
   // sessions or otherwise write, even when processing rejected tool calls.
   const db = new Database('/tmp/kcal-e2e.db', { readonly: true });
-  const snapshot = () => ['users', 'sessions', 'products', 'entries', 'entry_groups', 'weights', 'oauth_clients', 'oauth_requests', 'oauth_grants', 'oauth_tokens']
+  const snapshot = () => ['users', 'sessions', 'products', 'entries', 'entry_groups', 'weights', 'goal_history', 'mcp_creation_receipts', 'oauth_clients', 'oauth_requests', 'oauth_grants', 'oauth_tokens']
     .map((table) => db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
   try {
     const before = snapshot();
@@ -487,7 +495,6 @@ test('[J-191] MCP rejects invalid inputs without changing any stored records', a
       ['get_summary', { start_date: '2024-01-01', end_date: '2025-01-01' }],
       ['get_summary', { start_date: '2024-01-01', end_date: '2024-01-01', user_id: 1 }],
       ['get_summary', { start_date: '2024-01-01', end_date: '2024-01-01', sql: 'DELETE FROM users' }],
-      ['search_products', {}],
       ['search_products', { query: '' }],
       ['search_products', { query: '  ' }],
       ['search_products', { query: 1 }],

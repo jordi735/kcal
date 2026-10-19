@@ -23,6 +23,7 @@ export function Login({ onRequestCode, onVerifyCode }: LoginProps) {
   const [error, setError] = useState<string | undefined>(undefined);
   const [info, setInfo] = useState<string | undefined>(undefined);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [retryCooldown, setRetryCooldown] = useState(0);
   const codeInputRef = useRef<HTMLInputElement | null>(null);
   const emailValid = /\S+@\S+\.\S+/.test(email);
 
@@ -38,8 +39,24 @@ export function Login({ onRequestCode, onVerifyCode }: LoginProps) {
     return () => window.clearTimeout(t);
   }, [resendCooldown]);
 
+  useEffect(() => {
+    if (retryCooldown <= 0) return;
+    const t = window.setTimeout(() => setRetryCooldown((seconds) => Math.max(0, seconds - 1)), 1000);
+    return () => window.clearTimeout(t);
+  }, [retryCooldown]);
+
+  const throttle = (err: unknown): boolean => {
+    if (!(err instanceof ApiError) || err.status !== 429) return false;
+    setRetryCooldown(Math.max(1, err.retryAfterSeconds ?? 30));
+    setError('too_many_requests');
+    return true;
+  };
+  const displayError = error === 'too_many_requests'
+    ? retryCooldown > 0 ? `Too many attempts. Try again in ${retryCooldown}s.` : 'You can try again now.'
+    : error;
+
   const submitEmail = async () => {
-    if (!emailValid || submitting) return;
+    if (!emailValid || submitting || retryCooldown > 0) return;
     setSubmitting(true);
     setError(undefined);
     setInfo(undefined);
@@ -49,15 +66,14 @@ export function Login({ onRequestCode, onVerifyCode }: LoginProps) {
       setCode('');
       setResendCooldown(RESEND_COOLDOWN_S);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Could not send code';
-      setError(message);
+      if (!throttle(err)) setError(err instanceof ApiError ? err.message : 'Could not send code');
     } finally {
       setSubmitting(false);
     }
   };
 
   const resend = async () => {
-    if (resendCooldown > 0 || submitting) return;
+    if (resendCooldown > 0 || submitting || retryCooldown > 0) return;
     setSubmitting(true);
     setError(undefined);
     setInfo(undefined);
@@ -68,22 +84,23 @@ export function Login({ onRequestCode, onVerifyCode }: LoginProps) {
       setResendCooldown(RESEND_COOLDOWN_S);
       codeInputRef.current?.focus();
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Could not resend code';
-      setError(message);
+      if (!throttle(err)) setError(err instanceof ApiError ? err.message : 'Could not resend code');
     } finally {
       setSubmitting(false);
     }
   };
 
   const submitCode = async (digits: string) => {
-    if (digits.length !== 6 || verifying) return;
+    if (digits.length !== 6 || verifying || retryCooldown > 0) return;
     setVerifying(true);
     setError(undefined);
     setInfo(undefined);
     try {
       await onVerifyCode(email, digits);
     } catch (err) {
-      if (err instanceof ApiError && err.message === 'too_many_attempts') {
+      if (throttle(err)) {
+        setCode('');
+      } else if (err instanceof ApiError && err.message === 'too_many_attempts') {
         setStep('email');
         setCode('');
         setError('Too many attempts — request a new code.');
@@ -144,7 +161,7 @@ export function Login({ onRequestCode, onVerifyCode }: LoginProps) {
           </div>
           <button
             className={`btn-primary ${styles.submitBtn}`}
-            disabled={!emailValid || submitting}
+            disabled={!emailValid || submitting || retryCooldown > 0}
             onClick={submitEmail}
           >
             {submitting ? (
@@ -157,7 +174,7 @@ export function Login({ onRequestCode, onVerifyCode }: LoginProps) {
             )}
           </button>
           {error !== undefined && error !== '' ? (
-            <p className={`mono tiny ${styles.errorMsg}`}>{error}</p>
+            <p className={`mono tiny ${styles.errorMsg}`}>{displayError}</p>
           ) : null}
           <p className={`mono tiny ${styles.helpMsg}`}>
             NO PASSWORDS. JUST A 6-DIGIT CODE.
@@ -186,14 +203,14 @@ export function Login({ onRequestCode, onVerifyCode }: LoginProps) {
               className={`field-input mono-input ${styles.codeInput}`}
               placeholder="••••••"
               aria-label="6-digit sign-in code"
-              disabled={verifying}
+              disabled={verifying || retryCooldown > 0}
             />
           </div>
           {verifying ? (
             <p className={`mono tiny ${styles.helpMsg}`}>Verifying...</p>
           ) : null}
           {error !== undefined && error !== '' ? (
-            <p className={`mono tiny ${styles.errorMsg}`}>{error}</p>
+            <p className={`mono tiny ${styles.errorMsg}`}>{displayError}</p>
           ) : null}
           {info !== undefined && info !== '' && error === undefined && !verifying ? (
             <p className={`mono tiny ${styles.helpMsg}`}>{info}</p>
@@ -202,16 +219,16 @@ export function Login({ onRequestCode, onVerifyCode }: LoginProps) {
             <button
               type="button"
               onClick={resend}
-              disabled={resendCooldown > 0 || submitting || verifying}
+              disabled={resendCooldown > 0 || retryCooldown > 0 || submitting || verifying}
               className={styles.differentEmail}
             >
-              {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
+              {Math.max(resendCooldown, retryCooldown) > 0 ? `Resend in ${Math.max(resendCooldown, retryCooldown)}s` : 'Resend code'}
             </button>
             <button
               type="button"
               onClick={useDifferentEmail}
               className={styles.differentEmail}
-              disabled={verifying}
+              disabled={verifying || retryCooldown > 0}
             >
               Use a different email
             </button>

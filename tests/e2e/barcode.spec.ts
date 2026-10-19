@@ -172,6 +172,24 @@ test('[J-258] cancelling a live barcode camera releases its track and reopening 
   await expect.poll(() => trackStates(page)).toEqual(['ended', 'ended']);
 });
 
+test('[J-369] failed barcode lookup returns to Add Food with an error and permits a new scan', async ({ page, request }) => {
+  await installCamera(page);
+  await signInFresh(page, request, 'barcode-lookup-failure');
+  await page.route('**/products/barcode/*', (route) => route.fulfill({
+    status: 500, json: { error: 'barcode_lookup_failed' },
+  }));
+  await page.getByRole('button', { name: 'ADD FOOD', exact: true }).tap();
+  await openScanner(page);
+  await showBarcode(page, '5901234123457');
+  await expect(page.getByText('SCAN BARCODE', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.sheet').getByText('Add Food', { exact: true })).toBeVisible();
+  await expect(page.getByText('barcode_lookup_failed', { exact: true })).toBeVisible();
+  await expect.poll(() => trackStates(page)).toEqual(['ended']);
+  await page.evaluate(() => { window.__barcodeCamera.pattern = null; });
+  await openScanner(page);
+  await expect.poll(() => trackStates(page)).toEqual(['ended', 'live']);
+});
+
 for (const [id, errorName, message] of [
   ['J-259', 'NotAllowedError', 'Camera access denied.'],
   ['J-260', 'NotFoundError', 'No camera available.'],

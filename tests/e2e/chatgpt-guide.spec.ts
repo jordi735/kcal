@@ -106,7 +106,8 @@ test('[J-264] Settings retains unsaved goals through the guide and respects Save
   await signInFresh(page, request, 'guide-settings');
   const token = await page.evaluate(() => localStorage.getItem('kcal_session_token')!);
   const headers = { Authorization: `Bearer ${token}` };
-  const baseline = await (await request.get('/settings', { headers })).json() as Goals;
+  const { kcal, protein, carbs, fat } = await (await request.get('/settings', { headers })).json() as Goals;
+  const baseline = { kcal, protein, carbs, fat };
   await page.getByRole('button', { name: 'Settings', exact: true }).tap();
   const sheet = page.locator('.sheet');
   const inputs = sheet.getByRole('spinbutton');
@@ -118,13 +119,13 @@ test('[J-264] Settings retains unsaved goals through the guide and respects Save
   expect(await originalInput.evaluate((input) => input.isConnected)).toBe(true);
   await expect(inputs).toHaveCount(0);
   await expect(sheet.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
-  expect(await (await request.get('/settings', { headers })).json()).toEqual(baseline);
+  expect(await (await request.get('/settings', { headers })).json()).toMatchObject(baseline);
   await backFromGuide(page);
   for (const [index, value] of values.entries()) await expect(inputs.nth(index)).toHaveValue(value);
   await sheet.getByRole('button', { name: 'Save', exact: true }).tap();
   await expect(sheet).toHaveCount(0);
   const saved = { kcal: 1888, protein: 111, carbs: 222, fat: 33 };
-  expect(await (await request.get('/settings', { headers })).json()).toEqual(saved);
+  expect(await (await request.get('/settings', { headers })).json()).toMatchObject(saved);
 
   await page.reload();
   await page.getByRole('button', { name: 'Settings', exact: true }).tap();
@@ -137,7 +138,7 @@ test('[J-264] Settings retains unsaved goals through the guide and respects Save
   await expect(inputs.last()).toHaveValue('1234');
   await sheet.getByRole('button', { name: 'Cancel', exact: true }).tap();
   await expect(sheet).toHaveCount(0);
-  expect(await (await request.get('/settings', { headers })).json()).toEqual(saved);
+  expect(await (await request.get('/settings', { headers })).json()).toMatchObject(saved);
   await page.getByRole('button', { name: 'Settings', exact: true }).tap();
   for (const [index, value] of values.entries()) await expect(inputs.nth(index)).toHaveValue(value);
 });

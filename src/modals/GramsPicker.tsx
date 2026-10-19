@@ -15,7 +15,7 @@ type GramsPickerProps = {
   product: Product;
   initialGrams?: number;
   mode: 'add' | 'edit';
-  goals: Goals;
+  goals: Goals | null | undefined;
   existingTotals: Macros;
   onConfirm: (grams: number) => void;
   onClose: () => void;
@@ -40,7 +40,7 @@ type GoalRowProps = {
   label: string;
   existing: number;
   entry: number;
-  goal: number;
+  goal: number | null | undefined;
   unit: string;
   fmt: (n: number) => string;
   color: string;
@@ -49,10 +49,10 @@ type GoalRowProps = {
 
 function GoalRow({ label, existing, entry, goal, unit, fmt, color, colorDim }: GoalRowProps) {
   const total = existing + entry;
-  const over = total >= goal && goal > 0;
+  const over = goal != null && total > goal;
 
   const toTrackPct = (val: number): number =>
-    goal > 0 ? Math.min((val / goal) * 100, 100) : 0;
+    goal != null && goal > 0 ? Math.min((val / goal) * 100, 100) : 0;
 
   const existingWidth = toTrackPct(existing);
   const totalWidth = toTrackPct(total);
@@ -66,7 +66,7 @@ function GoalRow({ label, existing, entry, goal, unit, fmt, color, colorDim }: G
       >
         {label}
       </span>
-      <div className={styles.track}>
+      {goal != null ? <div className={styles.track}>
         <div
           className={styles.fillExisting}
           style={{
@@ -82,14 +82,14 @@ function GoalRow({ label, existing, entry, goal, unit, fmt, color, colorDim }: G
             background: over ? 'var(--danger)' : color,
           }}
         />
-      </div>
+      </div> : <div />}
       <span className={`mono ${styles.numbers}`}>
         <span className={`${styles.current}${over ? ` ${styles.currentOver}` : ''}`}>
           {fmt(total)}
         </span>
-        <span className={styles.goal}>
+        {goal != null && <span className={styles.goal}>
           / {fmtInt(goal)}{unit}
-        </span>
+        </span>}
       </span>
     </div>
   );
@@ -195,11 +195,12 @@ function GramsPickerInner({
         </div>
 
         <div className={styles.macros} role="group" aria-label="Daily totals">
+          {goals == null && <p className="mono tiny">{goals === undefined ? 'Loading goals…' : 'No goal recorded for this day'}</p>}
           <GoalRow
             label="Kcal"
             existing={existingTotals.kcal}
             entry={macros.kcal}
-            goal={goals.kcal}
+            goal={goals?.kcal}
             unit=""
             fmt={fmtInt}
             color="var(--kcal)"
@@ -213,7 +214,7 @@ function GramsPickerInner({
               colorDim={MACRO_META[k].colorDim}
               existing={existingTotals[k]}
               entry={macros[k]}
-              goal={goals[k]}
+              goal={goals?.[k]}
               unit="g"
               fmt={fmtOneDecimal}
             />

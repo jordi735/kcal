@@ -11,8 +11,10 @@ These instructions apply to the entire repository.
 - `server/` is the Express 5 and SQLite backend. Routes live in `server/routes/`,
   SQL migrations in `server/migrations/`, and normal application statements in
   `server/statements.ts`. `server/reads.ts` shares read functions and serializers
-  between REST routes and MCP tools; `server/writes.ts` shares transactional entry,
-  entry-group, and product mutations. `server/mcp/` owns MCP schemas, registration,
+  between REST routes and MCP tools; `server/products.ts` shares product discovery,
+  and `server/goals.ts` owns settings/history services. `server/writes.ts` shares
+  transactional entry, entry-group, and product mutations; `server/idempotency.ts`
+  wraps MCP creates in durable receipt transactions. `server/mcp/` owns MCP schemas, registration,
   and result handling; its HTTP route owns auth and transport lifetime. Setup is
   in `docs/mcp.md`.
 - `shared/` contains code compiled by both TypeScript projects, especially wire
@@ -74,9 +76,11 @@ required-key inventory and never commit real credentials.
   unknown production API paths from falling through to SPA HTML.
 - Route all frontend HTTP through `src/api.ts`; it owns Bearer injection, JSON
   requests, 401 logout, and `ApiError`. Do not call raw `fetch` elsewhere.
-- Treat `GET /settings` as authoritative for goals. The stored user is a hot-start
-  cache; boot revalidation and saves must update both live goal state and the
-  cached user blob.
+- Treat `GET /settings` as the authoritative settings snapshot: editable goals,
+  sparse `goal_history`, and the MCP reminder. Cached user goals are undated
+  editable defaults, never historical targets. Boot/foreground revalidation,
+  initialization, saves and reminder dismissal must protect against stale
+  responses and update the live snapshot and cached current user goals together.
 - Keep navigation client-state-driven through `App.tsx`; do not add a router for
   the current addressless flow. Add Sheet-backed modal kinds to `SHEET_KINDS` and
   preserve the distinction between explicit `onClose` and gesture `onDismiss`.
@@ -86,13 +90,16 @@ required-key inventory and never commit real credentials.
   `data-sheet-scroll` attribute. Back restores the form; dismissal closes the Sheet.
 - Keep `local_date` and `local_time` as timezone-free `YYYY-MM-DD` and `HH:MM`
   strings. Generate them with `src/dates.ts`; weeks are Monday-first.
-- Normalize stored product names, brands, and entry-group names with the helpers
-  in `shared/normalize.ts` on every create and update path.
+- Normalize supplied product names/brands and entry-group names with the helpers
+  in `shared/normalize.ts`. Product normalization must be Unicode-idempotent and
+  satisfy both raw and final stored length limits. Partial product edits preserve
+  omitted metadata exactly; adoption deliberately preserves source values.
 - Use `shared/constraints.ts` for the UI/REST/MCP entry minimum and group-name
   validation, weight numeric rules, and product/weight limits. Keep interface
   parsing local: REST and MCP product validators have different coercion
   rules, and the weight UI counts raw note length while REST counts trimmed text.
-  New or changed entry amounts must be at least 1 g/ml; decimals are allowed.
+  New or changed entry amounts must be within the shared 1–MAX_ENTRY_AMOUNT g/ml
+  bounds; decimals are allowed.
   Do not rewrite legacy smaller entries or reject their tag-only edits or deletion.
 - `useEntries` applies local cache changes only after successful requests. Preserve
   entry insertion order by `id` and recompute week totals only for loaded dates;
@@ -126,8 +133,27 @@ required-key inventory and never commit real credentials.
   identity.
 - The sharing boundary is `barcode = shared, no barcode = private`. Global search
   may expose only barcoded products, arbitrary-ID adoption must reject null
-  barcodes, and adoption creates a caller-owned copy. The current existing-copy
+  barcodes and temporary sources, and adoption creates a caller-owned saved copy.
+  Owned barcode lookup and adoption's existing-copy check exclude temporary rows.
+  Shared barcode templates omit source IDs, ownership and temporary metadata;
+  lookups never adopt or create automatically. The current existing-copy
   check is sequential; do not claim database-enforced concurrency safety.
+- Product name/brand search uses literal substring matching with NFC Unicode
+  lowercase normalization shared by REST and MCP. `%`, `_`, and backslashes are
+  literal; accents remain meaningful. Keep deterministic ID tie-breakers for
+  name, recency and barcode order. Recents use surviving entries' creation times,
+  not their local dates. Keep global barcode and private-ID partition keys in
+  separate dimensions so real barcode strings cannot collide with private rows.
+- `goal_history` has at most one row per user/effective date. Resolve goals using
+  the latest record on or before each requested day; before the first row return
+  null. Never backfill old user defaults into the past. Only authenticated app
+  initialization/save POST/PUT actions create history, deriving today's local
+  date server-side from the browser's validated timezone. GETs/MCP are read-only.
+  Same-day changes upsert, unchanged saves create no extra row, and saves before
+  the newest effective date are rejected. No backdating/scheduling editor exists.
+  Current goals come from latest history with legacy user values as undated
+  fallback. The app and MCP share the date resolver; unknown and zero targets
+  must not be confused.
 - Entries store grams and product references, not macro snapshots. Compute macros
   from current per-100 product values so product edits intentionally update past
   totals.
@@ -146,8 +172,11 @@ required-key inventory and never commit real credentials.
   limit.
 - Authentication uses emailed six-digit codes and Bearer sessions. Login codes are
   process-local maps, so multi-process deployment requires shared state or
-  affinity. Preserve timing-safe code comparison and attempt caps.
-- `TEST_MODE` disables email delivery and exposes login-code lookup;
+  affinity. Preserve timing-safe code comparison, attempt caps, and issue/verify
+  throttles; reissuing a code must not reset the account's verification budget.
+- `TEST_MODE` disables email delivery, exposes login-code lookup, and relaxes auth
+  throttles for suite fixtures sharing a loopback IP. Injected-clock limiter tests
+  exercise production budgets independently;
   `LOG_LEVEL=debug` logs live codes. Never enable either behavior in production.
 - Preserve the `{ error: string }` failure shape. Keep request-body guards beside
   their routes and build them from `server/guards.ts` primitives.
@@ -159,12 +188,16 @@ required-key inventory and never commit real credentials.
   and `search_products` with user ownership resolved from separate OAuth tokens.
   Never accept app sessions, admin tokens, or caller-selected user IDs. Reuse app
   calculations. Read-only connections expose only these six tools. Connections
-  granted both `kcal:read` and `kcal:write` additionally expose `create_entry`,
+  granted both `kcal:read` and `kcal:write` additionally expose `create_entries`,
   `update_entry`, `delete_entry`, `create_product`, `update_product`,
   `delete_product`, `create_entry_group`, `update_entry_group`,
   `ungroup_entries`, and `delete_entry_group`. Check write scope before mutation
   and reuse `server/writes.ts` from REST and MCP. MCP entry
-  creation requires an owned saved food; do not reuse temporary foods. Keep the
+  creation requires owned saved foods; do not reuse temporary foods. `create_entries`
+  accepts 1–50 items at one explicit local date/time, preserves duplicate products
+  and input order, and optionally groups all items when there are at least two.
+  Its totals describe only the new entries. No legacy `create_entry` tool remains.
+  Keep the
   UI's new-temporary-food workflow and existing temporary-entry operations working.
   MCP entry edits require `entry_id` and `grams` and reject `tagged`. Use one
   MCP-entry projection without `tagged` for every read and write result, including
@@ -173,8 +206,16 @@ required-key inventory and never commit real credentials.
   toward totals; a food record proves neither complete logging nor actual
   consumption. Product updates preserve omitted metadata/macros. Product deletion
   cascades through the owner's logs and dissolves undersized groups. Controlled
-  failures must leave no partial changes;
-  validate MCP output before committing the mutation transaction.
+  failures must leave no partial changes; validate MCP output before committing
+  the mutation transaction, and emit mutation success logs only after commit.
+  Every MCP create requires an account-wide `idempotency_key`. The durable receipt
+  and all business changes commit in one immediate transaction. Same key/tool/
+  normalized input replays the original validated snapshot and timestamp with
+  `replayed: true`; a different tool/input conflicts. Preserve batch entry order;
+  canonicalize existing group membership as sorted IDs.
+  Replays never recreate deleted data, bypass current write authorization, or
+  rewrite history. Failed creates consume no key; unreadable receipts fail closed.
+  Retain receipts for the account lifetime and do not log replays as new mutations.
   MCP may offer a more convenient interface, but cannot enable an action or
   stored value forbidden by the UI. Keep explicit creation timestamps, partial
   updates, summaries/pagination, and single-call deletion; UI gestures and
@@ -184,9 +225,16 @@ required-key inventory and never commit real credentials.
   `get_summary` accepts at most 366 days, averages only days containing entries
   (including zero-calorie entries), and compares first/last in-range weights.
   Empty-period averages and changes with fewer than two weights are null;
-  summary reads exclude impossible stored dates. `search_products` reuses the
-  app's saved-product name/brand search, limited to 50 caller-owned non-temporary
-  products. Every tool declares an output schema matching its structured result.
+  summary reads exclude impossible stored dates. Day/range/week reads attach
+  nullable goals per date; summaries return goal periods and paired comparisons
+  only for dates with both logs and known goals. Never attach current goals to
+  historical reads. `search_products` browses without a query, supports name/recent
+  sorting and 1–100-item pages (default 50), or accepts barcode alone. Always return
+  `{ user_id, products, template, next_offset }`; library mode is caller-owned and
+  saved-only, while barcode mode may return one safe shared template. Every tool
+  declares an output schema matching its structured result. MCP server version is
+  4.0.0. The account-level refresh reminder is informational and persistently
+  dismissible; it never revokes credentials, alters scopes, or gates access.
   `PUBLIC_ORIGIN` enables OAuth/MCP; unset disables them. SDK OAuth routes own
   discovery/DCR/PKCE; `server/oauth.ts` persists clients, browser-bound consent,
   single-use codes, rotating tokens, scopes, and revocation in SQLite. Only

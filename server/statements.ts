@@ -10,8 +10,7 @@ import { db } from './db.js';
 const PRODUCT_COLS =
   'id, name, brand, unit, barcode, kcal_per100, protein_per100, carbs_per100, fat_per100, is_temp';
 
-// Same columns as PRODUCT_COLS, qualified with the `p` table alias — the only
-// query that needs this (products.recent) joins entries and aliases products.
+// Same columns as PRODUCT_COLS, qualified for product queries joining entries.
 const PRODUCT_COLS_P =
   'p.id, p.name, p.brand, p.unit, p.barcode, p.kcal_per100, p.protein_per100, p.carbs_per100, p.fat_per100, p.is_temp';
 
@@ -85,6 +84,12 @@ export const statements = {
   },
 
   users: {
+    // (user_id) — account validation does not depend on goal history.
+    exists: db.prepare('SELECT id FROM users WHERE id = ?'),
+    // (user_id)
+    notice: db.prepare('SELECT mcp_notice_version FROM users WHERE id = ?'),
+    // (user_id, version) — a stale dismissal cannot clear a newer reminder.
+    dismissNotice: db.prepare('UPDATE users SET mcp_notice_version = NULL WHERE id = ? AND mcp_notice_version = ?'),
     selectEmailById: db.prepare('SELECT email FROM users WHERE id = ?'), // (user_id)
     upsert: db.prepare(`
       INSERT INTO users (email, goal_kcal, goal_protein, goal_carbs, goal_fat, created_at)
@@ -99,31 +104,66 @@ export const statements = {
       SELECT goal_kcal, goal_protein, goal_carbs, goal_fat
       FROM users WHERE id = ?
     `),
-    updateGoals: db.prepare(
-      'UPDATE users SET goal_kcal = ?, goal_protein = ?, goal_carbs = ?, goal_fat = ? WHERE id = ?',
-    ),
+  },
+
+  goalHistory: {
+    // (user_id)
+    all: db.prepare(`SELECT effective_date, kcal, protein, carbs, fat, updated_at
+      FROM goal_history WHERE user_id = ? ORDER BY effective_date ASC`),
+    // (user_id)
+    latest: db.prepare(`SELECT effective_date, kcal, protein, carbs, fat, updated_at
+      FROM goal_history WHERE user_id = ? ORDER BY effective_date DESC LIMIT 1`),
+    // (user_id, effective_date, kcal, protein, carbs, fat, updated_at)
+    upsert: db.prepare(`INSERT INTO goal_history
+      (user_id, effective_date, kcal, protein, carbs, fat, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id, effective_date) DO UPDATE SET
+        kcal = excluded.kcal, protein = excluded.protein, carbs = excluded.carbs,
+        fat = excluded.fat, updated_at = excluded.updated_at`),
+  },
+
+  mcpReceipts: {
+    // (user_id, idempotency_key)
+    select: db.prepare(`SELECT tool_name, request_hash, result_json, applied_at, schema_version
+      FROM mcp_creation_receipts WHERE user_id = ? AND idempotency_key = ?`),
+    // (user_id, idempotency_key, tool_name, request_hash, result_json, applied_at, schema_version)
+    insert: db.prepare(`INSERT INTO mcp_creation_receipts
+      (user_id, idempotency_key, tool_name, request_hash, result_json, applied_at, schema_version)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`),
   },
 
   products: {
-    // (user_id, name_pattern, brand_pattern) — default search scope: own only.
-    // No is_mine projection — every row is tautologically the caller's own,
-    // so the wire omits the flag (undefined client-side).
-    searchOwn: db.prepare(`
+    // (user_id, folded_query, folded_query, limit, offset). Empty query browses.
+    // instr() treats %, _, and backslashes literally, without an escape syntax.
+    pageByName: db.prepare(`
       SELECT ${PRODUCT_COLS}
       FROM products
       WHERE created_by = ?
         AND is_temp = 0
-        AND (name LIKE ? OR (brand IS NOT NULL AND brand LIKE ?))
-      ORDER BY name COLLATE NOCASE ASC
-      LIMIT 50
+        AND (instr(kcal_search_text(name), ?) > 0 OR instr(kcal_search_text(brand), ?) > 0)
+      ORDER BY kcal_search_text(name) ASC, id ASC
+      LIMIT ? OFFSET ?
     `),
-    // (name_pattern, brand_pattern, user_id, user_id, user_id)
-    //   - patterns: name + brand LIKE
+    // (user_id, user_id, folded_query, folded_query, limit, offset).
+    // Recency means the creation time of the last surviving log, not its date.
+    pageByRecent: db.prepare(`
+      SELECT ${PRODUCT_COLS_P}
+      FROM products p
+      INNER JOIN (
+        SELECT product_id, MAX(created_at) AS last_used
+        FROM entries WHERE user_id = ? GROUP BY product_id
+      ) r ON r.product_id = p.id
+      WHERE p.created_by = ? AND p.is_temp = 0
+        AND (instr(kcal_search_text(p.name), ?) > 0 OR instr(kcal_search_text(p.brand), ?) > 0)
+      ORDER BY r.last_used DESC, p.id DESC
+      LIMIT ? OFFSET ?
+    `),
+    // (folded_query, folded_query, user_id, user_id, user_id)
     //   - user_id #1: candidate filter (own OR has barcode)
     //   - user_id #2: ranking (own copy wins each barcode partition)
     //   - user_id #3: is_mine flag in the projection
-    // The COALESCE(barcode, 'self-' || id) partition keeps non-barcoded rows
-    // (which can only be the user's own per the candidates filter) ungrouped.
+    // Separate barcode and private-ID dimensions cannot collide with a real
+    // barcode such as "self-40". Only the caller's private rows are candidates.
     // Outer ORDER BY sorts the user's own rows first (is_mine DESC), then
     // alphabetic — referenced by alias, no extra binding required.
     search: db.prepare(`
@@ -133,16 +173,16 @@ export const statements = {
                is_temp, created_by, created_at
         FROM products
         WHERE is_temp = 0
-          AND (name LIKE ? OR (brand IS NOT NULL AND brand LIKE ?))
+          AND (instr(kcal_search_text(name), ?) > 0 OR instr(kcal_search_text(brand), ?) > 0)
           AND (created_by = ? OR barcode IS NOT NULL)
       ),
       ranked AS (
         SELECT *,
           ROW_NUMBER() OVER (
-            PARTITION BY COALESCE(barcode, 'self-' || id)
+            PARTITION BY barcode, CASE WHEN barcode IS NULL THEN id END
             ORDER BY
               CASE WHEN created_by = ? THEN 0 ELSE 1 END,
-              created_at DESC
+              created_at DESC, id DESC
           ) AS rn
         FROM candidates
       )
@@ -151,35 +191,22 @@ export const statements = {
              (created_by = ?) AS is_mine
       FROM ranked
       WHERE rn = 1
-      ORDER BY is_mine DESC, name COLLATE NOCASE ASC
+      ORDER BY is_mine DESC, kcal_search_text(name) ASC, id ASC
       LIMIT 50
-    `),
-    // (user_id, user_id) — first for the inner subquery, second for the outer WHERE.
-    recent: db.prepare(`
-      SELECT ${PRODUCT_COLS_P}
-      FROM products p
-      INNER JOIN (
-        SELECT product_id, MAX(created_at) AS last_used
-        FROM entries
-        WHERE user_id = ?
-        GROUP BY product_id
-      ) r ON r.product_id = p.id
-      WHERE p.created_by = ? AND p.is_temp = 0
-      ORDER BY r.last_used DESC
-      LIMIT 20
     `),
     // (user_id)
     all: db.prepare(`
       SELECT ${PRODUCT_COLS}
       FROM products
       WHERE created_by = ? AND is_temp = 0
-      ORDER BY name COLLATE NOCASE ASC
+      ORDER BY kcal_search_text(name) ASC, id ASC
     `),
     // (user_id, barcode)
     byBarcode: db.prepare(`
       SELECT ${PRODUCT_COLS}
       FROM products
-      WHERE created_by = ? AND barcode = ?
+      WHERE created_by = ? AND barcode = ? AND is_temp = 0
+      ORDER BY created_at DESC, id DESC
       LIMIT 1
     `),
     // (barcode) — cross-user template lookup; most recent non-temp wins.
@@ -187,7 +214,7 @@ export const statements = {
       SELECT ${PRODUCT_COLS}
       FROM products
       WHERE barcode = ? AND is_temp = 0
-      ORDER BY created_at DESC
+      ORDER BY created_at DESC, id DESC
       LIMIT 1
     `),
     // (id) — fetch a source row for the adopt endpoint, regardless of owner.

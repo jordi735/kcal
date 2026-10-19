@@ -1,7 +1,8 @@
 // Home screen — week strip, flat entry list, selection strip, bottom macro summary.
 
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import type { EntryGroup, EntryWithMacros, Goals, Macros } from '../types';
+import type { EntryGroup, EntryWithMacros, Goals, GoalHistoryItem, Macros } from '../types';
+import { McpNotice } from '../components/McpNotice';
 import { WeekStrip } from '../components/WeekStrip';
 import { MacroSummary } from '../components/MacroSummary';
 import { FoodRow } from '../components/FoodRow';
@@ -18,7 +19,10 @@ type HomeProps = {
   entries: EntryWithMacros[];
   loaded: boolean;
   totalsByDate: Record<string, Macros>;
-  goals: Goals;
+  goals: Goals | null | undefined;
+  goalHistory: GoalHistoryItem[] | undefined;
+  noticeVersion: number | null;
+  onDismissNotice: (version: number) => Promise<void>;
   onAddEntry: () => void;
   onEditEntry: (entry: EntryWithMacros) => void;
   onDeleteEntries: (entries: EntryWithMacros[]) => void;
@@ -28,6 +32,7 @@ type HomeProps = {
   onEditGroup: (group: EntryGroup) => void;
   selectionResetVersion: number;
   onOpenSettings: () => void;
+  onOpenConnectionGuide: () => void;
   onOpenWeights: () => void;
 };
 
@@ -75,6 +80,9 @@ export function Home({
   loaded,
   totalsByDate,
   goals,
+  goalHistory,
+  noticeVersion,
+  onDismissNotice,
   onAddEntry,
   onEditEntry,
   onDeleteEntries,
@@ -84,6 +92,7 @@ export function Home({
   onEditGroup,
   selectionResetVersion,
   onOpenSettings,
+  onOpenConnectionGuide,
   onOpenWeights,
 }: HomeProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
@@ -168,13 +177,14 @@ export function Home({
 
   return (
     <div className={styles.shell}>
+      <McpNotice version={noticeVersion} onDismiss={onDismissNotice} onOpenGuide={onOpenConnectionGuide} />
       <WeekStrip
         selectedDate={selectedDate}
         onSelectDate={onSelectDate}
         weekStart={weekStart}
         onChangeWeek={onChangeWeek}
         totalsByDate={totalsByDate}
-        goalKcal={goals.kcal}
+        goalHistory={goalHistory}
       />
 
       <div className={`no-scroll ${styles.list}`}>

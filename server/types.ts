@@ -39,6 +39,15 @@ export type {
   McpEntryGroupResult,
   McpUngroupResult,
   McpEntryGroupDeleteResult,
+  GoalHistoryItem,
+  GoalPeriod,
+  GoalComparison,
+  SettingsSnapshot,
+  SettingsSaveResult,
+  McpCreationReceipt,
+  McpEntriesCreateResult,
+  McpProductCreateResult,
+  McpEntryGroupCreateResult,
 } from '../shared/types.js';
 
 import type { Macros } from '../shared/types.js';
@@ -103,6 +112,15 @@ export type GoalsRow = {
   goal_protein: number;
   goal_carbs: number;
   goal_fat: number;
+};
+
+export type GoalHistoryRow = {
+  effective_date: string;
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  updated_at: number;
 };
 
 // --- products ---
@@ -208,3 +226,11 @@ export type WeightRow = {
 // --- db plumbing ---
 
 export type MigrationRow = { filename: string };
+
+export type McpCreationReceiptRow = {
+  tool_name: string;
+  request_hash: string;
+  result_json: string;
+  applied_at: number;
+  schema_version: number;
+};

@@ -1,4 +1,4 @@
-import { sumMacros, type EntryWithMacros, type Goals, type Product } from '../types';
+import { sumMacros, type EntryWithMacros, type Goals, type GoalHistoryItem, type Product } from '../types';
 import { productToDraft, type ModalState } from '../modalState';
 import { Settings } from '../screens/Settings';
 import { AddPicker } from '../modals/AddPicker';
@@ -36,7 +36,11 @@ type AppModalHandlers = {
 
 type AppModalsProps = {
   modal: ModalState;
-  goals: Goals;
+  currentGoals: Goals;
+  dayGoals: Goals | null | undefined;
+  goalHistory: GoalHistoryItem[] | undefined;
+  noticeVersion: number | null;
+  onDismissNotice: (version: number) => Promise<void>;
   entriesForSelected: EntryWithMacros[];
   addedProductIds: ReadonlySet<number>;
   refreshVersion: number;
@@ -51,7 +55,11 @@ type AppModalsProps = {
 // component type. Moving between variants must mount a fresh local form state.
 export function AppModals({
   modal,
-  goals,
+  currentGoals,
+  dayGoals,
+  goalHistory,
+  noticeVersion,
+  onDismissNotice,
   entriesForSelected,
   addedProductIds,
   refreshVersion,
@@ -89,8 +97,8 @@ export function AppModals({
 
         {modal.kind === 'grams-picker' && (
           <GramsPicker
-            product={modal.product}
-            goals={goals}
+            product={entriesForSelected.find((entry) => entry.product.id === modal.product.id)?.product ?? modal.product}
+            goals={dayGoals}
             existingTotals={sumMacros(
               modal.entry !== undefined
                 ? entriesForSelected.filter((e) => e.id !== modal.entry!.id)
@@ -123,7 +131,11 @@ export function AppModals({
 
         {modal.kind === 'settings' && (
           <Settings
-            goals={goals}
+            initialGuide={modal.initialGuide ?? false}
+            goals={currentGoals}
+            goalHistory={goalHistory}
+            noticeVersion={noticeVersion}
+            onDismissNotice={onDismissNotice}
             onSave={handlers.onSaveGoals}
             onClose={handlers.closeModal}
             onLogout={handlers.onLogout}

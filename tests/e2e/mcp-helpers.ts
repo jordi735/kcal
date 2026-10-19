@@ -1,4 +1,5 @@
 import { expect, test as base, type APIRequestContext, type Page } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import Database from 'better-sqlite3';
@@ -47,7 +48,7 @@ export async function freshUser(page: Page, request: APIRequestContext, prefix: 
 }
 
 export async function call<T>(mcp: Client, name: string, args: Record<string, unknown> = {}): Promise<T> {
-  const result = await mcp.callTool({ name, arguments: args }) as CallToolResult;
+  const result = await mcp.callTool({ name, arguments: creationArgs(name, args) }) as CallToolResult;
   expect(result.isError, `${name}: ${JSON.stringify(result)}`).not.toBe(true);
   expect(result.structuredContent).toBeDefined();
   expect(JSON.stringify(result.structuredContent), `${name} must omit app-only food checkmarks`).not.toContain('"tagged":');
@@ -60,10 +61,17 @@ export function mcpEntry({ tagged: _tagged, ...entry }: EntryWithMacros): McpEnt
 }
 
 export async function reject(mcp: Client, name: string, args: Record<string, unknown>, error?: string) {
-  const result = await mcp.callTool({ name, arguments: args }) as CallToolResult;
+  const result = await mcp.callTool({ name, arguments: creationArgs(name, args) }) as CallToolResult;
   expect(result.isError, `${name}: ${JSON.stringify(args)}`).toBe(true);
   expect(result.structuredContent).toBeUndefined();
   expect(result.content).toEqual([{ type: 'text', text: error ?? expect.any(String) }]);
+}
+
+// Fixture creates represent new operations unless the caller supplies a retry
+// key. Tests for a missing key intentionally call the SDK directly.
+function creationArgs(name: string, args: Record<string, unknown>): Record<string, unknown> {
+  return ['create_entries', 'create_product', 'create_entry_group'].includes(name)
+    ? { idempotency_key: randomUUID(), ...args } : args;
 }
 
 export async function rest<T>(
@@ -80,7 +88,7 @@ export async function rest<T>(
 export function storedRecords(options: { ignoreSessionActivity?: boolean } = {}) {
   const db = new Database('/tmp/kcal-e2e.db', { readonly: true });
   try {
-    return ['users', 'sessions', 'products', 'entries', 'entry_groups', 'weights']
+    return ['users', 'sessions', 'products', 'entries', 'entry_groups', 'weights', 'goal_history', 'mcp_creation_receipts']
       .map((table) => {
         const columns = table === 'sessions' && options.ignoreSessionActivity
           ? 'token, user_id, created_at'

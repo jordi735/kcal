@@ -1,51 +1,53 @@
-// GET/PUT /settings — the authed user's daily macro goals.
-// Every query is scoped by req.userId; caps prevent absurd values.
-
+// One account-scoped snapshot for editable defaults, dated goals and notices.
 import { Router } from 'express';
 import { authMiddleware } from '../auth.js';
 import { isObject } from '../guards.js';
 import { log } from '../log.js';
-import { statements } from '../statements.js';
-import { readGoals } from '../reads.js';
+import { handleWriteError } from '../middleware/write-error.js';
+import { dismissMcpNotice, initializeGoalHistory, readSettings, saveGoals } from '../goals.js';
+import { MAX_GOAL_KCAL, MAX_GOAL_MACRO_GRAMS } from '../../shared/constraints.js';
 import type { GoalsBody } from '../types.js';
 
 export const settingsRouter: Router = Router();
-
 settingsRouter.use(authMiddleware);
 
-const MAX_KCAL = 20000;
-const MAX_MACRO_GRAMS = 2000;
-
-function isGoalInt(v: unknown, max: number): v is number {
-  return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= max;
+function goalInt(value: unknown, max: number): boolean {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max;
 }
 
-function isGoalsBody(v: unknown): v is GoalsBody {
-  if (!isObject(v)) return false;
-  return (
-    isGoalInt(v.kcal, MAX_KCAL) &&
-    isGoalInt(v.protein, MAX_MACRO_GRAMS) &&
-    isGoalInt(v.carbs, MAX_MACRO_GRAMS) &&
-    isGoalInt(v.fat, MAX_MACRO_GRAMS)
-  );
+function isGoalsBody(value: unknown): value is GoalsBody & { time_zone: string } {
+  return isObject(value) && typeof value.time_zone === 'string'
+    && goalInt(value.kcal, MAX_GOAL_KCAL) && goalInt(value.protein, MAX_GOAL_MACRO_GRAMS)
+    && goalInt(value.carbs, MAX_GOAL_MACRO_GRAMS) && goalInt(value.fat, MAX_GOAL_MACRO_GRAMS);
 }
 
-settingsRouter.get('/', (req, res) => {
-  const goals = readGoals(req.userId!);
-  if (goals === null) {
-    res.status(404).json({ error: 'not_found' });
-    return;
-  }
-  res.json(goals);
+settingsRouter.get('/', (req, res) => res.json(readSettings(req.userId!)));
+
+settingsRouter.post('/goal-history/initialize', (req, res) => {
+  const result = initializeGoalHistory(req.userId!, isObject(req.body) ? req.body.time_zone : undefined);
+  res.json(result);
 });
 
 settingsRouter.put('/', (req, res) => {
+  if (isObject(req.body) && !('time_zone' in req.body)) {
+    res.status(400).json({ error: 'app_refresh_required' });
+    return;
+  }
   if (!isGoalsBody(req.body)) {
     res.status(400).json({ error: 'invalid_goals' });
     return;
   }
-  const { kcal, protein, carbs, fat } = req.body;
-  statements.users.updateGoals.run(kcal, protein, carbs, fat, req.userId!);
-  log.info('goals updated', { userId: req.userId });
-  res.json({ kcal, protein, carbs, fat });
+  const result = saveGoals(req.userId!, req.body, req.body.time_zone);
+  log.info('goals updated', { userId: req.userId, date: result.effective_date });
+  res.json(result);
 });
+
+settingsRouter.post('/mcp-notice/dismiss', (req, res) => {
+  if (!isObject(req.body) || req.body.version !== 4) {
+    res.status(400).json({ error: 'invalid_notice_version' });
+    return;
+  }
+  res.json(dismissMcpNotice(req.userId!, req.body.version));
+});
+
+settingsRouter.use(handleWriteError);

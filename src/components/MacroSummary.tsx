@@ -10,7 +10,7 @@ import styles from './MacroSummary.module.css';
 
 type MacroSummaryProps = {
   entries: EntryWithMacros[];
-  goals: Goals;
+  goals: Goals | null | undefined;
   onSettings: () => void;
   onWeights: () => void;
   onAdd: () => void;
@@ -19,22 +19,22 @@ type MacroSummaryProps = {
 export function MacroSummary({ entries, goals, onSettings, onWeights, onAdd }: MacroSummaryProps) {
   const totals = useMemo(() => sumMacros(entries), [entries]);
 
-  const kcalLeft = Math.max(0, goals.kcal - totals.kcal);
-  const kcalOver = totals.kcal > goals.kcal;
-  const kcalPct = goals.kcal > 0 ? Math.min(100, (totals.kcal / goals.kcal) * 100) : 0;
+  const kcalLeft = goals == null ? 0 : Math.max(0, goals.kcal - totals.kcal);
+  const kcalOver = goals != null && totals.kcal > goals.kcal;
+  const kcalPct = goals != null && goals.kcal > 0 ? Math.min(100, (totals.kcal / goals.kcal) * 100) : 0;
 
   return (
     <div className={styles.dock}>
       <div className={styles.headline}>
         <div className={styles.kcalCol}>
           <span className={`mono tiny caps ${styles.kcalLabel}`}>
-            {kcalOver ? 'Over budget' : 'Kcal remaining'}
+            {goals === undefined ? 'Loading goals…' : goals === null ? 'No goal recorded' : kcalOver ? 'Over budget' : 'Kcal remaining'}
           </span>
           <div className={styles.kcalRow}>
             <span className={`mono ${styles.kcalNum}${kcalOver ? ` ${styles.kcalNumOver}` : ''}`}>
-              {kcalOver ? '+' : ''}{Math.round(kcalOver ? totals.kcal - goals.kcal : kcalLeft)}
+              {goals == null ? '—' : <>{kcalOver ? '+' : ''}{Math.round(kcalOver ? totals.kcal - goals.kcal : kcalLeft)}</>}
             </span>
-            <span className={`mono ${styles.kcalGoal}`}>/ {goals.kcal}</span>
+            {goals != null && <span className={`mono ${styles.kcalGoal}`}>/ {goals.kcal}</span>}
           </div>
         </div>
         <div className={styles.consumedCol}>
@@ -45,16 +45,16 @@ export function MacroSummary({ entries, goals, onSettings, onWeights, onAdd }: M
         </div>
       </div>
 
-      <div className={styles.kcalBar}>
+      {goals != null && <div className={styles.kcalBar}>
         <div
           className={`${styles.kcalBarFill}${kcalOver ? ` ${styles.kcalBarFillOver}` : ''}`}
           style={cssVars({ '--kcal-pct': `${kcalPct}%` })}
         />
-      </div>
+      </div>}
 
       <div className={styles.macroGrid}>
         {MACRO_KEYS.map((k) => (
-          <MacroBar key={k} macroKey={k} consumed={totals[k]} goal={goals[k]} />
+          <MacroBar key={k} macroKey={k} consumed={totals[k]} goal={goals?.[k]} />
         ))}
       </div>
 

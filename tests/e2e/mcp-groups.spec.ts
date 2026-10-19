@@ -3,7 +3,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import Database from 'better-sqlite3';
 import type {
   EntryGroup, EntryWithMacros, McpDayResult, McpEntry, McpEntryDeleteResult, McpEntryGroupDeleteResult,
-  McpEntryGroupResult, McpEntryWriteResult, McpMealsResult, McpProductWriteResult,
+  McpEntryGroupResult, McpEntryGroupCreateResult, McpEntriesCreateResult, McpEntryWriteResult, McpMealsResult, McpProductWriteResult,
   McpUngroupResult, McpWeekResult, Product,
 } from '../../shared/types';
 import { BrowserOAuth, connectMcp } from './oauth-helpers';
@@ -25,18 +25,18 @@ async function createProduct(mcp: Client, name: string): Promise<Product> {
 async function createEntry(
   mcp: Client, product_id: number, local_date: string, grams = 100, local_time = '12:30',
 ): Promise<McpEntry> {
-  return (await call<McpEntryWriteResult>(mcp, 'create_entry', { product_id, grams, local_date, local_time })).entry;
+  return (await call<McpEntriesCreateResult>(mcp, 'create_entries', { entries: [{ product_id, grams }], local_date, local_time })).entries[0]!;
 }
 
-async function createGroup(mcp: Client, name: string, entry_ids: number[]): Promise<McpEntryGroupResult> {
-  return call<McpEntryGroupResult>(mcp, 'create_entry_group', { name, entry_ids });
+async function createGroup(mcp: Client, name: string, entry_ids: number[]): Promise<McpEntryGroupCreateResult> {
+  return call<McpEntryGroupCreateResult>(mcp, 'create_entry_group', { name, entry_ids });
 }
 
 test('[J-218] MCP group tools declare write schemas and read-only tokens cannot mutate groups', async ({ page, mcp, account }) => {
   const { tools } = await mcp.listTools();
   expect(tools.map((tool) => tool.name)).not.toContain('set_entry_group_tagged');
   const fields: Record<string, string[]> = {
-    create_entry_group: ['user_id', 'group', 'entries'],
+    create_entry_group: ['user_id', 'group', 'entries', 'receipt'],
     update_entry_group: ['user_id', 'group', 'entries'],
     ungroup_entries: ['user_id', 'ok', 'group_id', 'entries'],
     delete_entry_group: ['user_id', 'ok', 'group_id', 'deleted_entry_ids'],
@@ -46,7 +46,7 @@ test('[J-218] MCP group tools declare write schemas and read-only tokens cannot 
     expect(tool, name).toBeDefined();
     expect(tool.annotations).toMatchObject({
       readOnlyHint: false, destructiveHint: name !== 'create_entry_group',
-      idempotentHint: name !== 'create_entry_group', openWorldHint: false,
+      idempotentHint: true, openWorldHint: false,
     });
     expect(tool.inputSchema.properties).not.toHaveProperty('user_id');
     expect(tool.inputSchema.additionalProperties).toBe(false);
@@ -85,6 +85,11 @@ test('[J-219] MCP group edits preserve app flags while REST tagging leaves MCP r
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   });
+  // The later app visit initializes dated goals. Establish that same baseline
+  // before comparing whole MCP snapshots across app visits and tag changes.
+  await rest(request, account.token, 'post', '/settings/goal-history/initialize', {
+    time_zone: await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone),
+  });
   const product = await createProduct(mcp, `MCP visible group ${account.user.id}`);
   const first = await createEntry(mcp, product.id, date, 62.5, '08:15');
   const second = await createEntry(mcp, product.id, date, 37.5, '19:45');
@@ -99,13 +104,13 @@ test('[J-219] MCP group edits preserve app flags while REST tagging leaves MCP r
     expect(day.totals).toEqual(baseline.totals);
     expect(await call<McpWeekResult>(mcp, 'get_week', { date })).toEqual(baselineWeek);
     const meals = await call<McpMealsResult>(mcp, 'get_meals', { start_date: date, end_date: date });
-    expect(meals.days[date]).toEqual({ entries: day.entries, totals: day.totals });
+    expect(meals.days[date]).toEqual({ entries: day.entries, totals: day.totals, daily_goals: day.daily_goals });
   };
 
   const name = `MCP Mixed Meal ${account.user.id}`;
   const created = await createGroup(mcp, `  MCP   Mixed\nMeal ${account.user.id}  `, [second.id, first.id]);
   expect(created).toEqual({
-    user_id: account.user.id, group: { id: expect.any(Number), name, local_date: date },
+    user_id: account.user.id, receipt: created.receipt, group: { id: expect.any(Number), name, local_date: date },
     entries: [first, second].map((entry) => ({ ...entry, group: { id: created.group.id, name } })),
   });
   await assertTotals(created.entries);

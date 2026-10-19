@@ -7,14 +7,14 @@ import styles from './MacroBar.module.css';
 type MacroBarProps = {
   macroKey: MacroKey;
   consumed: number;
-  goal: number;
+  goal: number | null | undefined;
 };
 
 export function MacroBar({ macroKey, consumed, goal }: MacroBarProps) {
   const { short, color } = MACRO_META[macroKey];
-  const ratio = goal > 0 ? consumed / goal : 0;
+  const ratio = goal != null && goal > 0 ? consumed / goal : 0;
   const pct = Math.min(100, ratio * 100);
-  const over = consumed > goal;
+  const over = goal != null && consumed > goal;
   const barColor = over ? 'var(--danger)' : color;
 
   return (
@@ -25,16 +25,18 @@ export function MacroBar({ macroKey, consumed, goal }: MacroBarProps) {
           <span className={`mono ${styles.current}${over ? ` ${styles.currentOver}` : ''}`}>
             {Math.round(consumed)}
           </span>
-          <span className={`mono ${styles.goal}`}>/</span>
-          <span className={`mono ${styles.goal}`}>{Math.round(goal)}</span>
+          {goal != null && <>
+            <span className={`mono ${styles.goal}`}>/</span>
+            <span className={`mono ${styles.goal}`}>{Math.round(goal)}</span>
+          </>}
         </span>
       </div>
-      <div className={styles.track}>
+      {goal != null && <div className={styles.track}>
         <div
           className={styles.fill}
           style={cssVars({ '--fill-pct': `${pct}%`, '--bar-color': barColor })}
         />
-      </div>
+      </div>}
     </div>
   );
 }

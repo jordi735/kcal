@@ -224,3 +224,11 @@
   letter-spacing: 0.14em;
   font-family: var(--mono);
 }
+
+.historyRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}

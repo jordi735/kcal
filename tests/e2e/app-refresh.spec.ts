@@ -1,6 +1,6 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import type {
-  EntryWithMacros, McpEntryGroupResult, McpEntryWriteResult, McpProductWriteResult,
+  EntryWithMacros, McpEntryGroupResult, McpEntriesCreateResult, McpProductWriteResult,
   Product, WeightEntry,
 } from '../../shared/types';
 import { fillNutField, signInFresh } from './helpers';
@@ -41,9 +41,9 @@ test('[J-236] resuming the same app incorporates MCP entry groups product edits 
     name: `Resume MCP food ${account.user.id}`, unit: 'g',
     per100: { ...NUTRITION, kcal: 200 },
   })).product;
-  const createEntry = async (date: string, grams = 100) => (await call<McpEntryWriteResult>(mcp, 'create_entry', {
-    product_id: saved.id, grams, local_date: date, local_time: '12:30',
-  })).entry;
+  const createEntry = async (date: string, grams = 100) => (await call<McpEntriesCreateResult>(mcp, 'create_entries', {
+    entries: [{ product_id: saved.id, grams }], local_date: date, local_time: '12:30',
+  })).entries[0]!;
   const removed = await createEntry(MONDAY);
   const tomorrow = await createEntry(TUESDAY);
   await readCycle(page, () => page.goto('/'));
@@ -62,7 +62,7 @@ test('[J-236] resuming the same app incorporates MCP entry groups product edits 
   });
   await call(mcp, 'update_entry', { entry_id: tomorrow.id, grams: 300 });
   const goals = { kcal: 2000, protein: 100, carbs: 200, fat: 70 };
-  await rest(request, account.token, 'put', '/settings', goals);
+  await rest(request, account.token, 'put', '/settings', { ...goals, time_zone: 'UTC' });
   await readCycle(page, () => foreground(page));
 
   await expect(page.locator('.entry-group')).toContainText(group.group.name);

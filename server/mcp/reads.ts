@@ -2,69 +2,48 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { isLocalDate } from '../../shared/constraints.js';
+import { MAX_PRODUCT_BARCODE_LENGTH } from '../../shared/constraints.js';
+import { rangeDates, weekDates } from '../../shared/dates.js';
+import { goalPeriods, resolveGoals } from '../../shared/goals.js';
+import { readGoalHistory, readGoalComparison } from '../goals.js';
+import { lookupBarcode, searchProductPage } from '../products.js';
 import {
-  readDailyTotals, readDayEntries, readSummary, readWeightPage, searchOwnProducts, sumMacros,
+  readDailyTotals, readDayEntries, readSummary, readWeightPage, sumMacros,
 } from '../reads.js';
 import type {
   McpDayResult, McpMealsResult, McpProductSearchResult, McpSummaryResult, McpWeekResult, McpWeighinsResult,
 } from '../types.js';
-import { ReadInputError, requireGoals, readResult } from './results.js';
+import { ReadInputError, requireAccount, readResult } from './results.js';
 import { toMcpEntry } from './entries.js';
 import {
   dateString, localDate, macrosSchema, productSchema, entrySchema, weightSchema,
-  pagination, annotations,
+  pagination, annotations, productTemplateSchema,
 } from './schemas.js';
-
-function weekDates(value: string): string[] {
-  // UTC arithmetic only represents civil dates here; no local timezone shift.
-  const date = new Date(`${value}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 6) % 7);
-  const dates: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const day = date.toISOString().split('T')[0]!;
-    if (!isLocalDate(day)) throw new ReadInputError('week_outside_supported_date_range');
-    dates.push(day);
-    date.setUTCDate(date.getUTCDate() + 1);
-  }
-  return dates;
-}
-
-function rangeDates(start: string, end: string, maxDays: number): string[] {
-  if (start > end) throw new ReadInputError('invalid_date_range');
-  // Inputs have passed calendar validation. UTC arithmetic keeps civil dates
-  // independent of daylight-saving changes and the server's timezone.
-  const dayMs = 86_400_000;
-  const startMs = Date.parse(`${start}T00:00:00Z`);
-  const count = (Date.parse(`${end}T00:00:00Z`) - startMs) / dayMs + 1;
-  if (count > maxDays) throw new ReadInputError(`date_range_exceeds_${maxDays}_days`);
-  return Array.from({ length: count }, (_, i) => new Date(startMs + i * dayMs).toISOString().slice(0, 10));
-}
 
 export function registerReadTools(server: McpServer, user_id: number): void {
   server.registerTool('get_day', {
-    description: 'Get one user’s food log for a date, with product details, per-entry macros, groups, daily totals, and current daily goals. Totals include all logged entries. Logs do not prove actual consumption or complete logging.',
+    description: 'Get the connected account’s food log for a date, with product details, per-entry macros, groups, daily totals, and goals effective on that date. Goals are null before known history. Totals include all logged entries. Logs do not prove actual consumption or complete logging.',
     inputSchema: z.strictObject({ date: localDate.describe('Local date to read, YYYY-MM-DD') }),
     outputSchema: z.object({
       user_id: z.number().int(),
       date: dateString,
       entries: z.array(entrySchema),
       totals: macrosSchema,
-      current_daily_goals: macrosSchema,
+      daily_goals: macrosSchema.nullable(),
     }) satisfies z.ZodType<McpDayResult>,
     annotations,
   }, ({ date }) => readResult(() => {
-    const goals = requireGoals(user_id);
+    requireAccount(user_id);
     const entries = readDayEntries(user_id, date).map(toMcpEntry);
     return {
       user_id, date, entries,
       totals: sumMacros(entries.map((entry) => entry.macros)),
-      current_daily_goals: goals,
+      daily_goals: resolveGoals(readGoalHistory(user_id), date),
     };
   }));
 
   server.registerTool('get_meals', {
-    description: 'Get the connected account’s food logs by day across an inclusive date range of up to 31 days. Each date includes food names, amounts, times, macros, group references, and daily totals. Meals means logged foods, including named groups. Totals include all logged entries. Logs do not prove actual consumption or complete logging. Empty days have no entries and zero totals.',
+    description: 'Get the connected account’s food logs by day across an inclusive date range of up to 31 days. Each date includes food names, amounts, times, macros, group references, daily totals, and goals effective on that date (null before known history). Meals means logged foods, including named groups. Totals include all logged entries. Logs do not prove actual consumption or complete logging. Empty days have no entries and zero totals.',
     inputSchema: z.strictObject({
       start_date: localDate.describe('First local date to read, inclusive, YYYY-MM-DD'),
       end_date: localDate.describe('Last local date to read, inclusive, YYYY-MM-DD; at most 31 days including both bounds'),
@@ -73,38 +52,40 @@ export function registerReadTools(server: McpServer, user_id: number): void {
       user_id: z.number().int(),
       start_date: dateString,
       end_date: dateString,
-      days: z.record(dateString, z.object({ entries: z.array(entrySchema), totals: macrosSchema })),
+      days: z.record(dateString, z.object({ entries: z.array(entrySchema), totals: macrosSchema, daily_goals: macrosSchema.nullable() })),
     }) satisfies z.ZodType<McpMealsResult>,
     annotations,
   }, ({ start_date, end_date }) => readResult(() => {
     const dates = rangeDates(start_date, end_date, 31);
-    requireGoals(user_id);
+    requireAccount(user_id);
+    const history = readGoalHistory(user_id);
     const days = Object.fromEntries(dates.map((date) => {
       const entries = readDayEntries(user_id, date).map(toMcpEntry);
-      return [date, { entries, totals: sumMacros(entries.map((entry) => entry.macros)) }];
+      return [date, { entries, totals: sumMacros(entries.map((entry) => entry.macros)), daily_goals: resolveGoals(history, date) }];
     }));
     return { user_id, start_date, end_date, days };
   }));
 
   server.registerTool('get_week', {
-    description: 'Get seven daily calorie/macro totals and a weekly total for the Monday–Sunday containing a date. Includes current daily goals; use get_day for food details.',
+    description: 'Get seven daily calorie/macro totals and a weekly total for the Monday–Sunday containing a date. Each day includes its effective goals, or null before known history; use get_day for food details.',
     inputSchema: z.strictObject({ date: localDate.describe('Any local date in the requested week, YYYY-MM-DD') }),
     outputSchema: z.object({
       user_id: z.number().int(),
       start_date: dateString,
       end_date: dateString,
-      days: z.record(dateString, macrosSchema),
+      days: z.record(dateString, z.object({ totals: macrosSchema, daily_goals: macrosSchema.nullable() })),
       totals: macrosSchema,
-      current_daily_goals: macrosSchema,
     }) satisfies z.ZodType<McpWeekResult>,
     annotations,
   }, ({ date }) => readResult(() => {
-    const goals = requireGoals(user_id);
+    requireAccount(user_id);
     const dates = weekDates(date);
-    const days = readDailyTotals(user_id, dates);
+    const totals = readDailyTotals(user_id, dates);
+    const history = readGoalHistory(user_id);
+    const days = Object.fromEntries(dates.map((date) => [date, { totals: totals[date]!, daily_goals: resolveGoals(history, date) }]));
     return {
       user_id, start_date: dates[0]!, end_date: dates[6]!, days,
-      totals: sumMacros(Object.values(days)), current_daily_goals: goals,
+      totals: sumMacros(Object.values(totals)),
     };
   }));
 
@@ -125,7 +106,7 @@ export function registerReadTools(server: McpServer, user_id: number): void {
     const start = start_date ?? '0000-01-01';
     const end = end_date ?? '9999-12-31';
     if (start > end) throw new ReadInputError('invalid_date_range');
-    requireGoals(user_id);
+    requireAccount(user_id);
     const rows = readWeightPage(user_id, start, end, limit + 1, offset);
     return {
       user_id, weighins: rows.slice(0, limit),
@@ -134,7 +115,7 @@ export function registerReadTools(server: McpServer, user_id: number): void {
   }));
 
   server.registerTool('get_summary', {
-    description: 'Summarize an inclusive period of up to 366 days: calorie/macro totals, averages over days with at least one entry (including zero-calorie entries), logging coverage, current daily goals, and weight change. Missing days are excluded from averages; logged days do not imply complete logging. Weight change is last minus first recorded weight within the range, with measurement dates; null with fewer than two weigh-ins.',
+    description: 'Summarize an inclusive period of up to 366 days: calorie/macro totals, averages over logged days (including zero-calorie entries), logging coverage, goal periods, and weight change. Goal comparisons use only dates with both an entry and known goals; comparison totals are null when no dates qualify. Missing-log days are excluded, and logged days do not imply complete logging. Weight change is last minus first in-range measurement, or null with fewer than two weigh-ins.',
     inputSchema: z.strictObject({
       start_date: localDate.describe('First local date, inclusive, YYYY-MM-DD'),
       end_date: localDate.describe('Last local date, inclusive, YYYY-MM-DD; at most 366 days including both bounds'),
@@ -148,7 +129,12 @@ export function registerReadTools(server: McpServer, user_id: number): void {
       days_without_entries: z.number().int(),
       totals: macrosSchema,
       average_on_logged_days: macrosSchema.nullable(),
-      current_daily_goals: macrosSchema,
+      goal_periods: z.array(z.object({ start_date: dateString, end_date: dateString, daily_goals: macrosSchema.nullable() })),
+      goal_comparison: z.object({
+        days_compared: z.number().int().nonnegative(),
+        logged_totals: macrosSchema.nullable(),
+        goal_totals: macrosSchema.nullable(),
+      }),
       weight: z.object({
         weighin_count: z.number().int(),
         first: weightSchema.pick({ local_date: true, weight_kg: true }).nullable(),
@@ -159,21 +145,36 @@ export function registerReadTools(server: McpServer, user_id: number): void {
     annotations,
   }, ({ start_date, end_date }) => readResult(() => {
     const dates = rangeDates(start_date, end_date, 366);
-    const goals = requireGoals(user_id);
-    return { user_id, start_date, end_date, ...readSummary(user_id, dates), current_daily_goals: goals };
+    requireAccount(user_id);
+    return {
+      user_id, start_date, end_date, ...readSummary(user_id, dates),
+      goal_periods: goalPeriods(readGoalHistory(user_id), dates), goal_comparison: readGoalComparison(user_id, dates),
+    };
   }));
 
   server.registerTool('search_products', {
-    description: 'Search the connected account’s saved foods by name or brand, including foods outside recent logs. Returns product details and nutrition per 100 g or 100 ml. Uses the app’s matching and alphabetical ordering, with at most 50 results; narrow the query if 50 are returned. Temporary foods and other users’ products are excluded.',
-    inputSchema: z.strictObject({ query: z.string().trim().min(1).describe('Nonblank food name or brand to search for') }),
+    description: 'Browse or search owned saved foods by literal name/brand text, sorted by name or most recent logging. Omit query to browse; recent includes only previously logged saved foods. Follow next_offset for more. Alternatively supply only barcode for exact lookup: returns an owned saved food, a safe shared template without an ID, or no match. Barcode lookup never creates or adopts a food. Temporary foods are excluded. Nutrition is per 100 g/ml.',
+    inputSchema: z.strictObject({
+      query: z.string().trim().min(1).optional().describe('Literal food name or brand; omit to browse the library'),
+      sort: z.enum(['name', 'recent']).optional().describe('Library sort: name (default), or most recently logged saved foods'),
+      limit: z.number().int().min(1).max(100).optional().describe('Library page size, 1–100; defaults to 50'),
+      offset: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER - 100).optional().describe('Library offset; starts at 0, then use next_offset'),
+      barcode: z.string().trim().min(1).max(MAX_PRODUCT_BARCODE_LENGTH).optional()
+        .describe('Exact barcode, preserving leading zeros; cannot be combined with any other input'),
+    }).refine(({ barcode, ...library }) => barcode === undefined || Object.values(library).every((value) => value === undefined), 'Barcode must be the only input'),
     outputSchema: z.object({
       user_id: z.number().int(),
-      query: z.string(),
       products: z.array(productSchema),
+      template: productTemplateSchema.nullable(),
+      next_offset: z.number().int().nullable(),
     }) satisfies z.ZodType<McpProductSearchResult>,
     annotations,
-  }, ({ query }) => readResult(() => {
-    requireGoals(user_id);
-    return { user_id, query, products: searchOwnProducts(user_id, query) };
+  }, ({ query, sort, limit, offset, barcode }) => readResult(() => {
+    requireAccount(user_id);
+    if (barcode !== undefined) return { user_id, ...lookupBarcode(user_id, barcode), next_offset: null };
+    return {
+      user_id, ...searchProductPage(user_id, { ...(query === undefined ? {} : { query }), sort: sort ?? 'name', limit: limit ?? 50, offset: offset ?? 0 }),
+      template: null,
+    };
   }));
 }

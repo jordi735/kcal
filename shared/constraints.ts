@@ -3,6 +3,9 @@
 import { normalizeEntryGroupName } from './normalize.js';
 
 export const MIN_ENTRY_AMOUNT = 1;
+export const MAX_ENTRY_AMOUNT = Number.MAX_SAFE_INTEGER;
+export const MAX_GOAL_KCAL = 20000;
+export const MAX_GOAL_MACRO_GRAMS = 2000;
 export const MAX_ENTRY_GROUP_NAME_LENGTH = 64;
 export const MAX_PRODUCT_KCAL_PER100 = 2000;
 export const MAX_PRODUCT_MACRO_GRAMS_PER100 = 200;
@@ -15,7 +18,8 @@ export const WEIGHT_STEP_KG = 0.1;
 export const MAX_WEIGHT_NOTE_LENGTH = 500;
 
 export function isEntryAmount(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= MIN_ENTRY_AMOUNT;
+  return typeof value === 'number' && Number.isFinite(value)
+    && value >= MIN_ENTRY_AMOUNT && value <= MAX_ENTRY_AMOUNT;
 }
 
 export function isWeightAmount(value: unknown): value is number {
@@ -35,4 +39,8 @@ export function isLocalDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+export function isLocalTime(value: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }

@@ -5,35 +5,38 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { db } from '../db.js';
 import { log } from '../log.js';
+import { createWithReceipt } from '../idempotency.js';
+import { normalizeBrandName, normalizeEntryGroupName, normalizeProductName } from '../../shared/normalize.js';
+import { trimOrNull } from '../util.js';
 import {
-  createEntry, updateEntry, deleteEntry, createProduct, updateProduct, deleteProduct, WriteError,
+  createEntries, updateEntry, deleteEntry, createProduct, updateProduct, deleteProduct, WriteError,
   createEntryGroup, updateEntryGroup, ungroupEntries, deleteEntryGroup,
 } from '../writes.js';
 import type {
   McpEntryWriteResult, McpEntryDeleteResult, McpProductWriteResult, McpProductDeleteResult,
   McpEntryGroupResult, McpUngroupResult, McpEntryGroupDeleteResult,
+  McpCreationReceipt,
 } from '../types.js';
-import { ReadInputError, requireGoals } from './results.js';
+import { ReadInputError, requireAccount } from './results.js';
 import { toMcpEntry } from './entries.js';
 import {
-  localDate, createAnnotations, changeAnnotations, positiveId, amount,
+  localDate, localTime, createAnnotations, changeAnnotations, positiveId, amount, idempotencyKey,
   entryGroupName, per100Input, productFields, entryWriteSchema, productWriteSchema,
   entryDeleteSchema, productDeleteSchema, entryGroupResultSchema, ungroupResultSchema,
-  entryGroupDeleteSchema,
+  entryGroupDeleteSchema, entriesCreateSchema, productCreateSchema, entryGroupCreateSchema,
 } from './schemas.js';
 
 export function registerWriteTools(server: McpServer, user_id: number, canWrite: boolean): void {
-  function writeResult<T extends McpEntryWriteResult | McpEntryDeleteResult | McpProductWriteResult | McpProductDeleteResult
-    | McpEntryGroupResult | McpUngroupResult | McpEntryGroupDeleteResult>(
-    schema: z.ZodType<T>, write: () => T,
-  ): CallToolResult {
+  function mutationResult<T extends Record<string, unknown>>(toolName: string, write: () => T): CallToolResult {
     try {
       // Check here as well as at registration so every mutation has a scope gate.
       if (!canWrite) return { isError: true, content: [{ type: 'text', text: 'insufficient_scope' }] };
-      requireGoals(user_id);
-      // Validate before committing: an invalid result must not turn a committed
-      // mutation into an apparent failure that a client might retry.
-      const result = db.transaction(() => schema.parse(write()))();
+      requireAccount(user_id);
+      const result = write();
+      const replayed = (result as { receipt?: McpCreationReceipt }).receipt?.replayed === true;
+      // Shared writes may run under a batch/receipt transaction. Emit success
+      // only after that outer transaction has committed, never for its savepoints.
+      log.info(replayed ? 'MCP creation replayed' : 'MCP mutation committed', { userId: user_id, toolName });
       return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     } catch (error) {
       const controlled = error instanceof WriteError || error instanceof ReadInputError;
@@ -42,25 +45,46 @@ export function registerWriteTools(server: McpServer, user_id: number, canWrite:
     }
   }
 
+  function writeResult<T extends McpEntryWriteResult | McpEntryDeleteResult | McpProductWriteResult | McpProductDeleteResult
+    | McpEntryGroupResult | McpUngroupResult | McpEntryGroupDeleteResult>(
+    toolName: string, schema: z.ZodType<T>, write: () => T,
+  ): CallToolResult {
+    return mutationResult(toolName, () => db.transaction(() => schema.parse(write()))());
+  }
+
+  function createResult<T extends Record<string, unknown> & { receipt: McpCreationReceipt }>(
+    toolName: string, key: string, normalizedInput: unknown, schema: z.ZodType<T>,
+    write: (receipt: McpCreationReceipt) => T,
+  ): CallToolResult {
+    return mutationResult(toolName, () => createWithReceipt(user_id, toolName, key, normalizedInput, schema, write));
+  }
+
   if (canWrite) {
-    server.registerTool('create_entry', {
-      description: 'Log one saved food from the connected account’s library on an explicit local date and time. Supply an owned, non-temporary product_id and an amount of at least 1 in the product’s g or ml unit using the grams field; decimals are allowed. The new entry starts ungrouped. Existing temporary foods cannot be reused. Repeating this call creates another entry.',
+    server.registerTool('create_entries', {
+      description: 'Atomically log 1–50 saved foods from the connected account’s library at one explicit local date and time. Each item supplies an owned, non-temporary product_id and grams (the amount in its g or ml unit, at least 1; decimals allowed). Duplicate foods create distinct entries in input order. Optional group_name groups all new entries and requires at least two items. Either every entry and group is saved or none is. Reuse idempotency_key and the same arguments to retry; a new key creates new logs. Totals describe only the new entries.',
       inputSchema: z.strictObject({
-        product_id: positiveId,
-        grams: amount,
+        idempotency_key: idempotencyKey,
+        entries: z.array(z.strictObject({ product_id: positiveId, grams: amount })).min(1).max(50),
         local_date: localDate,
-        local_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use a valid HH:MM time'),
-      }),
-      outputSchema: entryWriteSchema,
+        local_time: localTime,
+        group_name: entryGroupName.optional(),
+      }).refine((input) => input.group_name === undefined || input.entries.length >= 2, 'A group requires at least two entries'),
+      outputSchema: entriesCreateSchema,
       annotations: createAnnotations,
-    }, (input) => writeResult(entryWriteSchema, () => ({ user_id, entry: toMcpEntry(createEntry(user_id, input, true)) })));
+    }, ({ idempotency_key, group_name, ...input }) => {
+      const normalized = { ...input, ...(group_name === undefined ? {} : { group_name: normalizeEntryGroupName(group_name) }) };
+      return createResult('create_entries', idempotency_key, normalized, entriesCreateSchema, (receipt) => {
+        const result = createEntries(user_id, normalized);
+        return { user_id, ...result, entries: result.entries.map(toMcpEntry), receipt };
+      });
+    });
 
     server.registerTool('update_entry', {
       description: 'Edit one owned food log’s amount, including existing temporary logs. Supply entry_id and grams. New amounts must be at least 1 g/ml; decimals are allowed. Food, date, time, and group cannot be changed through this tool. Amount changes recalculate macros and totals.',
       inputSchema: z.strictObject({ entry_id: positiveId, grams: amount }),
       outputSchema: entryWriteSchema,
       annotations: changeAnnotations,
-    }, ({ entry_id, grams }) => writeResult(entryWriteSchema, () => ({
+    }, ({ entry_id, grams }) => writeResult('update_entry', entryWriteSchema, () => ({
       user_id,
       entry: toMcpEntry(updateEntry(user_id, entry_id, { grams })),
     })));
@@ -70,18 +94,24 @@ export function registerWriteTools(server: McpServer, user_id: number, canWrite:
       inputSchema: z.strictObject({ entry_id: positiveId }),
       outputSchema: entryDeleteSchema,
       annotations: changeAnnotations,
-    }, ({ entry_id }) => writeResult(entryDeleteSchema, () => ({ user_id, ...deleteEntry(user_id, entry_id) })));
+    }, ({ entry_id }) => writeResult('delete_entry', entryDeleteSchema, () => ({ user_id, ...deleteEntry(user_id, entry_id) })));
 
     server.registerTool('create_product', {
-      description: 'Create one saved food in the connected account’s library. Specify its name, g or ml unit, and all four nutrition values per 100 units. Brand and barcode default to null. Names/brands are normalized like the app. Barcoded foods can appear in the app’s shared catalog; foods without barcodes are private. Repeating this call creates another food.',
+      description: 'Create one saved food in the connected account’s library. Specify its name, g or ml unit, and all four nutrition values per 100 units. Brand and barcode default to null. Names/brands are normalized like the app. Barcoded foods can appear in the app’s shared catalog; foods without barcodes are private. Reuse idempotency_key with the same arguments to retry; a new key creates a new food.',
       inputSchema: z.strictObject({
+        idempotency_key: idempotencyKey,
         ...productFields,
         brand: productFields.brand.default(null), barcode: productFields.barcode.default(null),
         per100: per100Input,
       }),
-      outputSchema: productWriteSchema,
+      outputSchema: productCreateSchema,
       annotations: createAnnotations,
-    }, (input) => writeResult(productWriteSchema, () => ({ user_id, product: createProduct(user_id, { ...input, is_temp: false }) })));
+    }, ({ idempotency_key, ...input }) => {
+      const normalized = { ...input, name: normalizeProductName(input.name), brand: normalizeBrandName(input.brand), barcode: trimOrNull(input.barcode) };
+      return createResult('create_product', idempotency_key, normalized, productCreateSchema, (receipt) => ({
+        user_id, product: createProduct(user_id, { ...normalized, is_temp: false }), receipt,
+      }));
+    });
 
     server.registerTool('update_product', {
       description: 'Edit an owned food’s name, brand, unit, barcode, or individual per100 nutrition values. Supply only changes; omitted fields and macros are preserved. Explicit null clears brand/barcode. Nutrition edits recalculate all past food logs and totals using this food. Adding a barcode makes the food eligible for the app’s shared catalog.',
@@ -94,7 +124,7 @@ export function registerWriteTools(server: McpServer, user_id: number, canWrite:
       }).refine(({ product_id: _id, ...patch }) => Object.values(patch).some((value) => value !== undefined), 'Supply at least one product change'),
       outputSchema: productWriteSchema,
       annotations: changeAnnotations,
-    }, ({ product_id, name, brand, unit, barcode, per100 }) => writeResult(productWriteSchema, () => ({
+    }, ({ product_id, name, brand, unit, barcode, per100 }) => writeResult('update_product', productWriteSchema, () => ({
       user_id,
       product: updateProduct(user_id, product_id, {
         ...(name !== undefined ? { name } : {}), ...(brand !== undefined ? { brand } : {}),
@@ -113,27 +143,31 @@ export function registerWriteTools(server: McpServer, user_id: number, canWrite:
       inputSchema: z.strictObject({ product_id: positiveId }),
       outputSchema: productDeleteSchema,
       annotations: changeAnnotations,
-    }, ({ product_id }) => writeResult(productDeleteSchema, () => ({ user_id, ...deleteProduct(user_id, product_id) })));
+    }, ({ product_id }) => writeResult('delete_product', productDeleteSchema, () => ({ user_id, ...deleteProduct(user_id, product_id) })));
 
     server.registerTool('create_entry_group', {
-      description: 'Combine at least two existing food logs into one named group, matching Group items in the app. Supply unique, owned, currently ungrouped entry IDs from one valid local date; the date is derived from the entries. Saved and temporary food logs can be grouped. Nesting and silent regrouping are rejected. Entries, amounts, and day/week totals are preserved; group nutrition derives from its children.',
+      description: 'Combine at least two existing food logs into one named group, matching Group items in the app. Supply unique, owned, currently ungrouped entry IDs from one valid local date; the date is derived from the entries. Saved and temporary food logs can be grouped. Nesting and silent regrouping are rejected. Entries, amounts, and day/week totals are preserved; group nutrition derives from its children. Reuse idempotency_key and the same membership/name to retry.',
       inputSchema: z.strictObject({
+        idempotency_key: idempotencyKey,
         name: entryGroupName,
         entry_ids: z.array(positiveId).min(2).refine((ids) => new Set(ids).size === ids.length, 'Entry IDs must be unique'),
       }),
-      outputSchema: entryGroupResultSchema,
+      outputSchema: entryGroupCreateSchema,
       annotations: createAnnotations,
-    }, ({ name, entry_ids }) => writeResult(entryGroupResultSchema, () => {
-      const result = createEntryGroup(user_id, name, entry_ids);
-      return { user_id, ...result, entries: result.entries.map(toMcpEntry) };
-    }));
+    }, ({ idempotency_key, name, entry_ids }) => {
+      const normalized = { name: normalizeEntryGroupName(name), entry_ids: [...entry_ids].sort((a, b) => a - b) };
+      return createResult('create_entry_group', idempotency_key, normalized, entryGroupCreateSchema, (receipt) => {
+        const result = createEntryGroup(user_id, normalized.name, normalized.entry_ids);
+        return { user_id, ...result, entries: result.entries.map(toMcpEntry), receipt };
+      });
+    });
 
     server.registerTool('update_entry_group', {
       description: 'Rename one owned entry group, matching Edit group in the app. This changes only its name; children, amounts, date, and totals are preserved. Membership, date, group portions, and group nutrition cannot be edited.',
       inputSchema: z.strictObject({ group_id: positiveId, name: entryGroupName }),
       outputSchema: entryGroupResultSchema,
       annotations: changeAnnotations,
-    }, ({ group_id, name }) => writeResult(entryGroupResultSchema, () => {
+    }, ({ group_id, name }) => writeResult('update_entry_group', entryGroupResultSchema, () => {
       const result = updateEntryGroup(user_id, group_id, name);
       return { user_id, ...result, entries: result.entries.map(toMcpEntry) };
     }));
@@ -143,7 +177,7 @@ export function registerWriteTools(server: McpServer, user_id: number, canWrite:
       inputSchema: z.strictObject({ group_id: positiveId }),
       outputSchema: ungroupResultSchema,
       annotations: changeAnnotations,
-    }, ({ group_id }) => writeResult(ungroupResultSchema, () => {
+    }, ({ group_id }) => writeResult('ungroup_entries', ungroupResultSchema, () => {
       const result = ungroupEntries(user_id, group_id);
       return { user_id, ...result, entries: result.entries.map(toMcpEntry) };
     }));
@@ -153,6 +187,6 @@ export function registerWriteTools(server: McpServer, user_id: number, canWrite:
       inputSchema: z.strictObject({ group_id: positiveId }),
       outputSchema: entryGroupDeleteSchema,
       annotations: changeAnnotations,
-    }, ({ group_id }) => writeResult(entryGroupDeleteSchema, () => ({ user_id, ...deleteEntryGroup(user_id, group_id) })));
+    }, ({ group_id }) => writeResult('delete_entry_group', entryGroupDeleteSchema, () => ({ user_id, ...deleteEntryGroup(user_id, group_id) })));
   }
 }

@@ -24,8 +24,8 @@ export function ChatGPTConnectCard({ onOpen }: { onOpen: (button: HTMLButtonElem
 
 // A guide is a local view of its host sheet. Keep the host's fields mounted so
 // returning never serializes a draft or resets an unfinished numeric field.
-export function useChatGPTGuide() {
-  const [guideOpen, setGuideOpen] = useState(false);
+export function useChatGPTGuide(initialOpen = false) {
+  const [guideOpen, setGuideOpen] = useState(initialOpen);
   const trigger = useRef<HTMLButtonElement | null>(null);
 
   // Run during commit so a delayed initial effect cannot clear the trigger
@@ -134,6 +134,7 @@ export function ChatGPTGuide({ onBack }: { onBack: () => void }) {
 
         <aside className={styles.help}>
           <h2>Need a hand?</h2>
+          <p><strong>Already connected?</strong> Refresh your KCAL connection in ChatGPT to load the updated tool definitions.</p>
           <p><strong>Still missing Add custom MCP server?</strong> Availability depends on your account and workspace permissions. Use ChatGPT on the web; if you’re in a managed workspace, check with your administrator.</p>
           <p><strong>ChatGPT can read but cannot save?</strong> Reconnect KCAL and request both scopes: <code>kcal:read kcal:write</code>. Approve only when the consent page includes read and write access.</p>
           <a href="https://developers.openai.com/api/docs/guides/custom-mcp-server" target="_blank" rel="noopener noreferrer">OpenAI’s connection guide <ArrowRightIcon size={14} /></a>

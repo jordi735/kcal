@@ -3,8 +3,10 @@
 // Macros computed on read; never stored. Every query scoped by req.userId.
 
 import { Router } from 'express';
+import { datesFromStart } from '../../shared/dates.js';
+import { log } from '../log.js';
 import { authMiddleware } from '../auth.js';
-import { DATE_RE, TIME_RE, isObject, isPositiveInt } from '../guards.js';
+import { DATE_RE, isObject, isPositiveInt } from '../guards.js';
 import { statements } from '../statements.js';
 import { readDailyTotals, readDayEntries } from '../reads.js';
 import { parsePositiveInt } from '../util.js';
@@ -13,7 +15,7 @@ import {
   createEntry, deleteEntry, updateEntry,
   createEntryGroup, updateEntryGroup, setEntryGroupTagged, ungroupEntries,
 } from '../writes.js';
-import { isEntryAmount, parseEntryGroupName } from '../../shared/constraints.js';
+import { isEntryAmount, isLocalDate, isLocalTime, parseEntryGroupName } from '../../shared/constraints.js';
 import type { NewEntryBody } from '../types.js';
 
 export const entriesRouter: Router = Router();
@@ -25,8 +27,8 @@ function isNewEntryBody(v: unknown): v is NewEntryBody {
   return (
     isPositiveInt(v.product_id) &&
     isEntryAmount(v.grams) &&
-    typeof v.local_date === 'string' && DATE_RE.test(v.local_date) &&
-    typeof v.local_time === 'string' && TIME_RE.test(v.local_time)
+    typeof v.local_date === 'string' && isLocalDate(v.local_date) &&
+    typeof v.local_time === 'string' && isLocalTime(v.local_time)
   );
 }
 
@@ -58,19 +60,6 @@ function parseTagEntryGroupBody(v: unknown): boolean | null {
   return v.tagged;
 }
 
-function sevenDatesFromStart(start: string): string[] {
-  const [y, m, d] = start.split('-').map(Number) as [number, number, number];
-  const out: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const dt = new Date(y, m - 1, d + i);
-    const yy = dt.getFullYear();
-    const mm = String(dt.getMonth() + 1).padStart(2, '0');
-    const dd = String(dt.getDate()).padStart(2, '0');
-    out.push(`${yy}-${mm}-${dd}`);
-  }
-  return out;
-}
-
 entriesRouter.get('/', (req, res) => {
   const rawDate = req.query.date;
   const date = typeof rawDate === 'string' ? rawDate : '';
@@ -98,11 +87,13 @@ entriesRouter.get('/recent-grams', (req, res) => {
 entriesRouter.get('/week', (req, res) => {
   const rawStart = req.query.start;
   const start = typeof rawStart === 'string' ? rawStart : '';
-  if (!DATE_RE.test(start)) {
+  if (!isLocalDate(start)) {
     res.status(400).json({ error: 'invalid_date' });
     return;
   }
-  const dates = sevenDatesFromStart(start);
+  let dates: string[];
+  try { dates = datesFromStart(start, 7); }
+  catch { res.status(400).json({ error: 'invalid_date' }); return; }
   res.json(readDailyTotals(req.userId!, dates));
 });
 
@@ -114,6 +105,7 @@ entriesRouter.post('/groups', (req, res) => {
   }
 
   const result = createEntryGroup(req.userId!, parsed.name, parsed.entryIds);
+  log.info('entry group created', { userId: req.userId, groupId: result.group.id });
   res.status(201).json(result.group);
 });
 
@@ -129,7 +121,9 @@ entriesRouter.patch('/groups/:id/tagged', (req, res) => {
     return;
   }
 
-  res.json(setEntryGroupTagged(req.userId!, id, tagged).entries);
+  const result = setEntryGroupTagged(req.userId!, id, tagged);
+  log.info('entry group tagged', { userId: req.userId, groupId: id });
+  res.json(result.entries);
 });
 
 entriesRouter.patch('/groups/:id', (req, res) => {
@@ -143,7 +137,9 @@ entriesRouter.patch('/groups/:id', (req, res) => {
     res.status(400).json({ error: 'invalid_group' });
     return;
   }
-  res.json(updateEntryGroup(req.userId!, id, name).group);
+  const result = updateEntryGroup(req.userId!, id, name);
+  log.info('entry group renamed', { userId: req.userId, groupId: id });
+  res.json(result.group);
 });
 
 entriesRouter.delete('/groups/:id', (req, res) => {
@@ -153,6 +149,7 @@ entriesRouter.delete('/groups/:id', (req, res) => {
     return;
   }
   ungroupEntries(req.userId!, id);
+  log.info('entry group dissolved', { userId: req.userId, groupId: id });
   res.json({ ok: true });
 });
 
@@ -161,7 +158,9 @@ entriesRouter.post('/', (req, res) => {
     res.status(400).json({ error: 'invalid_entry' });
     return;
   }
-  res.json(createEntry(req.userId!, req.body));
+  const result = createEntry(req.userId!, req.body);
+  log.info('entry added', { userId: req.userId, entryId: result.id });
+  res.json(result);
 });
 
 entriesRouter.patch('/:id', (req, res) => {
@@ -174,7 +173,9 @@ entriesRouter.patch('/:id', (req, res) => {
     res.status(400).json({ error: 'invalid_entry' });
     return;
   }
-  res.json(updateEntry(req.userId!, id, req.body));
+  const result = updateEntry(req.userId!, id, req.body);
+  log.info('entry updated', { userId: req.userId, entryId: id });
+  res.json(result);
 });
 
 entriesRouter.delete('/:id', (req, res) => {
@@ -184,6 +185,7 @@ entriesRouter.delete('/:id', (req, res) => {
     return;
   }
   const result = deleteEntry(req.userId!, id);
+  log.info('entry deleted', { userId: req.userId, entryId: id });
   res.json({ ok: true, dissolved_group_id: result.dissolved_group_id });
 });
 

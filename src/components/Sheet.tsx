@@ -39,7 +39,7 @@
 
 import { createContext } from 'preact';
 import type { ComponentChildren, JSX } from 'preact';
-import { useCallback, useContext, useEffect, useRef } from 'preact/hooks';
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import { FADE_EXIT_MS } from '../hooks/useFadeClose';
 
 type SheetProps = {
@@ -101,6 +101,7 @@ export function Sheet({ onClose, onDismiss, children, style }: SheetProps) {
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exitingRef = useRef(false);
+  const mountedRef = useRef(true);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const onDismissRef = useRef(onDismiss);
@@ -125,7 +126,7 @@ export function Sheet({ onClose, onDismiss, children, style }: SheetProps) {
   // 'dismiss' is the gesture/backdrop path (always fully tear down, with
   // `onClose` as a fallback for sheets that don't need the distinction).
   const beginExit = useCallback((kind: 'close' | 'dismiss') => {
-    if (exitingRef.current) return;
+    if (!mountedRef.current || exitingRef.current) return;
     exitingRef.current = true;
     notifyExitRef.current?.();
     const sheet = sheetRef.current;
@@ -146,8 +147,9 @@ export function Sheet({ onClose, onDismiss, children, style }: SheetProps) {
 
   // Guard: if this component unmounts mid-exit (e.g. parent force-closes),
   // clear the pending timer so a stale onClose doesn't fire.
-  useEffect(() => {
+  useLayoutEffect(() => {
     return () => {
+      mountedRef.current = false;
       if (exitTimerRef.current !== null) clearTimeout(exitTimerRef.current);
     };
   }, []);

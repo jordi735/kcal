@@ -1,9 +1,9 @@
 // Private, date-only weigh-in CRUD. Every statement is scoped by req.userId.
 
 import { Router } from 'express';
-import { isWeightAmount, MAX_WEIGHT_NOTE_LENGTH } from '../../shared/constraints.js';
+import { isWeightAmount, isLocalDate, MAX_WEIGHT_NOTE_LENGTH } from '../../shared/constraints.js';
 import { authMiddleware } from '../auth.js';
-import { DATE_RE, isObject } from '../guards.js';
+import { isObject } from '../guards.js';
 import { log } from '../log.js';
 import { statements } from '../statements.js';
 import { readWeights, rowToWeight } from '../reads.js';
@@ -17,7 +17,7 @@ weightsRouter.use(authMiddleware);
 function parseWeightInput(value: unknown): WeightInput | null {
   if (!isObject(value)) return null;
   const { local_date, weight_kg, note, peed, pooped } = value;
-  if (typeof local_date !== 'string' || !DATE_RE.test(local_date)) return null;
+  if (typeof local_date !== 'string' || !isLocalDate(local_date)) return null;
   if (!isWeightAmount(weight_kg)) return null;
   if (note !== null && typeof note !== 'string') return null;
   if (peed !== undefined && typeof peed !== 'boolean') return null;

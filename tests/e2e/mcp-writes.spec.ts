@@ -3,7 +3,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import Database from 'better-sqlite3';
 import type {
   EntryGroup, EntryWithMacros, McpDayResult, McpEntry, McpProductSearchResult, Product,
-  McpEntryWriteResult as EntryResult, McpEntryDeleteResult as DeleteEntryResult,
+  McpEntriesCreateResult, McpEntryWriteResult as EntryResult, McpEntryDeleteResult as DeleteEntryResult,
   McpProductWriteResult as ProductResult, McpProductDeleteResult as DeleteProductResult,
 } from '../../shared/types';
 import { fillNutField } from './helpers';
@@ -12,7 +12,7 @@ import { call, createMcpTest, freshUser, mcpEntry, reject, rest, storedRecords }
 
 const READ_TOOLS = ['get_day', 'get_meals', 'get_summary', 'get_week', 'get_weighins', 'search_products'];
 const WRITE_TOOLS = [
-  'create_entry', 'create_entry_group', 'create_product', 'delete_entry', 'delete_entry_group',
+  'create_entries', 'create_entry_group', 'create_product', 'delete_entry', 'delete_entry_group',
   'delete_product', 'ungroup_entries', 'update_entry',
   'update_entry_group', 'update_product',
 ];
@@ -28,7 +28,7 @@ async function createProduct(mcp: Client, name: string, extra: Record<string, un
 }
 
 async function createEntry(mcp: Client, product_id: number, local_date: string, grams = 100): Promise<McpEntry> {
-  return (await call<EntryResult>(mcp, 'create_entry', { product_id, grams, local_date, local_time: '12:30' })).entry;
+  return (await call<McpEntriesCreateResult>(mcp, 'create_entries', { entries: [{ product_id, grams }], local_date, local_time: '12:30' })).entries[0]!;
 }
 
 test('[J-205] MCP write scopes advertise mutation schemas and deny writes to read-only tokens', async ({ page, request, mcp, connection, account }) => {
@@ -36,11 +36,11 @@ test('[J-205] MCP write scopes advertise mutation schemas and deny writes to rea
   const { tools } = await mcp.listTools();
   expect(tools.map((tool) => tool.name).sort()).toEqual([...READ_TOOLS, ...WRITE_TOOLS].sort());
   const outputFields: Record<string, string[]> = {
-    create_entry: ['user_id', 'entry'], update_entry: ['user_id', 'entry'],
+    create_entries: ['user_id', 'entries', 'group', 'totals', 'receipt'], update_entry: ['user_id', 'entry'],
     delete_entry: ['user_id', 'ok', 'entry_id', 'dissolved_group_id'],
-    create_product: ['user_id', 'product'], update_product: ['user_id', 'product'],
+    create_product: ['user_id', 'product', 'receipt'], update_product: ['user_id', 'product'],
     delete_product: ['user_id', 'ok', 'product_id', 'deleted_entry_count'],
-    create_entry_group: ['user_id', 'group', 'entries'],
+    create_entry_group: ['user_id', 'group', 'entries', 'receipt'],
     update_entry_group: ['user_id', 'group', 'entries'],
     ungroup_entries: ['user_id', 'ok', 'group_id', 'entries'],
     delete_entry_group: ['user_id', 'ok', 'group_id', 'deleted_entry_ids'],
@@ -49,7 +49,7 @@ test('[J-205] MCP write scopes advertise mutation schemas and deny writes to rea
     const tool = tools.find((item) => item.name === name)!;
     expect(tool.annotations).toMatchObject({
       readOnlyHint: false, destructiveHint: !name.startsWith('create_'), openWorldHint: false,
-      idempotentHint: !name.startsWith('create_'),
+      idempotentHint: true,
     });
     expect(tool.inputSchema.properties).not.toHaveProperty('user_id');
     expect(tool.inputSchema.additionalProperties).toBe(false);
@@ -76,7 +76,7 @@ test('[J-205] MCP write scopes advertise mutation schemas and deny writes to rea
     await page.close();
     const before = storedRecords();
     for (const [name, args] of [
-      ['create_entry', { product_id: product.id, grams: 50, local_date: entry.local_date, local_time: '09:00' }],
+      ['create_entries', { entries: [{ product_id: product.id, grams: 50 }], local_date: entry.local_date, local_time: '09:00' }],
       ['update_entry', { entry_id: entry.id, grams: 50 }],
       ['delete_entry', { entry_id: entry.id }],
       ['create_product', { name: `MCP denied ${account.user.id}`, unit: 'g', per100: NUTRITION }],
@@ -193,12 +193,18 @@ test('[J-208] MCP writes reject foreign and missing products and entries without
     const foreignEntry = await rest<EntryWithMacros>(request, other.token, 'post', '/entries', {
       product_id: foreign.id, grams: 100, local_date: ownEntry.local_date, local_time: '12:30',
     });
+    await rest(request, other.token, 'post', '/settings/goal-history/initialize', {
+      time_zone: await otherPage.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone),
+    });
     await otherPage.close();
     await page.close();
-    const before = storedRecords();
+    // Already-dispatched app boot reads may finish their sliding auth touch
+    // after page close. Keep session identity and all business/receipt rows.
+    const snapshot = () => storedRecords({ ignoreSessionActivity: true });
+    const before = snapshot();
     const missingId = Number.MAX_SAFE_INTEGER;
     for (const product_id of [foreign.id, shared.id, missingId]) {
-      await reject(mcp, 'create_entry', { product_id, grams: 100, local_date: ownEntry.local_date, local_time: '12:30' }, 'product_not_found');
+      await reject(mcp, 'create_entries', { entries: [{ product_id, grams: 100 }], local_date: ownEntry.local_date, local_time: '12:30' }, 'product_not_found');
       await reject(mcp, 'update_product', { product_id, name: 'Not owned' }, 'not_found');
       await reject(mcp, 'delete_product', { product_id }, 'not_found');
     }
@@ -206,7 +212,7 @@ test('[J-208] MCP writes reject foreign and missing products and entries without
       await reject(mcp, 'update_entry', { entry_id, grams: 1 }, 'not_found');
       await reject(mcp, 'delete_entry', { entry_id }, 'not_found');
     }
-    expect(storedRecords()).toEqual(before);
+    expect(snapshot()).toEqual(before);
     expect((await call<McpDayResult>(mcp, 'get_day', { date: ownEntry.local_date })).entries).toEqual([ownEntry]);
   } finally {
     await otherContext.close();
@@ -216,28 +222,28 @@ test('[J-208] MCP writes reject foreign and missing products and entries without
 test('[J-209] MCP write validation rejects malformed and unsupported inputs without mutation', async ({ page, mcp, account }) => {
   const product = await createProduct(mcp, `MCP validation ${account.user.id}`);
   const entry = await createEntry(mcp, product.id, '2024-02-29');
-  const newEntry = { product_id: product.id, grams: 100, local_date: entry.local_date, local_time: '12:30' };
+  const newEntry = { entries: [{ product_id: product.id, grams: 100 }], local_date: entry.local_date, local_time: '12:30' };
   const newProduct = { name: `MCP invalid ${account.user.id}`, unit: 'g', per100: NUTRITION };
   await page.close();
   const before = storedRecords();
   for (const [name, args] of [
-    ['create_entry', {}],
-    ['create_entry', { ...newEntry, product_id: 0 }],
-    ['create_entry', { ...newEntry, product_id: 1.5 }],
-    ['create_entry', { ...newEntry, grams: 0 }],
-    ['create_entry', { ...newEntry, grams: -1 }],
-    ['create_entry', { ...newEntry, grams: 1e308 }],
-    ['create_entry', { ...newEntry, grams: 1e306 }],
-    ['create_entry', { ...newEntry, grams: '100' }],
-    ['create_entry', { ...newEntry, local_date: '2023-02-29' }],
-    ['create_entry', { ...newEntry, local_date: '2024-04-31' }],
-    ['create_entry', { ...newEntry, local_date: '2024-02-29T00:00:00Z' }],
-    ['create_entry', { ...newEntry, local_time: '24:00' }],
-    ['create_entry', { ...newEntry, local_time: '12:60' }],
-    ['create_entry', { ...newEntry, local_time: '9:00' }],
-    ['create_entry', { ...newEntry, local_time: '12:30:00' }],
-    ['create_entry', { ...newEntry, user_id: account.user.id }],
-    ['create_entry', { ...newEntry, group_id: 1 }],
+    ['create_entries', {}],
+    ['create_entries', { ...newEntry, entries: [{ grams: 100, product_id: 0 }] }],
+    ['create_entries', { ...newEntry, entries: [{ grams: 100, product_id: 1.5 }] }],
+    ['create_entries', { ...newEntry, entries: [{ product_id: product.id, grams: 0 }] }],
+    ['create_entries', { ...newEntry, entries: [{ product_id: product.id, grams: -1 }] }],
+    ['create_entries', { ...newEntry, entries: [{ product_id: product.id, grams: 1e308 }] }],
+    ['create_entries', { ...newEntry, entries: [{ product_id: product.id, grams: 1e306 }] }],
+    ['create_entries', { ...newEntry, entries: [{ product_id: product.id, grams: '100' }] }],
+    ['create_entries', { ...newEntry, local_date: '2023-02-29' }],
+    ['create_entries', { ...newEntry, local_date: '2024-04-31' }],
+    ['create_entries', { ...newEntry, local_date: '2024-02-29T00:00:00Z' }],
+    ['create_entries', { ...newEntry, local_time: '24:00' }],
+    ['create_entries', { ...newEntry, local_time: '12:60' }],
+    ['create_entries', { ...newEntry, local_time: '9:00' }],
+    ['create_entries', { ...newEntry, local_time: '12:30:00' }],
+    ['create_entries', { ...newEntry, user_id: account.user.id }],
+    ['create_entries', { ...newEntry, group_id: 1 }],
     ['update_entry', { entry_id: entry.id }],
     ['update_entry', { entry_id: 0, grams: 100 }],
     ['update_entry', { entry_id: entry.id, grams: -1 }],
@@ -394,7 +400,7 @@ test('[J-223] MCP and REST enforce the UI amount minimum while REST preserves le
     const entry = entries.find((item) => item.product.id === product.id)!;
     for (const grams of [-1, 0, 0.5, 0.999]) {
       const create = { product_id: product.id, grams, local_date: date, local_time: '12:30' };
-      await reject(mcp, 'create_entry', create);
+      await reject(mcp, 'create_entries', { entries: [{ product_id: create.product_id, grams }], local_date: date, local_time: create.local_time });
       await reject(mcp, 'update_entry', { entry_id: entry.id, grams });
       const createResponse = await request.post('/entries', { headers, data: create });
       expect(createResponse.status()).toBe(400);
@@ -467,8 +473,8 @@ test('[J-224] MCP blocks temporary-food reuse while preserving the UI flow and e
   await page.close();
   const before = storedRecords();
   for (const product of [entry.product, unlogged]) {
-    await reject(mcp, 'create_entry', {
-      product_id: product.id, grams: 50, local_date: entry.local_date, local_time: '12:30',
+    await reject(mcp, 'create_entries', {
+      entries: [{ product_id: product.id, grams: 50 }], local_date: entry.local_date, local_time: '12:30',
     }, 'product_not_loggable');
   }
   expect(storedRecords()).toEqual(before);

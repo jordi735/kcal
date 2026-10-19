@@ -78,7 +78,7 @@ test('[J-246] foreground goal refresh preserves drafts and an old read cannot un
   }
 
   const remote: Goals = { kcal: 2046, protein: 104, carbs: 204, fat: 64 };
-  const updated = await request.put('/settings', { headers, data: remote });
+  const updated = await request.put('/settings', { headers, data: { ...remote, time_zone: 'UTC' } });
   expect(updated.ok(), await updated.text()).toBeTruthy();
   await resume(page);
   await expectGoals(page, remote);
@@ -91,7 +91,7 @@ test('[J-246] foreground goal refresh preserves drafts and an old read cannot un
   const held = await holdNextGoalRead(page);
   try {
     await resume(page);
-    expect(await held.captured).toEqual(remote);
+    expect(await held.captured).toMatchObject(remote);
     await sheet.getByRole('button', { name: 'Save', exact: true }).tap();
     await expect(sheet).toHaveCount(0);
     await expectGoals(page, saved);
@@ -100,7 +100,7 @@ test('[J-246] foreground goal refresh preserves drafts and an old read cannot un
     await expectGoals(page, saved);
     const persisted = await request.get('/settings', { headers });
     expect(persisted.ok()).toBeTruthy();
-    expect(await persisted.json()).toEqual(saved);
+    expect(await persisted.json()).toMatchObject(saved);
     await page.getByRole('button', { name: 'Settings', exact: true }).tap();
     await expect(sheet.getByText('Daily goals', { exact: true })).toBeVisible();
     for (const [index, value] of [saved.protein, saved.carbs, saved.fat, saved.kcal].entries()) {
@@ -118,14 +118,15 @@ test('[J-247] an older foreground goal response cannot overwrite a newer refresh
   const headers = await openFreshApp(page, request, 'refresh-goal-order');
   const initial = await request.get('/settings', { headers });
   expect(initial.ok()).toBeTruthy();
-  const oldGoals = await initial.json() as Goals;
+  const { kcal, protein, carbs, fat } = await initial.json() as Goals;
+  const oldGoals = { kcal, protein, carbs, fat };
   await expectGoals(page, oldGoals);
   const held = await holdNextGoalRead(page);
   try {
     await resume(page);
-    expect(await held.captured).toEqual(oldGoals);
+    expect(await held.captured).toMatchObject(oldGoals);
     const fresh: Goals = { kcal: 1947, protein: 147, carbs: 247, fat: 47 };
-    const updated = await request.put('/settings', { headers, data: fresh });
+    const updated = await request.put('/settings', { headers, data: { ...fresh, time_zone: 'UTC' } });
     expect(updated.ok(), await updated.text()).toBeTruthy();
 
     await resume(page);

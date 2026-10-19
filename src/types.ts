@@ -1,5 +1,8 @@
 export type {
   Macros,
+  SettingsSnapshot,
+  GoalHistoryItem,
+  SettingsSaveResult,
   Product,
   ProductTemplate,
   BarcodeLookupResponse,

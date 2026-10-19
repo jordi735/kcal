@@ -87,7 +87,7 @@ test('[J-225] goal revalidation and saves do not repeat day or week reads', asyn
   await frame(page);
   const { token } = await account(page);
   const changed = await request.put('/settings', {
-    headers: { Authorization: `Bearer ${token}` }, data: { kcal: 1234, protein: 56, carbs: 78, fat: 90 },
+    headers: { Authorization: `Bearer ${token}` }, data: { kcal: 1234, protein: 56, carbs: 78, fat: 90, time_zone: 'UTC' },
   });
   expect(changed.ok()).toBe(true);
   const release = deferred();
@@ -108,7 +108,8 @@ test('[J-225] goal revalidation and saves do not repeat day or week reads', asyn
   try {
     await page.reload();
     await seen.promise;
-    await expect(page.getByText(/^\/ 2400$/)).toBeVisible();
+    // Undated cached defaults cannot stand in for the selected day's timeline.
+    await expect(page.getByText('Loading goals…', { exact: true })).toBeVisible();
     await expect.poll(() => reads).toEqual({ days: 1, weeks: 3 });
     release.resolve();
     await expect(page.getByText(/^\/ 1234$/)).toBeVisible();
@@ -230,15 +231,18 @@ test('[J-230] a replacement error retains its full notification lifetime', async
   await expect(page.getByText('invalid_product', { exact: true })).toHaveCount(0);
 });
 
-test('[J-231] reversed entry responses preserve insertion order and totals', async ({ page, request }) => {
+test('[J-231] serialized entry requests preserve insertion order and totals', async ({ page, request }) => {
   await signInFresh(page, request, 'parity-order');
   const { token } = await account(page);
   const first = await product(request, token, 'E2E Parity Order First');
   const second = await product(request, token, 'E2E Parity Order Second');
   const release = deferred();
   const seen = deferred();
+  let posts = 0;
   await page.route('**/entries', async (route) => {
-    if (route.request().method() !== 'POST' || route.request().postDataJSON().product_id !== first.id) return route.continue();
+    if (route.request().method() !== 'POST') return route.continue();
+    posts++;
+    if (route.request().postDataJSON().product_id !== first.id) return route.continue();
     const response = await route.fetch();
     seen.resolve();
     await release.promise;
@@ -248,9 +252,11 @@ test('[J-231] reversed entry responses preserve insertion order and totals', asy
     await logFood(page, first.name, '100');
     await seen.promise;
     await logFood(page, second.name, '200');
-    await expect(page.locator('.food-row')).toHaveCount(1);
+    await expect(page.locator('.food-row')).toHaveCount(0);
+    expect(posts).toBe(1);
     release.resolve();
     await expect(page.locator('.food-row')).toHaveCount(2);
+    expect(posts).toBe(2);
     await expect(page.locator('.food-row').nth(0)).toContainText(first.name);
     await expect(page.locator('.food-row').nth(1)).toContainText(second.name);
     await expect(page.getByText('1200 kcal', { exact: true })).toBeVisible();

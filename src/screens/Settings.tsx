@@ -1,15 +1,20 @@
-import { useState } from 'preact/hooks';
-import type { Goals } from '../types';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import type { Goals, GoalHistoryItem } from '../types';
 import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
 import { cssVars } from '../styles';
 import { Sheet, useSheetClose } from '../components/Sheet';
 import { ChatGPTConnectCard, ChatGPTGuide, useChatGPTGuide } from '../components/ChatGPTGuide';
+import { McpNotice } from '../components/McpNotice';
 import { MinusIcon, PlusIcon } from '../components/Icon';
 import { useFocusClearableNumber } from '../hooks/useFocusClearableNumber';
 import styles from './Settings.module.css';
 
 type SettingsProps = {
+  initialGuide?: boolean;
   goals: Goals;
+  goalHistory: GoalHistoryItem[] | undefined;
+  noticeVersion: number | null;
+  onDismissNotice: (version: number) => Promise<void>;
   onSave: (goals: Goals) => Promise<void>;
   onClose: () => void;
   onLogout: () => void;
@@ -17,13 +22,15 @@ type SettingsProps = {
 };
 
 export function Settings(props: SettingsProps) {
-  const { guideOpen, openGuide, closeGuide } = useChatGPTGuide();
+  const { guideOpen, openGuide, closeGuide } = useChatGPTGuide(props.initialGuide);
+  const { guideOpen: historyOpen, openGuide: openHistory, closeGuide: closeHistory } = useChatGPTGuide();
   return (
     <Sheet onClose={props.onClose} style={cssVars({ '--sheet-height': '92%' })}>
-      <div className={styles.pane} hidden={guideOpen}>
-        <SettingsInner {...props} active={!guideOpen} onOpenGuide={openGuide} />
+      <div className={styles.pane} hidden={guideOpen || historyOpen}>
+        <SettingsInner {...props} active={!guideOpen && !historyOpen} onOpenGuide={openGuide} onOpenHistory={openHistory} />
       </div>
       {guideOpen && <ChatGPTGuide onBack={closeGuide} />}
+      {historyOpen && <GoalHistory history={props.goalHistory} onBack={closeHistory} />}
     </Sheet>
   );
 }
@@ -31,6 +38,7 @@ export function Settings(props: SettingsProps) {
 type InnerProps = Omit<SettingsProps, 'onClose'> & {
   active: boolean;
   onOpenGuide: (button: HTMLButtonElement) => void;
+  onOpenHistory: (button: HTMLButtonElement) => void;
 };
 
 type GoalFieldProps = {
@@ -111,7 +119,7 @@ function LegendDot({ macroKey, label }: LegendDotProps) {
   );
 }
 
-function SettingsInner({ goals, onSave, onLogout, userEmail, active, onOpenGuide }: InnerProps) {
+function SettingsInner({ goals, noticeVersion, onDismissNotice, onSave, onLogout, userEmail, active, onOpenGuide, onOpenHistory }: InnerProps) {
   const close = useSheetClose();
   const [kcal, setKcal] = useState(goals.kcal);
   const [p, setP] = useState(goals.protein);
@@ -144,7 +152,10 @@ function SettingsInner({ goals, onSave, onLogout, userEmail, active, onOpenGuide
       await onSave({ kcal, protein: p, carbs: c, fat: f });
       close();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed');
+      const message = e instanceof Error ? e.message : 'Save failed';
+      setError(message === 'goal_date_before_latest'
+        ? 'Your local date is earlier than your latest saved goal. Try again when your local date has caught up.'
+        : message === 'app_refresh_required' ? 'Refresh KCAL before saving your goals.' : message);
     } finally {
       setSaving(false);
     }
@@ -168,6 +179,7 @@ function SettingsInner({ goals, onSave, onLogout, userEmail, active, onOpenGuide
       <div data-sheet-scroll={active ? '' : undefined} className={`no-scroll ${styles.content}`}>
         <div className={styles.section}>
           <div className={`mono tiny caps ${styles.sectionLabel}`}>Daily goals</div>
+          <p className="mono tiny">Changes apply from today. Earlier days keep their recorded goals.</p>
           {MACRO_KEYS.map((k) => (
             <GoalField
               key={k}
@@ -219,6 +231,11 @@ function SettingsInner({ goals, onSave, onLogout, userEmail, active, onOpenGuide
           )}
         </div>
 
+        <div className={styles.section}>
+          <button type="button" className="mono tiny caps" onClick={(event) => onOpenHistory(event.currentTarget)}>Goal history</button>
+        </div>
+
+        <McpNotice version={noticeVersion} onDismiss={onDismissNotice} onOpenGuide={onOpenGuide} />
         <div className={styles.connectionSection}>
           <ChatGPTConnectCard onOpen={onOpenGuide} />
         </div>
@@ -240,4 +257,24 @@ function SettingsInner({ goals, onSave, onLogout, userEmail, active, onOpenGuide
       </div>
     </>
   );
+}
+
+function GoalHistory({ history, onBack }: { history: GoalHistoryItem[] | undefined; onBack: () => void }) {
+  const heading = useRef<HTMLHeadingElement | null>(null);
+  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
+  return <>
+    <div className={styles.header}>
+      <button type="button" onClick={onBack} className={`mono tiny caps ${styles.closeBtn}`}>Back</button>
+    </div>
+    <div data-sheet-scroll className={`no-scroll ${styles.content}`}>
+      <h2 ref={heading} tabIndex={-1}>Goal history</h2>
+      <p className="mono tiny">Goals carry forward until the next change. Dates before the first record have no recorded goal.</p>
+      {history === undefined ? <p className="mono tiny">Loading goals…</p> : [...history].reverse().map((item) => (
+        <div key={item.effective_date} className={styles.historyRow}>
+          <time className="mono tiny" dateTime={item.effective_date}>{item.effective_date}</time>
+          <span className="mono tiny">{item.goals.kcal} kcal · P {item.goals.protein}g · C {item.goals.carbs}g · F {item.goals.fat}g</span>
+        </div>
+      ))}
+    </div>
+  </>;
 }

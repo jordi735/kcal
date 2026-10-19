@@ -11,9 +11,11 @@ import {
   MAX_PRODUCT_MACRO_GRAMS_PER100, MAX_PRODUCT_NAME_LENGTH,
 } from '../../shared/constraints.js';
 import { authMiddleware } from '../auth.js';
+import { foldProductSearchText, normalizeBrandName, normalizeProductName } from '../../shared/normalize.js';
 import { isObject } from '../guards.js';
 import { log } from '../log.js';
-import { rowToProduct, searchOwnProducts } from '../reads.js';
+import { searchOwnProducts } from '../reads.js';
+import { lookupBarcode, rowToProduct, searchProductPage } from '../products.js';
 import { statements } from '../statements.js';
 import { parsePositiveInt } from '../util.js';
 import { handleWriteError } from '../middleware/write-error.js';
@@ -25,7 +27,6 @@ import type {
   ProductRow,
   ProductRowWithOwner,
   ProductSearchRow,
-  ProductTemplate,
   UpdateProductBody,
 } from '../types.js';
 
@@ -37,23 +38,6 @@ function searchRowToProduct(r: ProductSearchRow): Product {
   return { ...rowToProduct(r), is_mine: r.is_mine === 1 };
 }
 
-// Build the cross-user prefill payload by hand so created_by/id/is_temp can't
-// leak — the source row carries fields we must not expose to the scanning user.
-function rowToTemplate(r: ProductRow): ProductTemplate {
-  return {
-    name: r.name,
-    brand: r.brand,
-    unit: r.unit === 'ml' ? 'ml' : 'g',
-    barcode: r.barcode,
-    per100: {
-      kcal: r.kcal_per100,
-      protein: r.protein_per100,
-      carbs: r.carbs_per100,
-      fat: r.fat_per100,
-    },
-  };
-}
-
 productsRouter.get('/search', (req, res) => {
   const rawQ = req.query.q;
   const q = typeof rawQ === 'string' ? rawQ.trim() : '';
@@ -61,15 +45,15 @@ productsRouter.get('/search', (req, res) => {
     res.json([]);
     return;
   }
-  const pattern = `%${q}%`;
+  const query = foldProductSearchText(q);
   // ?global=1 opts into the blended catalog (own + cross-user barcoded).
   // Default (absent/any-other-value) returns own-library only.
   const rawGlobal = req.query.global;
   const global = typeof rawGlobal === 'string' && rawGlobal === '1';
   if (global) {
     const rows = statements.products.search.all(
-      pattern,
-      pattern,
+      query,
+      query,
       req.userId!,
       req.userId!,
       req.userId!,
@@ -81,8 +65,7 @@ productsRouter.get('/search', (req, res) => {
 });
 
 productsRouter.get('/recent', (req, res) => {
-  const rows = statements.products.recent.all(req.userId!, req.userId!) as ProductRow[];
-  res.json(rows.map(rowToProduct));
+  res.json(searchProductPage(req.userId!, { sort: 'recent', limit: 20, offset: 0 }).products);
 });
 
 productsRouter.get('/all', (req, res) => {
@@ -92,21 +75,21 @@ productsRouter.get('/all', (req, res) => {
 
 productsRouter.get('/barcode/:code', (req, res) => {
   const code = req.params.code.trim();
-  if (code === '') {
+  if (code === '' || code.length > MAX_PRODUCT_BARCODE_LENGTH) {
     res.status(400).json({ error: 'invalid_barcode' });
     return;
   }
-  const own = statements.products.byBarcode.get(req.userId!, code) as ProductRow | undefined;
+  const found = lookupBarcode(req.userId!, code);
+  const own = found.products[0];
   if (own !== undefined) {
-    const response: BarcodeLookupResponse = { kind: 'own', product: rowToProduct(own) };
+    const response: BarcodeLookupResponse = { kind: 'own', product: own };
     res.json(response);
     return;
   }
-  const template = statements.products.byBarcodeAnyUser.get(code) as ProductRow | undefined;
-  if (template !== undefined) {
+  if (found.template !== null) {
     const response: BarcodeLookupResponse = {
       kind: 'template',
-      template: rowToTemplate(template),
+      template: found.template,
     };
     res.json(response);
     return;
@@ -127,7 +110,7 @@ productsRouter.post('/adopt/:id', (req, res) => {
   }
   // Privacy guard: only barcoded products can be adopted. Without this, the
   // numeric :id would let any user clone any other user's private products.
-  if (source.barcode === null) {
+  if (source.barcode === null || source.is_temp !== 0) {
     res.status(400).json({ error: 'not_adoptable' });
     return;
   }
@@ -191,6 +174,8 @@ function isProductBaseBody(v: unknown): v is UpdateProductBody {
   const { name, brand, unit, barcode } = v;
   if (typeof name !== 'string' || name.trim().length === 0 || name.length > MAX_PRODUCT_NAME_LENGTH) return false;
   if (brand !== null && (typeof brand !== 'string' || brand.length > MAX_PRODUCT_BRAND_LENGTH)) return false;
+  if (normalizeProductName(name).length > MAX_PRODUCT_NAME_LENGTH) return false;
+  if ((normalizeBrandName(brand)?.length ?? 0) > MAX_PRODUCT_BRAND_LENGTH) return false;
   if (unit !== 'g' && unit !== 'ml') return false;
   if (barcode !== null && (typeof barcode !== 'string' || barcode.length > MAX_PRODUCT_BARCODE_LENGTH)) return false;
   if (!isPer100(v.per100)) return false;
@@ -206,7 +191,9 @@ productsRouter.post('/', (req, res) => {
     res.status(400).json({ error: 'invalid_product' });
     return;
   }
-  res.status(201).json(createProduct(req.userId!, req.body));
+  const product = createProduct(req.userId!, req.body);
+  log.info('product created', { userId: req.userId, productId: product.id, isTemp: product.is_temp });
+  res.status(201).json(product);
 });
 
 productsRouter.put('/:id', (req, res) => {
@@ -219,7 +206,9 @@ productsRouter.put('/:id', (req, res) => {
     res.status(400).json({ error: 'invalid_product' });
     return;
   }
-  res.json(updateProduct(req.userId!, id, req.body));
+  const product = updateProduct(req.userId!, id, req.body);
+  log.info('product updated', { userId: req.userId, productId: id });
+  res.json(product);
 });
 
 // Destructive: removes the product AND every entry this user logged against it
@@ -233,7 +222,8 @@ productsRouter.delete('/:id', (req, res) => {
     res.status(400).json({ error: 'invalid_id' });
     return;
   }
-  deleteProduct(req.userId!, id);
+  const result = deleteProduct(req.userId!, id);
+  log.info('product deleted', { userId: req.userId, productId: id, entryCount: result.deleted_entry_count });
   res.json({ ok: true });
 });
 

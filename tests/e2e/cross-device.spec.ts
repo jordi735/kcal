@@ -35,7 +35,7 @@ test('[J-167] goals updated on another device appear after page reload (boot rev
   const fresh = { kcal: 1234, protein: 56, carbs: 78, fat: 90 };
   const putRes = await request.put('/settings', {
     headers: { Authorization: `Bearer ${token}` },
-    data: fresh,
+    data: { ...fresh, time_zone: 'UTC' },
   });
   expect(putRes.ok(), await putRes.text()).toBeTruthy();
 

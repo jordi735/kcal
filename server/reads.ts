@@ -2,46 +2,30 @@
 // from verified credentials; every statement keeps its owner binding.
 
 import { statements } from './statements.js';
+import { searchProductPage } from './products.js';
+export { rowToProduct } from './products.js';
 import { scaleMacros, sumMacros } from '../shared/macros.js';
 export { sumMacros } from '../shared/macros.js';
 import type {
-  EntryGroup, EntryGroupRow, EntryJoinRow, EntryWithMacros, GoalsRow, Macros, SummaryResult, Product, ProductRow,
+  EntryGroup, EntryGroupRow, EntryJoinRow, EntryWithMacros, GoalsRow, GoalHistoryRow, Macros, SummaryResult, Product,
   WeightEntry, WeightRow, WeightSummaryPoint, WeekSumRow,
 } from './types.js';
 
 export function readGoals(userId: number): Macros | null {
+  const latest = statements.goalHistory.latest.get(userId) as GoalHistoryRow | undefined;
+  if (latest !== undefined) return {
+    kcal: latest.kcal, protein: latest.protein, carbs: latest.carbs, fat: latest.fat,
+  };
   const row = statements.users.selectGoalsById.get(userId) as GoalsRow | undefined;
   return row === undefined ? null : {
-    kcal: row.goal_kcal,
-    protein: row.goal_protein,
-    carbs: row.goal_carbs,
-    fat: row.goal_fat,
-  };
-}
-
-export function rowToProduct(r: ProductRow): Product {
-  return {
-    id: r.id,
-    name: r.name,
-    brand: r.brand,
-    unit: r.unit === 'ml' ? 'ml' : 'g',
-    barcode: r.barcode,
-    per100: {
-      kcal: r.kcal_per100,
-      protein: r.protein_per100,
-      carbs: r.carbs_per100,
-      fat: r.fat_per100,
-    },
-    is_temp: r.is_temp === 1,
+    kcal: row.goal_kcal, protein: row.goal_protein, carbs: row.goal_carbs, fat: row.goal_fat,
   };
 }
 
 export function searchOwnProducts(userId: number, query: string): Product[] {
   const q = query.trim();
   if (q === '') return [];
-  const pattern = `%${q}%`;
-  const rows = statements.products.searchOwn.all(userId, pattern, pattern) as ProductRow[];
-  return rows.map(rowToProduct);
+  return searchProductPage(userId, { query: q, sort: 'name', limit: 50, offset: 0 }).products;
 }
 
 export function rowToEntry(r: EntryJoinRow): EntryWithMacros {

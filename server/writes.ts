@@ -3,16 +3,15 @@
 // and follow-up reads stay in one transaction so failures leave no partial work.
 
 import { normalizeBrandName, normalizeProductName } from '../shared/normalize.js';
-import { isEntryAmount, isLocalDate, parseEntryGroupName } from '../shared/constraints.js';
+import { isEntryAmount, isLocalDate, isLocalTime, parseEntryGroupName, MAX_PRODUCT_NAME_LENGTH, MAX_PRODUCT_BRAND_LENGTH, MAX_PRODUCT_BARCODE_LENGTH } from '../shared/constraints.js';
 import { db } from './db.js';
 import { isPositiveInt } from './guards.js';
-import { log } from './log.js';
-import { readGroupEntries, rowToEntry, rowToEntryGroup, rowToProduct } from './reads.js';
+import { readGroupEntries, rowToEntry, rowToEntryGroup, rowToProduct, sumMacros } from './reads.js';
 import { statements } from './statements.js';
 import { trimOrNull } from './util.js';
 import type {
   EntryGroupRow, EntryJoinRow, EntryMembershipRow, EntryUpdate, EntryWithMacros,
-  EntryGroupResult, UngroupResult, EntryGroupDeleteResult,
+  EntryGroupResult, UngroupResult, EntryGroupDeleteResult, EntryGroup, Macros,
   NewEntryBody, NewProductBody, Product, ProductPatch, ProductRow,
 } from './types.js';
 
@@ -24,7 +23,9 @@ export class WriteError extends Error {
 }
 
 export function createEntry(userId: number, body: NewEntryBody, savedOnly = false): EntryWithMacros {
-  if (!isEntryAmount(body.grams)) throw new WriteError(400, 'invalid_entry');
+  if (!isEntryAmount(body.grams) || !isLocalDate(body.local_date) || !isLocalTime(body.local_time)) {
+    throw new WriteError(400, 'invalid_entry');
+  }
   const entry = db.transaction(() => {
     const product = statements.products.selectById.get(userId, body.product_id) as ProductRow | undefined;
     if (product === undefined) throw new WriteError(404, 'product_not_found');
@@ -43,14 +44,32 @@ export function createEntry(userId: number, body: NewEntryBody, savedOnly = fals
     if (row === undefined) throw new WriteError(500, 'insert_failed');
     return rowToEntry(row);
   })();
-  log.info('entry added', {
-    userId,
-    entryId: entry.id,
-    productId: entry.product.id,
-    grams: entry.grams,
-    date: entry.local_date,
-  });
   return entry;
+}
+
+// The MCP receipt adds an outer transaction; nested helpers use savepoints.
+export function createEntries(userId: number, body: {
+  entries: { product_id: number; grams: number }[];
+  local_date: string;
+  local_time: string;
+  group_name?: string;
+}): { entries: EntryWithMacros[]; group: EntryGroup | null; totals: Macros } {
+  if (body.entries.length < 1 || body.entries.length > 50) throw new WriteError(400, 'invalid_entries');
+  if (body.group_name !== undefined && (body.entries.length < 2 || parseEntryGroupName(body.group_name) === null)) {
+    throw new WriteError(400, 'invalid_group');
+  }
+  return db.transaction(() => {
+    let entries = body.entries.map((item) => createEntry(userId, {
+      ...item, local_date: body.local_date, local_time: body.local_time,
+    }, true));
+    let group: EntryGroup | null = null;
+    if (body.group_name !== undefined) {
+      const grouped = createEntryGroup(userId, body.group_name, entries.map((entry) => entry.id));
+      group = grouped.group;
+      entries = grouped.entries;
+    }
+    return { entries, group, totals: sumMacros(entries.map((entry) => entry.macros)) };
+  })();
 }
 
 export function updateEntry(userId: number, entryId: number, body: EntryUpdate): EntryWithMacros {
@@ -75,12 +94,6 @@ export function updateEntry(userId: number, entryId: number, body: EntryUpdate):
     if (row === undefined) throw new WriteError(404, 'not_found');
     return rowToEntry(row);
   })();
-  log.info('entry updated', {
-    userId,
-    entryId: entry.id,
-    grams: entry.grams,
-    tagged: entry.tagged ? 1 : 0,
-  });
   return entry;
 }
 
@@ -108,7 +121,6 @@ export function deleteEntry(userId: number, entryId: number): {
     }
     return null;
   })();
-  log.info('entry deleted', { userId, entryId, dissolvedGroupId });
   return { ok: true, entry_id: entryId, dissolved_group_id: dissolvedGroupId };
 }
 
@@ -152,9 +164,6 @@ export function createEntryGroup(
     const group = requireEntryGroup(userId, groupId);
     return { group: rowToEntryGroup(group), entries: readGroupEntries(userId, groupId) };
   })();
-  log.info('entry group created', {
-    userId, groupId: result.group.id, date: result.group.local_date, entryCount: result.entries.length,
-  });
   return result;
 }
 
@@ -173,7 +182,6 @@ export function updateEntryGroup(
       entries: readGroupEntries(userId, groupId),
     };
   })();
-  log.info('entry group renamed', { userId, groupId });
   return result;
 }
 
@@ -186,7 +194,6 @@ export function setEntryGroupTagged(
     statements.entries.updateTaggedForGroup.run(tagged ? 1 : 0, userId, groupId);
     return { group: rowToEntryGroup(group), entries: readGroupEntries(userId, groupId) };
   })();
-  log.info('entry group tagged', { userId, groupId, tagged });
   return result;
 }
 
@@ -205,7 +212,6 @@ export function ungroupEntries(userId: number, groupId: number): UngroupResult {
       return rowToEntry(row);
     });
   })();
-  log.info('entry group dissolved', { userId, groupId });
   return { ok: true, group_id: groupId, entries };
 }
 
@@ -221,17 +227,25 @@ export function deleteEntryGroup(
     }
     return children.map((child) => child.id);
   })();
-  log.info('entry group deleted', { userId, groupId, entryCount: deletedEntryIds.length });
   return { ok: true, group_id: groupId, deleted_entry_ids: deletedEntryIds };
 }
 
 export function createProduct(userId: number, body: NewProductBody): Product {
+  const name = normalizeProductName(body.name);
+  const brand = normalizeBrandName(body.brand);
+  const barcode = trimOrNull(body.barcode);
+  if (body.name.length > MAX_PRODUCT_NAME_LENGTH || name.length === 0 || name.length > MAX_PRODUCT_NAME_LENGTH
+    || (body.brand !== null && body.brand.length > MAX_PRODUCT_BRAND_LENGTH)
+    || (brand !== null && brand.length > MAX_PRODUCT_BRAND_LENGTH)
+    || (body.barcode !== null && body.barcode.length > MAX_PRODUCT_BARCODE_LENGTH)) {
+    throw new WriteError(400, 'invalid_product');
+  }
   const product = db.transaction(() => {
     const inserted = statements.products.insert.run(
-      normalizeProductName(body.name),
-      normalizeBrandName(body.brand),
+      name,
+      brand,
       body.unit,
-      trimOrNull(body.barcode),
+      barcode,
       body.per100.kcal,
       body.per100.protein,
       body.per100.carbs,
@@ -246,7 +260,6 @@ export function createProduct(userId: number, body: NewProductBody): Product {
     if (row === undefined) throw new WriteError(500, 'insert_failed');
     return rowToProduct(row);
   })();
-  log.info('product created', { userId, productId: product.id, isTemp: product.is_temp });
   return product;
 }
 
@@ -254,11 +267,19 @@ export function updateProduct(userId: number, productId: number, body: ProductPa
   const product = db.transaction(() => {
     const current = statements.products.selectById.get(userId, productId) as ProductRow | undefined;
     if (current === undefined) throw new WriteError(404, 'not_found');
+    const name = body.name === undefined ? current.name : normalizeProductName(body.name);
+    const brand = body.brand === undefined ? current.brand : normalizeBrandName(body.brand);
+    const barcode = body.barcode === undefined ? current.barcode : trimOrNull(body.barcode);
+    if ((body.name !== undefined && (body.name.length > MAX_PRODUCT_NAME_LENGTH || name.length === 0 || name.length > MAX_PRODUCT_NAME_LENGTH))
+      || (body.brand !== undefined && body.brand !== null && (body.brand.length > MAX_PRODUCT_BRAND_LENGTH || (brand?.length ?? 0) > MAX_PRODUCT_BRAND_LENGTH))
+      || (body.barcode !== undefined && body.barcode !== null && body.barcode.length > MAX_PRODUCT_BARCODE_LENGTH)) {
+      throw new WriteError(400, 'invalid_product');
+    }
     const result = statements.products.update.run(
-      normalizeProductName(body.name ?? current.name),
-      normalizeBrandName(body.brand === undefined ? current.brand : body.brand),
+      name,
+      brand,
       body.unit ?? current.unit,
-      trimOrNull(body.barcode === undefined ? current.barcode : body.barcode),
+      barcode,
       body.per100?.kcal ?? current.kcal_per100,
       body.per100?.protein ?? current.protein_per100,
       body.per100?.carbs ?? current.carbs_per100,
@@ -271,7 +292,6 @@ export function updateProduct(userId: number, productId: number, body: ProductPa
     if (row === undefined) throw new WriteError(404, 'not_found');
     return rowToProduct(row);
   })();
-  log.info('product updated', { userId, productId: product.id });
   return product;
 }
 
@@ -292,6 +312,5 @@ export function deleteProduct(userId: number, productId: number): {
     if (result.changes === 0) throw new WriteError(404, 'not_found');
     return deletedEntries.changes;
   })();
-  log.info('product deleted', { userId, productId });
   return { ok: true, product_id: productId, deleted_entry_count: deletedEntryCount };
 }
