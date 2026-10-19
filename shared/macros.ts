@@ -2,12 +2,12 @@ import type { Macros } from './types.js';
 
 // Keep scaling and accumulation unrounded; display callers choose formatting.
 // Match SQLite's multiply-then-divide order, including halfway rounding cases.
-export function scaleMacros(per100: Macros, grams: number): Macros {
+export function scaleMacros(per100: Macros, amount: number): Macros {
   return {
-    kcal: grams * per100.kcal / 100,
-    protein: grams * per100.protein / 100,
-    carbs: grams * per100.carbs / 100,
-    fat: grams * per100.fat / 100,
+    kcal: amount * per100.kcal / 100,
+    protein: amount * per100.protein / 100,
+    carbs: amount * per100.carbs / 100,
+    fat: amount * per100.fat / 100,
   };
 }
 

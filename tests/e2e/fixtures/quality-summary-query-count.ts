@@ -16,7 +16,7 @@ const product = createProduct(1, {
   name: 'Query counting food', brand: null, barcode: null, unit: 'g', is_temp: false,
   per100: { kcal: 100, protein: 10, carbs: 20, fat: 5 },
 });
-createEntry(1, { product_id: product.id, grams: 100, local_date: '2024-02-29', local_time: '12:00' });
+createEntry(1, { product_id: product.id, amount: 100, local_date: '2024-02-29', local_time: '12:00' });
 db.prepare('INSERT INTO goal_history VALUES (1, ?, 2000, 100, 200, 60, 0)').run('2024-02-29');
 
 const counts = { aggregate: 0, history: 0, weights: 0 };

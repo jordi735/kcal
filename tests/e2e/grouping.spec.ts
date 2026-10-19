@@ -72,7 +72,7 @@ async function seedEntry(
     headers,
     data: {
       product_id: product.id,
-      grams: 100,
+      amount: 100,
       local_date: date,
       local_time: '12:00',
     },
@@ -343,7 +343,7 @@ test('[J-175] deleting a child auto-ungroups the final remaining entry', async (
   await page.getByRole('button', { name: 'Expand Singleton batch', exact: true }).tap();
 
   await foodMain(page, a).tap();
-  await expect(page.getByText('Edit amount', { exact: true })).toBeVisible();
+  await expect(page.getByText('Edit entry', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Delete entry', exact: true }).tap();
   await expect(foodRow(page, a)).toHaveCount(0);
   await expect(groupRow(page, 'Singleton batch')).toHaveCount(0);
@@ -523,7 +523,7 @@ test('[J-180] editing a grouped child updates the parent aggregate and keeps mem
   await page.getByRole('button', { name: 'Expand Editable batch', exact: true }).tap();
 
   await foodMain(page, a).tap();
-  await expect(page.getByText('Edit amount', { exact: true })).toBeVisible();
+  await expect(page.getByText('Edit entry', { exact: true })).toBeVisible();
   await page.getByRole('spinbutton').fill('200');
   await page.getByRole('button', { name: 'Save', exact: true }).tap();
 

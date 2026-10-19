@@ -9,8 +9,8 @@
 import { scaleMacros, sumMacros as sumMacroValues } from '../shared/macros';
 import type { EntryWithMacros, Macros, Product } from './types';
 
-export function computeMacros(product: Product, grams: number): Macros {
-  return scaleMacros(product.per100, grams);
+export function computeMacros(product: Product, amount: number): Macros {
+  return scaleMacros(product.per100, amount);
 }
 
 export function sumMacros(entries: ReadonlyArray<EntryWithMacros>): Macros {

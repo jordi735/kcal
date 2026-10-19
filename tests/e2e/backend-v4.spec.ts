@@ -176,8 +176,8 @@ test('[J-386] REST rejects overflowing amounts and impossible new food and weigh
     name: 'Bounded', brand: null, barcode: null, unit: 'g', is_temp: false,
     per100: { kcal: 2000, protein: 1, carbs: 1, fat: 1 },
   } })).json() as { id: number };
-  const input = { product_id: product.id, grams: 100, local_date: '2024-02-29', local_time: '12:00' };
-  for (const patch of [{ grams: 1e306 }, { local_date: '2024-02-30' }, { local_time: '99:99' }]) {
+  const input = { product_id: product.id, amount: 100, local_date: '2024-02-29', local_time: '12:00' };
+  for (const patch of [{ amount: 1e306 }, { local_date: '2024-02-30' }, { local_time: '99:99' }]) {
     expect((await request.post('/entries', { headers: user.headers, data: { ...input, ...patch } })).status()).toBe(400);
   }
   expect((await request.post('/entries', { headers: user.headers, data: input })).ok()).toBe(true);

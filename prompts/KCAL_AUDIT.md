@@ -80,7 +80,7 @@ Files in scope (spawn exactly one Codex subagent for each; skip nothing):
 
   CLIENT — modals
     src/modals/EntryGroupForm.tsx
-    src/modals/GramsPicker.tsx
+    src/modals/AmountPicker.tsx
     src/modals/NewProductForm.tsx
     src/modals/AddPicker.tsx
     src/modals/BarcodeScanner.tsx

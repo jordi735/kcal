@@ -148,13 +148,13 @@ test('[J-121] Search section header pluralizes "result" / "results" on count', a
   await page.goto('/');
   await seedProductAndLog(
     page,
-    `${namePrefix} A`,
+    `${namePrefix} Mango`,
     { kcal: '100', protein: '10', carbs: '10', fat: '2' },
     '100',
   );
   await seedProductAndLog(
     page,
-    `${namePrefix} B`,
+    `${namePrefix} Kiwi`,
     { kcal: '120', protein: '12', carbs: '15', fat: '3' },
     '100',
   );
@@ -169,8 +169,9 @@ test('[J-121] Search section header pluralizes "result" / "results" on count', a
   await expect(page.getByText('2 results', { exact: true })).toBeVisible();
   await expect(page.getByText('2 result', { exact: true })).toHaveCount(0);
 
-  // Refine to a one-row match → "1 result" (singular).
-  await search.fill(`${namePrefix} A`);
+  // Refine with a distinct term → "1 result" (singular). A single A would
+  // also match the shared word "Plural" under literal word matching.
+  await search.fill(`${namePrefix} Mango`);
   await expect(page.getByText('1 result', { exact: true })).toBeVisible();
   await expect(page.getByText('1 results', { exact: true })).toHaveCount(0);
 });

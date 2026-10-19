@@ -77,7 +77,7 @@ test('[J-033] aria-label flips with tagged state', async ({ page }) => {
 
 test('[J-149] PATCH /entries/:id rejects non-boolean tagged with 400 invalid_entry', async ({ request }) => {
   // entries.ts isUpdateEntryBody — the `'tagged' in v` branch requires
-  // typeof v.tagged === 'boolean'. The peer test J-073 covers the grams half;
+  // typeof v.tagged === 'boolean'. The peer test J-073 covers the amount half;
   // this test pins the tagged half so a `typeof !== 'boolean'` removal lands
   // on a red test. Three flavors: stringly-true (the most common UI bug
   // shape), a number, and null — none of which should slip through.
@@ -129,7 +129,7 @@ test.describe('cross-user tagging contract', () => {
 
     const entryRes = await request.post('/entries', {
       headers: { Authorization: `Bearer ${tokenA}` },
-      data: { product_id: product.id, grams: 100, local_date, local_time: '12:00' },
+      data: { product_id: product.id, amount: 100, local_date, local_time: '12:00' },
     });
     expect(entryRes.ok(), await entryRes.text()).toBeTruthy();
     const entry = (await entryRes.json()) as { id: number; tagged: boolean };
@@ -159,7 +159,7 @@ test.describe('cross-user tagging contract', () => {
 });
 
 test('[J-151] dot tap does not change MacroSummary kcal totals', async ({ page }) => {
-  // Macros are computed from `grams × per100/100` — `tagged` is purely a UI
+  // Macros are computed from `amount × per100/100` — `tagged` is purely a UI
   // marker. Tagging must NOT influence Consumed/Remaining. A mutation that
   // weighted tagged entries differently in sumMacros (or excluded them)
   // would shift these numbers; this test pins the invariant. Other tests in
@@ -192,11 +192,11 @@ test('[J-151] dot tap does not change MacroSummary kcal totals', async ({ page }
   expect(dockAfter).toBe(dockBefore);
 });
 
-test('[J-152] tagged flag survives a grams edit', async ({ page }) => {
-  // PATCH /entries/:id has separate updateGrams / updateTagged statements;
-  // grams-only PATCH must not touch tagged. selectById then re-reads the row
+test('[J-152] tagged flag survives an amount edit', async ({ page }) => {
+  // PATCH /entries/:id has separate updateAmount / updateTagged statements;
+  // amount-only PATCH must not touch tagged. selectById then re-reads the row
   // and rowToEntry maps r.tagged === 1 back into the response. A mutation
-  // that re-derived `tagged: false` after grams-edit (or that mismapped the
+  // that re-derived `tagged: false` after amount-edit (or that mismapped the
   // column) would land here.
   const name = 'E2E Tag Survives';
   await page.goto('/');
@@ -208,19 +208,19 @@ test('[J-152] tagged flag survives a grams edit', async ({ page }) => {
   await dot().tap();
   await expect(dot()).toHaveAttribute('aria-pressed', 'true');
 
-  // Open edit-mode GramsPicker via the row body button (FoodRow main btn).
+  // Open edit-mode AmountPicker via the row body button (FoodRow main btn).
   // Index 1 is the main body — index 0 is the dot.
   await row().locator('button').nth(1).tap();
-  await page.getByText('Edit amount').waitFor({ state: 'visible' });
+  await page.getByText('Edit entry').waitFor({ state: 'visible' });
   await page.getByRole('spinbutton').fill('250');
   await page.getByRole('button', { name: /Save/ }).tap();
 
   // Wait for sheet to leave so the row's final accessible name is stable.
-  await expect(page.getByText('Edit amount')).toHaveCount(0);
+  await expect(page.getByText('Edit entry')).toHaveCount(0);
 
-  // Tagged must still be true after the grams change.
+  // Tagged must still be true after the amount change.
   await expect(dot()).toHaveAttribute('aria-pressed', 'true');
-  // Sanity: grams updated (100 → 250).
+  // Sanity: amount updated (100 → 250).
   await expect(row()).toContainText('250g');
 });
 

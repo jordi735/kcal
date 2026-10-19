@@ -27,7 +27,7 @@ async function product(request: APIRequestContext, token: string, name: string):
 
 async function entry(request: APIRequestContext, token: string, productId: number, date = MONDAY) {
   return rest<EntryWithMacros>(request, token, 'post', '/entries', {
-    product_id: productId, grams: 100, local_date: date, local_time: '12:30',
+    product_id: productId, amount: 100, local_date: date, local_time: '12:30',
   });
 }
 
@@ -41,8 +41,8 @@ test('[J-236] resuming the same app incorporates MCP entry groups product edits 
     name: `Resume MCP food ${account.user.id}`, unit: 'g',
     per100: { ...NUTRITION, kcal: 200 },
   })).product;
-  const createEntry = async (date: string, grams = 100) => (await call<McpEntriesCreateResult>(mcp, 'create_entries', {
-    entries: [{ product_id: saved.id, grams }], local_date: date, local_time: '12:30',
+  const createEntry = async (date: string, amount = 100) => (await call<McpEntriesCreateResult>(mcp, 'create_entries', {
+    entries: [{ product_id: saved.id, amount }], local_date: date, local_time: '12:30',
   })).entries[0]!;
   const removed = await createEntry(MONDAY);
   const tomorrow = await createEntry(TUESDAY);
@@ -60,7 +60,7 @@ test('[J-236] resuming the same app incorporates MCP entry groups product edits 
   const group = await call<McpEntryGroupResult>(mcp, 'create_entry_group', {
     name: `Resume meal ${account.user.id}`, entry_ids: [second.id, first.id],
   });
-  await call(mcp, 'update_entry', { entry_id: tomorrow.id, grams: 300 });
+  await call(mcp, 'update_entry', { entry_id: tomorrow.id, amount: 300 });
   const goals = { kcal: 2000, protein: 100, carbs: 200, fat: 70 };
   await rest(request, account.token, 'put', '/settings', { ...goals, time_zone: 'UTC' });
   await readCycle(page, () => foreground(page));
@@ -128,7 +128,7 @@ test('[J-238] a failed foreground read retains the day and an online event recov
   const logged = await entry(request, token, saved.id);
   await readCycle(page, () => resume(page));
   await expect(page.getByText('400 kcal', { exact: true })).toBeVisible();
-  await rest(request, token, 'patch', `/entries/${logged.id}`, { grams: 200 });
+  await rest(request, token, 'patch', `/entries/${logged.id}`, { amount: 200 });
   let fail = true;
   await page.route('**/entries?date=*', async (route) => {
     if (fail) {
@@ -251,7 +251,7 @@ test('[J-242] an older resume response cannot overwrite newer day entries or wee
   try {
     await resume(page);
     await captured.promise;
-    await rest(request, token, 'patch', `/entries/${logged.id}`, { grams: 300 });
+    await rest(request, token, 'patch', `/entries/${logged.id}`, { amount: 300 });
     await readCycle(page, () => resume(page));
     await expect(page.getByText('1200 kcal', { exact: true })).toBeVisible();
     const dot = page.getByRole('button', { name: 'M 7', exact: true }).locator('[style*="--dot-opacity"]');

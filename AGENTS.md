@@ -91,6 +91,8 @@ required-key inventory and never commit real credentials.
 - Keep navigation client-state-driven through `App.tsx`; do not add a router for
   the current addressless flow. Add Sheet-backed modal kinds to `SHEET_KINDS` and
   preserve the distinction between explicit `onClose` and gesture `onDismiss`.
+  Invalidate pending modal navigation when Sheet exit begins, before its fade,
+  so a delayed save cannot reopen an editor the user is dismissing.
 - The shared `ChatGPTGuide` and connection card are available from New Product,
   Add Temp, and Settings. Show the guide as a local Sheet subview; keep forms
   mounted but hidden to preserve drafts, and give only the visible pane the
@@ -115,7 +117,11 @@ required-key inventory and never commit real credentials.
   Do not rewrite legacy smaller entries or reject their tag-only edits or deletion.
 - `useEntries` applies local cache changes only after successful requests. Preserve
   entry insertion order by `id` and recompute week totals only for loaded dates;
-  tagged-only updates do not change totals. Its single cache state uses pure
+  amount/product corrections update totals, while time/tagged-only updates do not.
+  Entry corrections retain date, identity, creation timestamp and group membership.
+  The amount editor preserves its complete draft through Change food and library
+  editing; a replacement with a different unit clears the amount for explicit input.
+  Its single cache state uses pure
   `entryCache.ts` transformations; mutation callbacks retain their captured
   loaded-date eligibility when a day loads while a request is pending.
 - Weight history uses one local read path for initial load, refresh, Retry and
@@ -162,8 +168,10 @@ required-key inventory and never commit real credentials.
   Shared barcode templates omit source IDs, ownership and temporary metadata;
   lookups never adopt or create automatically. The current existing-copy
   check is sequential; do not claim database-enforced concurrency safety.
-- Product name/brand search uses literal substring matching with NFC Unicode
-  lowercase normalization shared by REST and MCP. `%`, `_`, and backslashes are
+- Product name/brand search requires every distinct whitespace-separated query
+  term to occur literally in either field, in any order. Reuse NFC Unicode
+  lowercase normalization for REST and MCP; filter before pagination. There is
+  no fuzzy matching, relevance score, alias or serving metadata. `%`, `_`, and backslashes are
   literal; accents remain meaningful. Keep deterministic ID tie-breakers for
   name, recency and barcode order. Recents use surviving entries' creation times,
   not their local dates. Keep global barcode and private-ID partition keys in
@@ -178,10 +186,15 @@ required-key inventory and never commit real credentials.
   Current goals come from latest history with legacy user values as undated
   fallback. The app and MCP share the date resolver; unknown and zero targets
   must not be confused.
-- Entries store grams and product references, not macro snapshots. Compute macros
+- Entries store `amount` in the product's g/ml unit and product references, not macro snapshots. Compute macros
   from current per-100 product values so product edits intentionally update past
-  totals. Scale with `(grams * per100) / 100`, matching SQL, and round only for
+  totals. Scale with `(amount * per100) / 100`, matching SQL, and round only for
   display. Existing creation receipt snapshots keep their original arithmetic.
+  REST/MCP reject the old `grams` input. Recent portions use
+  `/entries/recent-amounts` and `{ amounts: number[] }`. New product replacements
+  must be owned saved foods; switching units requires an explicit amount, with
+  no conversion. Validate only supplied entry replacements so legacy values
+  remain readable, taggable, deletable and otherwise correctable.
 - Entry groups are day-scoped metadata referenced by nullable `entries.group_id`.
   Create groups atomically from at least two unique, ungrouped entries owned by
   the caller on one valid calendar date, derived from the children. Normalize
@@ -224,7 +237,8 @@ required-key inventory and never commit real credentials.
   Its totals describe only the new entries. No legacy `create_entry` tool remains.
   Keep the
   UI's new-temporary-food workflow and existing temporary-entry operations working.
-  MCP entry edits require `entry_id` and `grams` and reject `tagged`. Use one
+  MCP entry edits require `entry_id` and at least one of `amount`, `product_id`,
+  or `local_time`, and reject `tagged` and date/group changes. Use one
   MCP-entry projection without `tagged` for every read and write result, including
   text content and output schemas. Food checkmarks remain an app/REST feature;
   MCP mutations preserve existing checkmarks internally. All recorded food counts
@@ -241,6 +255,9 @@ required-key inventory and never commit real credentials.
   Replays never recreate deleted data, bypass current write authorization, or
   rewrite history. Failed creates consume no key; unreadable receipts fail closed.
   Retain receipts for the account lifetime and do not log replays as new mutations.
+  New receipts use schema version 5. Frozen v4 schemas/fingerprints recognize old
+  snapshots and project entry `grams` to `amount` without changing saved bytes,
+  timestamps or macro values. Keep historical fixtures unchanged when renaming code.
   MCP may offer a more convenient interface, but cannot enable an action or
   stored value forbidden by the UI. Keep explicit creation timestamps, partial
   updates, summaries/pagination, and single-call deletion; UI gestures and
@@ -261,7 +278,9 @@ required-key inventory and never commit real credentials.
   `{ user_id, products, template, next_offset }`; library mode is caller-owned and
   saved-only, while barcode mode may return one safe shared template. Every tool
   declares an output schema matching its structured result. MCP server version is
-  4.0.0. The account-level refresh reminder is informational and persistently
+  5.0.0. Migration 009 seeds refresh reminder version 5 for eligible existing
+  connections, including accounts that dismissed v4. Show the reminder only at
+  the top of the main app. A v4 dismissal cannot clear v5. The reminder is informational and persistently
   dismissible; it never revokes credentials, alters scopes, or gates access.
   `PUBLIC_ORIGIN` enables OAuth/MCP; unset disables them. SDK OAuth routes own
   discovery/DCR/PKCE; `server/oauth.ts` persists clients, browser-bound consent,

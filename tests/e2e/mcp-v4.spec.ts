@@ -28,7 +28,7 @@ test('[J-330] all MCP creates require bounded valid operation keys and singular 
   const before = storedRecords();
   const creates = [
     ['create_product', FOOD],
-    ['create_entries', { entries: [{ product_id: 1, grams: 100 }], local_date: DATE, local_time: '12:00' }],
+    ['create_entries', { entries: [{ product_id: 1, amount: 100 }], local_date: DATE, local_time: '12:00' }],
     ['create_entry_group', { name: 'Meal', entry_ids: [1, 2] }],
   ] as const;
   for (const [name, input] of creates) {
@@ -51,7 +51,7 @@ test('[J-331] product receipts replay canonical input snapshots after edits and 
   const replay = () => call<McpProductCreateResult>(mcp, 'create_product', canonical);
   expect(await replay()).toEqual({ ...created, receipt: { ...created.receipt, replayed: true } });
   await reject(mcp, 'create_product', { ...canonical, name: 'Different food' }, 'idempotency_key_conflict');
-  await reject(mcp, 'create_entries', { idempotency_key: key, entries: [{ product_id: created.product.id, grams: 100 }], local_date: DATE, local_time: '12:00' }, 'idempotency_key_conflict');
+  await reject(mcp, 'create_entries', { idempotency_key: key, entries: [{ product_id: created.product.id, amount: 100 }], local_date: DATE, local_time: '12:00' }, 'idempotency_key_conflict');
   await call(mcp, 'update_product', { product_id: created.product.id, per100: { kcal: 300 } });
   expect(await replay()).toEqual({ ...created, receipt: { ...created.receipt, replayed: true } });
   await call(mcp, 'delete_product', { product_id: created.product.id });
@@ -65,7 +65,7 @@ test('[J-331] product receipts replay canonical input snapshots after edits and 
 test('[J-332] group receipts normalize names and membership order and replay after ungrouping', async ({ mcp, account }) => {
   const product = (await call<McpProductCreateResult>(mcp, 'create_product', FOOD)).product;
   const entries = (await call<McpEntriesCreateResult>(mcp, 'create_entries', {
-    entries: [{ product_id: product.id, grams: 25 }, { product_id: product.id, grams: 75 }], local_date: DATE, local_time: '12:00',
+    entries: [{ product_id: product.id, amount: 25 }, { product_id: product.id, amount: 75 }], local_date: DATE, local_time: '12:00',
   })).entries;
   const input = { idempotency_key: `group:${account.user.id}`, name: '  Two\n foods  ', entry_ids: entries.map((entry) => entry.id) };
   const created = await call<McpEntryGroupCreateResult>(mcp, 'create_entry_group', input);
@@ -81,18 +81,18 @@ test('[J-332] group receipts normalize names and membership order and replay aft
 test('[J-333] batch logging preserves duplicate order and group totals and replays the original logs', async ({ mcp, account }) => {
   const first = (await call<McpProductCreateResult>(mcp, 'create_product', FOOD)).product;
   const second = (await call<McpProductCreateResult>(mcp, 'create_product', { ...FOOD, name: 'Second food' })).product;
-  await call(mcp, 'create_entries', { entries: [{ product_id: first.id, grams: 100 }], local_date: DATE, local_time: '07:00' });
+  await call(mcp, 'create_entries', { entries: [{ product_id: first.id, amount: 100 }], local_date: DATE, local_time: '07:00' });
   const input = { idempotency_key: `batch:${account.user.id}`, entries: [
-    { product_id: second.id, grams: 12.5 }, { product_id: first.id, grams: 50 }, { product_id: second.id, grams: 37.5 },
+    { product_id: second.id, amount: 12.5 }, { product_id: first.id, amount: 50 }, { product_id: second.id, amount: 37.5 },
   ], local_date: DATE, local_time: '18:45', group_name: '  Dinner\n plate  ' };
   const created = await call<McpEntriesCreateResult>(mcp, 'create_entries', input);
-  expect(created.entries.map((entry) => [entry.product.id, entry.grams])).toEqual(input.entries.map((entry) => [entry.product_id, entry.grams]));
+  expect(created.entries.map((entry) => [entry.product.id, entry.amount])).toEqual(input.entries.map((entry) => [entry.product_id, entry.amount]));
   expect(new Set(created.entries.map((entry) => entry.id)).size).toBe(3);
   expect(created.group).toEqual({ id: expect.any(Number), name: 'Dinner plate', local_date: DATE });
   expect(created.entries.every((entry) => entry.local_time === input.local_time && entry.group?.id === created.group!.id)).toBe(true);
   expect(created.totals).toEqual(NUTRITION);
   expect((await call<McpDayResult>(mcp, 'get_day', { date: DATE })).totals.kcal).toBe(400);
-  await call(mcp, 'update_entry', { entry_id: created.entries[0]!.id, grams: 100 });
+  await call(mcp, 'update_entry', { entry_id: created.entries[0]!.id, amount: 100 });
   await call(mcp, 'delete_entry_group', { group_id: created.group!.id });
   expect(await call<McpEntriesCreateResult>(mcp, 'create_entries', { ...input, group_name: 'Dinner plate' }))
     .toEqual({ ...created, receipt: { ...created.receipt, replayed: true } });
@@ -104,14 +104,14 @@ test('[J-334] invalid batch members and bounds roll back all rows and failed att
   const product = (await call<McpProductCreateResult>(mcp, 'create_product', FOOD)).product;
   const temporary = await rest<Product>(request, account.token, 'post', '/products', { ...FOOD, brand: null, barcode: null, is_temp: true });
   await page.close();
-  const input = { idempotency_key: `failed:${account.user.id}`, entries: [{ product_id: product.id, grams: 100 }], local_date: DATE, local_time: '12:00' };
+  const input = { idempotency_key: `failed:${account.user.id}`, entries: [{ product_id: product.id, amount: 100 }], local_date: DATE, local_time: '12:00' };
   const before = storedRecords();
   for (const args of [
     { ...input, entries: [] },
     { ...input, entries: Array.from({ length: 51 }, () => input.entries[0]!) },
     { ...input, group_name: 'One child' },
-    { ...input, entries: [...input.entries, { product_id: temporary.id, grams: 100 }], group_name: 'Temporary member' },
-    { ...input, entries: [...input.entries, { product_id: Number.MAX_SAFE_INTEGER, grams: 100 }], group_name: 'Missing member' },
+    { ...input, entries: [...input.entries, { product_id: temporary.id, amount: 100 }], group_name: 'Temporary member' },
+    { ...input, entries: [...input.entries, { product_id: Number.MAX_SAFE_INTEGER, amount: 100 }], group_name: 'Missing member' },
   ]) await reject(mcp, 'create_entries', args);
   expect(storedRecords()).toEqual(before);
   const created = await call<McpEntriesCreateResult>(mcp, 'create_entries', { ...input, entries: Array.from({ length: 50 }, () => input.entries[0]!) });
@@ -126,7 +126,7 @@ test('[J-335] batch output validation rolls back entries group and receipt befor
   await page.close();
   editFixture((db) => { db.prepare('UPDATE products SET kcal_per100 = ? WHERE created_by = ? AND id = ?').run(1e308, account.user.id, product.id); });
   const input = { idempotency_key: `output:${account.user.id}`, entries: [
-    { product_id: product.id, grams: 1000 }, { product_id: product.id, grams: 1000 },
+    { product_id: product.id, amount: 1000 }, { product_id: product.id, amount: 1000 },
   ], local_date: DATE, local_time: '12:00', group_name: 'Must roll back' };
   const before = storedRecords();
   await reject(mcp, 'create_entries', input, 'write_failed');
@@ -170,7 +170,7 @@ test('[J-337] concurrent creates share one receipt while another account can reu
       expect(created.product.id).not.toBe(results[0]!.product.id);
       expect(created.receipt.replayed).toBe(false);
       await reject(mcp, 'create_entries', { idempotency_key: 'foreign-batch', entries: [
-        { product_id: results[0]!.product.id, grams: 100 }, { product_id: created.product.id, grams: 100 },
+        { product_id: results[0]!.product.id, amount: 100 }, { product_id: created.product.id, amount: 100 },
       ], local_date: DATE, local_time: '12:00' }, 'product_not_found');
       expect((await call<McpDayResult>(mcp, 'get_day', { date: DATE })).entries).toEqual([]);
     } finally { await connection.mcp.close(); }
@@ -181,7 +181,7 @@ test('[J-338] dated goals and comparisons distinguish unknown history missing lo
   const food = (await call<McpProductCreateResult>(mcp, 'create_product', FOOD)).product;
   const water = (await call<McpProductCreateResult>(mcp, 'create_product', { ...FOOD, name: 'Water', per100: ZERO })).product;
   for (const [local_date, product_id] of [['2000-01-01', food.id], ['2000-01-02', water.id], ['2000-01-04', food.id]] as const) {
-    await call(mcp, 'create_entries', { entries: [{ product_id, grams: 100 }], local_date, local_time: '12:00' });
+    await call(mcp, 'create_entries', { entries: [{ product_id, amount: 100 }], local_date, local_time: '12:00' });
   }
   await page.close();
   const firstGoals = { kcal: 2000, protein: 100, carbs: 200, fat: 60 };
@@ -217,7 +217,7 @@ test('[J-339] accounts without initialized goal history can read and create and 
   await page.close();
   editFixture((db) => { db.prepare('DELETE FROM goal_history WHERE user_id = ?').run(account.user.id); });
   const created = await call<McpProductCreateResult>(mcp, 'create_product', FOOD);
-  await call(mcp, 'create_entries', { entries: [{ product_id: created.product.id, grams: 100 }], local_date: DATE, local_time: '12:00' });
+  await call(mcp, 'create_entries', { entries: [{ product_id: created.product.id, amount: 100 }], local_date: DATE, local_time: '12:00' });
   expect((await call<McpDayResult>(mcp, 'get_day', { date: DATE })).daily_goals).toBeNull();
   expect((await call<McpWeekResult>(mcp, 'get_week', { date: DATE })).totals).toEqual(NUTRITION);
   const before = storedRecords();

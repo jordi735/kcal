@@ -1,6 +1,6 @@
 // Account-owned food cache. Writes are ordered across entries, groups and products.
 import { useCallback, useRef, useState } from 'preact/hooks';
-import type { EntryGroup, EntryWithMacros, Macros } from '../types';
+import type { EntryGroup, EntryUpdate, EntryWithMacros, Macros } from '../types';
 import { api, isSessionCurrent, type SessionScope } from '../api';
 import { datesFromStart } from '../../shared/dates';
 import { createMutationQueue, type MutationQueue } from '../mutationQueue';
@@ -39,8 +39,8 @@ export type UseEntriesReturn = {
   loadWeek: (start: string) => Promise<void>;
   queueFoodMutation: MutationQueue;
   refreshAll: () => Promise<void>;
-  add: (params: { product_id: number; grams: number; local_date: string; local_time: string }) => Promise<EntryWithMacros>;
-  update: (id: number, patch: { grams?: number; tagged?: boolean }) => Promise<EntryWithMacros>;
+  add: (params: { product_id: number; amount: number; local_date: string; local_time: string }) => Promise<EntryWithMacros>;
+  update: (id: number, patch: EntryUpdate) => Promise<EntryWithMacros>;
   remove: (id: number, date: string) => Promise<void>;
   createGroup: (params: { name: string; entry_ids: number[] }) => Promise<EntryGroup>;
   renameGroup: (id: number, name: string) => Promise<EntryGroup>;
@@ -120,7 +120,7 @@ export function useEntries(session: SessionScope, onRefreshError: () => void): U
     if (results.some((result) => result.status === 'rejected') && isSessionCurrent(session)) refreshError.current();
   }, [invalidateReads, load, loadWeek, session]);
 
-  const add = useCallback((params: { product_id: number; grams: number; local_date: string; local_time: string }) => {
+  const add = useCallback((params: { product_id: number; amount: number; local_date: string; local_time: string }) => {
     const deriveTotals = loadedDates.has(params.local_date);
     return queue(async () => {
       const readVersion = appliedReadVersion.current;
@@ -133,15 +133,16 @@ export function useEntries(session: SessionScope, onRefreshError: () => void): U
     });
   }, [loadedDates, queue, session, invalidateDateReads, reconcile, changeCache]);
 
-  const update = useCallback((id: number, patch: { grams?: number; tagged?: boolean }) => {
+  const update = useCallback((id: number, patch: EntryUpdate) => {
     const loaded = loadedDates;
+    const nutritionChanged = patch.amount !== undefined || patch.product_id !== undefined;
     return queue(async () => {
       const readVersion = appliedReadVersion.current;
       const updated = await api<EntryWithMacros>(`/entries/${id}`, { method: 'PATCH', body: patch, session });
-      invalidateDateReads(updated.local_date, patch.grams !== undefined);
-      if (readVersion !== appliedReadVersion.current) await reconcile([updated.local_date]);
+      invalidateDateReads(updated.local_date, nutritionChanged);
+      if (readVersion !== appliedReadVersion.current) await reconcile([updated.local_date], nutritionChanged);
       else changeCache((previous) => updateCachedDay(previous, updated.local_date,
-        (list) => list.map((entry) => entry.id === updated.id ? updated : entry), patch.grams !== undefined && loaded.has(updated.local_date)));
+        (list) => list.map((entry) => entry.id === updated.id ? updated : entry), nutritionChanged && loaded.has(updated.local_date)));
       return updated;
     });
   }, [loadedDates, queue, session, invalidateDateReads, reconcile, changeCache]);

@@ -84,7 +84,7 @@ test('[J-047] dismiss mid-save: post-resolution setModal is suppressed', async (
   await page.locator('.overlay').first().dispatchEvent('click');
 
   // Wait for the throttled POST to actually complete — the buggy code path
-  // (no flowGenRef gate) would synchronously setModal(grams-picker) on the
+  // (no flowGenRef gate) would synchronously setModal(amount-picker) on the
   // microtask after this returns.
   await page.waitForResponse(
     (res) =>
@@ -93,13 +93,13 @@ test('[J-047] dismiss mid-save: post-resolution setModal is suppressed', async (
   );
   await flushPaint(page);
 
-  // GramsPicker would render 'How much?' on hijack. With the fix, the sheet
-  // stack is fully empty: NewProductForm dismissed, GramsPicker bailed.
+  // AmountPicker would render 'How much?' on hijack. With the fix, the sheet
+  // stack is fully empty: NewProductForm dismissed, AmountPicker bailed.
   await expect(page.locator('.sheet')).toHaveCount(0);
   await expect(page.getByText('How much?')).toHaveCount(0);
 });
 
-test('[J-113] no dismissal: slow product save still opens GramsPicker (positive control)', async ({
+test('[J-113] no dismissal: slow product save still opens AmountPicker (positive control)', async ({
   page,
 }) => {
   // Pins onProductSave's generation comparison in App.tsx.
@@ -126,7 +126,7 @@ test('[J-113] no dismissal: slow product save still opens GramsPicker (positive 
   await page.getByRole('button', { name: /Save & Continue/ }).tap();
 
   // No dismissal: when POST resolves, modal is still NewProductForm.
-  // flowGenRef unchanged → gen check passes → setModal(grams-picker) fires.
+  // flowGenRef unchanged → gen check passes → setModal(amount-picker) fires.
   await page.waitForResponse(
     (res) =>
       new URL(res.url()).pathname === '/products' &&
@@ -235,7 +235,7 @@ test.describe('cross-user adopt race', () => {
     request,
   }) => {
     // Cross-user search → tap result → onPick auto-POSTs /products/adopt/:id.
-    // App.tsx onPick gates the post-await transition to grams-picker.
+    // App.tsx onPick gates the post-await transition to amount-picker.
     const name = `E2E Race Adopt ${Date.now()}`;
     const barcode = `760${Date.now()}`;
     await seedBarcodedAsUserA(request, name, barcode);

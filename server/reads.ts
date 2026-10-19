@@ -36,7 +36,7 @@ export function rowToEntry(r: EntryJoinRow): EntryWithMacros {
       },
       is_temp: r.p_is_temp === 1,
     },
-    grams: r.grams,
+    amount: r.amount,
     local_date: r.local_date,
     local_time: r.local_time,
     macros: scaleMacros({
@@ -44,7 +44,7 @@ export function rowToEntry(r: EntryJoinRow): EntryWithMacros {
       protein: r.p_protein_per100,
       carbs: r.p_carbs_per100,
       fat: r.p_fat_per100,
-    }, r.grams),
+    }, r.amount),
     tagged: r.tagged === 1,
     group:
       r.group_id === null || r.group_name === null

@@ -1,0 +1,247 @@
+{
+  "source_commit": "381128f",
+  "captures": [
+    {
+      "input": {
+        "idempotency_key": "v4-captured-product",
+        "name": "  Original   drink  ",
+        "brand": "  Test   Brand ",
+        "barcode": " 0012345000987 ",
+        "unit": "ml",
+        "per100": {
+          "kcal": 50,
+          "protein": 10,
+          "carbs": 20,
+          "fat": 5
+        }
+      },
+      "result": {
+        "user_id": 1,
+        "product": {
+          "id": 1,
+          "name": "Original drink",
+          "brand": "Test Brand",
+          "unit": "ml",
+          "barcode": "0012345000987",
+          "per100": {
+            "kcal": 50,
+            "protein": 10,
+            "carbs": 20,
+            "fat": 5
+          },
+          "is_temp": false
+        },
+        "receipt": {
+          "idempotency_key": "v4-captured-product",
+          "applied_at": "2024-02-29T20:00:00.000Z",
+          "replayed": false
+        }
+      },
+      "receipt": {
+        "tool_name": "create_product",
+        "request_hash": "817a3ab4417f05cc4d8366609b5c1631b4d7f34fef917d75052c410594623c71",
+        "result_json": "{\"user_id\":1,\"product\":{\"id\":1,\"name\":\"Original drink\",\"brand\":\"Test Brand\",\"unit\":\"ml\",\"barcode\":\"0012345000987\",\"per100\":{\"kcal\":50,\"protein\":10,\"carbs\":20,\"fat\":5},\"is_temp\":false},\"receipt\":{\"idempotency_key\":\"v4-captured-product\",\"applied_at\":\"2024-02-29T20:00:00.000Z\",\"replayed\":false}}",
+        "applied_at": 1709236800000,
+        "schema_version": 4
+      }
+    },
+    {
+      "input": {
+        "idempotency_key": "v4-captured-batch",
+        "local_date": "2024-02-29",
+        "local_time": "12:15",
+        "entries": [
+          {
+            "product_id": 1,
+            "grams": 29
+          },
+          {
+            "product_id": 1,
+            "grams": 71.5
+          }
+        ],
+        "group_name": "  Original   batch  "
+      },
+      "result": {
+        "user_id": 1,
+        "entries": [
+          {
+            "id": 1,
+            "product": {
+              "id": 1,
+              "name": "Original drink",
+              "brand": "Test Brand",
+              "unit": "ml",
+              "barcode": "0012345000987",
+              "per100": {
+                "kcal": 50,
+                "protein": 10,
+                "carbs": 20,
+                "fat": 5
+              },
+              "is_temp": false
+            },
+            "grams": 29,
+            "local_date": "2024-02-29",
+            "local_time": "12:15",
+            "macros": {
+              "kcal": 14.5,
+              "protein": 2.9,
+              "carbs": 5.8,
+              "fat": 1.45
+            },
+            "group": {
+              "id": 1,
+              "name": "Original batch"
+            }
+          },
+          {
+            "id": 2,
+            "product": {
+              "id": 1,
+              "name": "Original drink",
+              "brand": "Test Brand",
+              "unit": "ml",
+              "barcode": "0012345000987",
+              "per100": {
+                "kcal": 50,
+                "protein": 10,
+                "carbs": 20,
+                "fat": 5
+              },
+              "is_temp": false
+            },
+            "grams": 71.5,
+            "local_date": "2024-02-29",
+            "local_time": "12:15",
+            "macros": {
+              "kcal": 35.75,
+              "protein": 7.15,
+              "carbs": 14.3,
+              "fat": 3.575
+            },
+            "group": {
+              "id": 1,
+              "name": "Original batch"
+            }
+          }
+        ],
+        "group": {
+          "id": 1,
+          "name": "Original batch",
+          "local_date": "2024-02-29"
+        },
+        "totals": {
+          "kcal": 50.25,
+          "protein": 10.05,
+          "carbs": 20.1,
+          "fat": 5.025
+        },
+        "receipt": {
+          "idempotency_key": "v4-captured-batch",
+          "applied_at": "2024-02-29T20:00:00.000Z",
+          "replayed": false
+        }
+      },
+      "receipt": {
+        "tool_name": "create_entries",
+        "request_hash": "9f6acdf6992c20e549b76a7babcf03990307347d4d709b367353c3ad98076846",
+        "result_json": "{\"user_id\":1,\"entries\":[{\"id\":1,\"product\":{\"id\":1,\"name\":\"Original drink\",\"brand\":\"Test Brand\",\"unit\":\"ml\",\"barcode\":\"0012345000987\",\"per100\":{\"kcal\":50,\"protein\":10,\"carbs\":20,\"fat\":5},\"is_temp\":false},\"grams\":29,\"local_date\":\"2024-02-29\",\"local_time\":\"12:15\",\"macros\":{\"kcal\":14.5,\"protein\":2.9,\"carbs\":5.8,\"fat\":1.45},\"group\":{\"id\":1,\"name\":\"Original batch\"}},{\"id\":2,\"product\":{\"id\":1,\"name\":\"Original drink\",\"brand\":\"Test Brand\",\"unit\":\"ml\",\"barcode\":\"0012345000987\",\"per100\":{\"kcal\":50,\"protein\":10,\"carbs\":20,\"fat\":5},\"is_temp\":false},\"grams\":71.5,\"local_date\":\"2024-02-29\",\"local_time\":\"12:15\",\"macros\":{\"kcal\":35.75,\"protein\":7.15,\"carbs\":14.3,\"fat\":3.575},\"group\":{\"id\":1,\"name\":\"Original batch\"}}],\"group\":{\"id\":1,\"name\":\"Original batch\",\"local_date\":\"2024-02-29\"},\"totals\":{\"kcal\":50.25,\"protein\":10.05,\"carbs\":20.1,\"fat\":5.025},\"receipt\":{\"idempotency_key\":\"v4-captured-batch\",\"applied_at\":\"2024-02-29T20:00:00.000Z\",\"replayed\":false}}",
+        "applied_at": 1709236800000,
+        "schema_version": 4
+      }
+    },
+    {
+      "input": {
+        "idempotency_key": "v4-captured-group",
+        "name": "  Morning   and evening  ",
+        "entry_ids": [
+          4,
+          3
+        ]
+      },
+      "result": {
+        "user_id": 1,
+        "group": {
+          "id": 2,
+          "name": "Morning and evening",
+          "local_date": "2024-02-29"
+        },
+        "entries": [
+          {
+            "id": 3,
+            "product": {
+              "id": 1,
+              "name": "Original drink",
+              "brand": "Test Brand",
+              "unit": "ml",
+              "barcode": "0012345000987",
+              "per100": {
+                "kcal": 50,
+                "protein": 10,
+                "carbs": 20,
+                "fat": 5
+              },
+              "is_temp": false
+            },
+            "grams": 20,
+            "local_date": "2024-02-29",
+            "local_time": "08:00",
+            "macros": {
+              "kcal": 10,
+              "protein": 2,
+              "carbs": 4,
+              "fat": 1
+            },
+            "group": {
+              "id": 2,
+              "name": "Morning and evening"
+            }
+          },
+          {
+            "id": 4,
+            "product": {
+              "id": 1,
+              "name": "Original drink",
+              "brand": "Test Brand",
+              "unit": "ml",
+              "barcode": "0012345000987",
+              "per100": {
+                "kcal": 50,
+                "protein": 10,
+                "carbs": 20,
+                "fat": 5
+              },
+              "is_temp": false
+            },
+            "grams": 40,
+            "local_date": "2024-02-29",
+            "local_time": "19:30",
+            "macros": {
+              "kcal": 20,
+              "protein": 4,
+              "carbs": 8,
+              "fat": 2
+            },
+            "group": {
+              "id": 2,
+              "name": "Morning and evening"
+            }
+          }
+        ],
+        "receipt": {
+          "idempotency_key": "v4-captured-group",
+          "applied_at": "2024-02-29T20:00:00.000Z",
+          "replayed": false
+        }
+      },
+      "receipt": {
+        "tool_name": "create_entry_group",
+        "request_hash": "e03bdf5e6afa63d343b890818048d03ae0c7bc807c5bda3b224a7c0824e2c0aa",
+        "result_json": "{\"user_id\":1,\"group\":{\"id\":2,\"name\":\"Morning and evening\",\"local_date\":\"2024-02-29\"},\"entries\":[{\"id\":3,\"product\":{\"id\":1,\"name\":\"Original drink\",\"brand\":\"Test Brand\",\"unit\":\"ml\",\"barcode\":\"0012345000987\",\"per100\":{\"kcal\":50,\"protein\":10,\"carbs\":20,\"fat\":5},\"is_temp\":false},\"grams\":20,\"local_date\":\"2024-02-29\",\"local_time\":\"08:00\",\"macros\":{\"kcal\":10,\"protein\":2,\"carbs\":4,\"fat\":1},\"group\":{\"id\":2,\"name\":\"Morning and evening\"}},{\"id\":4,\"product\":{\"id\":1,\"name\":\"Original drink\",\"brand\":\"Test Brand\",\"unit\":\"ml\",\"barcode\":\"0012345000987\",\"per100\":{\"kcal\":50,\"protein\":10,\"carbs\":20,\"fat\":5},\"is_temp\":false},\"grams\":40,\"local_date\":\"2024-02-29\",\"local_time\":\"19:30\",\"macros\":{\"kcal\":20,\"protein\":4,\"carbs\":8,\"fat\":2},\"group\":{\"id\":2,\"name\":\"Morning and evening\"}}],\"receipt\":{\"idempotency_key\":\"v4-captured-group\",\"applied_at\":\"2024-02-29T20:00:00.000Z\",\"replayed\":false}}",
+        "applied_at": 1709236800000,
+        "schema_version": 4
+      }
+    }
+  ]
+}

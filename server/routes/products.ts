@@ -10,7 +10,7 @@ import {
   MAX_PRODUCT_BARCODE_LENGTH, MAX_PRODUCT_KCAL_PER100, MAX_PRODUCT_MACRO_GRAMS_PER100,
 } from '../../shared/constraints.js';
 import { authMiddleware } from '../auth.js';
-import { foldProductSearchText } from '../../shared/normalize.js';
+import { productSearchTerms } from '../../shared/normalize.js';
 import { parseProductText } from '../../shared/productText.js';
 import { isObject } from '../guards.js';
 import { log } from '../log.js';
@@ -45,15 +45,13 @@ productsRouter.get('/search', (req, res) => {
     res.json([]);
     return;
   }
-  const query = foldProductSearchText(q);
   // ?global=1 opts into the blended catalog (own + cross-user barcoded).
   // Default (absent/any-other-value) returns own-library only.
   const rawGlobal = req.query.global;
   const global = typeof rawGlobal === 'string' && rawGlobal === '1';
   if (global) {
     const rows = statements.products.search.all(
-      query,
-      query,
+      JSON.stringify(productSearchTerms(q)),
       req.userId!,
       req.userId!,
       req.userId!,

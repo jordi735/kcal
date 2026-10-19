@@ -1,4 +1,5 @@
 import type { ProductDraft } from './modals/NewProductForm';
+import type { EntryEditorDraft } from './modals/AmountPicker';
 import type { EntryGroup, EntryWithMacros, Product } from './types';
 
 export type ModalState =
@@ -16,14 +17,16 @@ export type ModalState =
       draftSoFar: Partial<ProductDraft>;
       editProduct: Product;
       editEntry: EntryWithMacros | undefined;
+      entryDraft?: EntryEditorDraft;
     }
   | { kind: 'new-product'; initial: Partial<ProductDraft> | undefined }
-  | { kind: 'grams-picker'; product: Product; entry: EntryWithMacros | undefined }
+  | { kind: 'amount-picker'; product: Product; entry: EntryWithMacros | undefined; entryDraft?: EntryEditorDraft }
   | {
       kind: 'edit-product';
       product: Product;
       entry: EntryWithMacros | undefined;
       initialOverride?: Partial<ProductDraft>;
+      entryDraft?: EntryEditorDraft;
     }
   | { kind: 'settings'; initialGuide?: boolean }
   | { kind: 'weights' }
@@ -34,7 +37,7 @@ export type ModalState =
 const SHEET_KINDS: ReadonlySet<ModalState['kind']> = new Set([
   'add-picker',
   'new-product',
-  'grams-picker',
+  'amount-picker',
   'edit-product',
   'settings',
   'weights',
@@ -69,5 +72,6 @@ export function barcodeFillReturnState(
     product: modal.editProduct,
     entry: modal.editEntry,
     initialOverride: draft,
+    ...(modal.entryDraft !== undefined ? { entryDraft: modal.entryDraft } : {}),
   };
 }

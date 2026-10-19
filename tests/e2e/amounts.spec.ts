@@ -5,12 +5,12 @@ import { fillNutField, seedProductAndLog, signInFresh } from './helpers';
 // deliberately seed existing entries to distinguish the portion from the day.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-// GramsPicker amount controls, daily projections, and selected-portion values.
+// AmountPicker amount controls, daily projections, and selected-portion values.
 // General edit flows live in edit.spec.ts; Enter handlers in keyboard.spec.ts.
 
 const MACROS = { kcal: '100', protein: '10', carbs: '10', fat: '2' };
 
-// Scope to the add-mode GramsPicker sheet via its title. Re-using a shared
+// Scope to the add-mode AmountPicker sheet via its title. Re-using a shared
 // `.sheet` selector wouldn't disambiguate when AddPicker / NewProductForm are
 // transitively in the DOM (they unmount after FADE_EXIT_MS=300).
 function addSheet(page: Page) {
@@ -33,10 +33,10 @@ function bumpButtons(page: Page) {
 }
 
 // Walk the AddPicker → Add New → fill → Save & Continue flow, stopping at the
-// moment GramsPicker opens. The freshly-created product has no logs, so the
-// /entries/recent-grams response is empty and the DEFAULT quick row stays
+// moment AmountPicker opens. The freshly-created product has no logs, so the
+// /entries/recent-amounts response is empty and the DEFAULT quick row stays
 // visible — necessary precondition for J-087/088/089/090/091/093/094.
-async function openAddGramsForNewProduct(
+async function openAddAmountForNewProduct(
   page: Page,
   name: string,
   macros: typeof MACROS,
@@ -84,17 +84,17 @@ async function expectPortion(page: Page, values: [string, string, string, string
   }
 }
 
-test('[J-087] default grams in add mode is 100 for a brand-new product', async ({ page, request }) => {
-  await signInFresh(page, request, 'grams');
+test('[J-087] default amount in add mode is 100 for a brand-new product', async ({ page, request }) => {
+  await signInFresh(page, request, 'amount');
 
-  // GramsPicker.tsx — `useState(initialGrams ?? 100)`. For a brand-new
-  // product the recent-grams API returns []; GramsPicker's history effect
+  // AmountPicker.tsx — `useState(initialAmount ?? 100)`. For a brand-new
+  // product the recent-amounts API returns []; AmountPicker's history effect
   // bails out on `history.length === 0` and the initial 100 sticks.
   // Mutation: changing the default constant from 100 to e.g. 0 or 50 would
   // surface here instantly without changing any other test's assertions.
-  await openAddGramsForNewProduct(page, 'E2E Default 100', MACROS);
+  await openAddAmountForNewProduct(page, 'E2E Default 100', MACROS);
 
-  // toHaveValue auto-retries past the recent-grams API roundtrip — if the
+  // toHaveValue auto-retries past the recent-amounts API roundtrip — if the
   // effect erroneously fired (history-not-empty mutation), the value would
   // change from 100 mid-poll and the assertion would fail.
   await expect(page.getByRole('spinbutton')).toHaveValue('100');
@@ -105,40 +105,40 @@ test('[J-087] default grams in add mode is 100 for a brand-new product', async (
   await expectPortion(page, ['100', '10.0 g', '10.0 g', '2.0 g']);
 });
 
-test('[J-088] plus button bumps grams +10 and the live kcal projection scales linearly', async ({
+test('[J-088] plus button bumps amount +10 and the live kcal projection scales linearly', async ({
   page,
   request,
 }) => {
-  await signInFresh(page, request, 'grams');
+  await signInFresh(page, request, 'amount');
 
-  // GramsPicker.tsx — `bump(10)` calls selectGrams(Math.max(1, grams+10))
-  // → 110 from a 100 base. selectGrams syncs both `grams` (state, drives the
+  // AmountPicker.tsx — `bump(10)` calls selectAmount(Math.max(1, amount+10))
+  // → 110 from a 100 base. selectAmount syncs both `amount` (state, drives the
   // projection) and `text` (drives the input value). Mutation: dropping the
-  // setText() in selectGrams would leave the input at "100" while the
+  // setText() in selectAmount would leave the input at "100" while the
   // projection scales — caught by the spinbutton assertion.
-  await openAddGramsForNewProduct(page, 'E2E Plus Bump', MACROS);
+  await openAddAmountForNewProduct(page, 'E2E Plus Bump', MACROS);
   await expect(page.getByRole('spinbutton')).toHaveValue('100');
 
   // Tap the plus bump (last button inside the amount controls).
   await bumpButtons(page).plus.tap();
 
-  // Grams advanced from 100 to 110; spinbutton AND projection both moved.
+  // Amount advanced from 100 to 110; spinbutton AND projection both moved.
   await expect(page.getByRole('spinbutton')).toHaveValue('110');
   // 100kcal/100g × 110g = 110 kcal. A divisor mutation (/100 → /1000) would
-  // render 11 here; a numerator mutation (per100.kcal × grams × 100) would
+  // render 11 here; a numerator mutation (per100.kcal × amount × 100) would
   // render an absurd number. The exact-match regex catches both.
   await expectMacroRow(page, 'Kcal', '110', 2400, '');
   await expectPortion(page, ['110', '11.0 g', '11.0 g', '2.2 g']);
 });
 
-test('[J-089] minus button decreases grams by 10 and the projection scales', async ({ page, request }) => {
-  await signInFresh(page, request, 'grams');
+test('[J-089] minus button decreases amount by 10 and the projection scales', async ({ page, request }) => {
+  await signInFresh(page, request, 'amount');
 
-  // GramsPicker.tsx (bump(-10)) → selectGrams(Math.max(1, 100 - 10)) = 90.
+  // AmountPicker.tsx (bump(-10)) → selectAmount(Math.max(1, 100 - 10)) = 90.
   // Symmetric to J-088 but exercising the `delta < 0` branch. A bug that
-  // dropped the sign of `delta` in `bump` would push grams to 110 here — the
+  // dropped the sign of `delta` in `bump` would push amount to 110 here — the
   // assertion would fail because the spinbutton would read "110".
-  await openAddGramsForNewProduct(page, 'E2E Minus Bump', MACROS);
+  await openAddAmountForNewProduct(page, 'E2E Minus Bump', MACROS);
   await expect(page.getByRole('spinbutton')).toHaveValue('100');
 
   await bumpButtons(page).minus.tap();
@@ -149,16 +149,16 @@ test('[J-089] minus button decreases grams by 10 and the projection scales', asy
   await expectPortion(page, ['90', '9.0 g', '9.0 g', '1.8 g']);
 });
 
-test('[J-090] minus button clamps grams at 1 (Math.max floor)', async ({ page, request }) => {
-  await signInFresh(page, request, 'grams');
+test('[J-090] minus button clamps amount at 1 (Math.max floor)', async ({ page, request }) => {
+  await signInFresh(page, request, 'amount');
 
-  // GramsPicker.tsx — `Math.max(1, grams + delta)`. From 5g, bump(-10)
+  // AmountPicker.tsx — `Math.max(1, amount + delta)`. From 5g, bump(-10)
   // would yield -5 without the floor; the floor pins it at 1. Mutation:
-  // `Math.max(1, ...)` → `Math.max(0, ...)` would let grams reach 0, and
+  // `Math.max(1, ...)` → `Math.max(0, ...)` would let amount reach 0, and
   // `computeMacros` would render projection 0 / 2400. Mutation:
-  // dropping Math.max entirely would let grams go negative → projection -5
+  // dropping Math.max entirely would let amount go negative → projection -5
   // — the assertion '1 / 2400' fails on both flavors.
-  await openAddGramsForNewProduct(page, 'E2E Min Clamp', MACROS);
+  await openAddAmountForNewProduct(page, 'E2E Min Clamp', MACROS);
 
   // Type a small starting value so a single minus tap crosses the boundary.
   // Using fill() instead of bumping down 10 times keeps the test fast and
@@ -180,16 +180,16 @@ test('[J-090] minus button clamps grams at 1 (Math.max floor)', async ({ page, r
   );
 });
 
-test('[J-091] quick-value pill tap sets grams and updates the live projection', async ({ page, request }) => {
-  await signInFresh(page, request, 'grams');
+test('[J-091] quick-value pill tap sets amount and updates the live projection', async ({ page, request }) => {
+  await signInFresh(page, request, 'amount');
 
-  // GramsPicker.tsx — each pill button onClick calls selectGrams(v).
+  // AmountPicker.tsx — each pill button onClick calls selectAmount(v).
   // For a brand-new product, history is [], so quickValues = DEFAULT_QUICK_
-  // VALUES = [50, 100, 150, 200, 250]. Tap '150': grams → 150, text → "150",
-  // projection scales. Mutation: dropping setUserChangedGrams in selectGrams
-  // would let the recent-grams effect overwrite 150 once history loaded for
+  // VALUES = [50, 100, 150, 200, 250]. Tap '150': amount → 150, text → "150",
+  // projection scales. Mutation: dropping setUserChangedAmount in selectAmount
+  // would let the recent-amounts effect overwrite 150 once history loaded for
   // a non-fresh product (out of scope here, but the test covers the wiring).
-  await openAddGramsForNewProduct(page, 'E2E Quick Tap', MACROS);
+  await openAddAmountForNewProduct(page, 'E2E Quick Tap', MACROS);
   await expect(page.getByRole('spinbutton')).toHaveValue('100');
 
   // The pills are buttons with numeric-only text content. exact:true so
@@ -203,10 +203,10 @@ test('[J-091] quick-value pill tap sets grams and updates the live projection', 
   await expectPortion(page, ['150', '15.0 g', '15.0 g', '3.0 g']);
 });
 
-test('[J-092] recent-grams replaces the DEFAULT [50,100,150,200,250] quick row', async ({ page, request }) => {
-  await signInFresh(page, request, 'grams');
+test('[J-092] recent-amounts replaces the DEFAULT [50,100,150,200,250] quick row', async ({ page, request }) => {
+  await signInFresh(page, request, 'amount');
 
-  // GramsPicker.tsx — `quickValues = history.length > 0 ? history :
+  // AmountPicker.tsx — `quickValues = history.length > 0 ? history :
   // DEFAULT`. Seed once at 175g (a value not in DEFAULT_QUICK_VALUES so a
   // false-positive can't happen by coincidence), then re-open via search.
   // The quick row should show only the historical 175 button, NOT the five
@@ -225,7 +225,7 @@ test('[J-092] recent-grams replaces the DEFAULT [50,100,150,200,250] quick row',
   await picker.getByText(name).first().tap();
   await page.getByText('How much?').waitFor({ state: 'visible' });
 
-  // Pre-fill from recent-grams effect lands the spinbutton on 175 (J-085
+  // Pre-fill from recent-amounts effect lands the spinbutton on 175 (J-085
   // contract; we verify here too as the precondition for the pill assertion).
   await expect(page.getByRole('spinbutton')).toHaveValue('175');
   await expectPortion(page, ['175', '17.5 g', '17.5 g', '3.5 g']);
@@ -247,11 +247,11 @@ test('[J-092] recent-grams replaces the DEFAULT [50,100,150,200,250] quick row',
   ).toHaveCount(0);
 });
 
-test('[J-093] add-mode GramsPicker shows the pencil but hides the trash (delete-entry is edit-only)', async ({
+test('[J-093] add-mode AmountPicker shows the pencil but hides the trash (delete-entry is edit-only)', async ({
   page,
   request,
 }) => {
-  await signInFresh(page, request, 'grams');
+  await signInFresh(page, request, 'amount');
 
   // AppModals.tsx passes `onEditProduct` UNCONDITIONALLY — both add and edit
   // modes get the pencil so the user can fix a product's macros before (or
@@ -266,7 +266,7 @@ test('[J-093] add-mode GramsPicker shows the pencil but hides the trash (delete-
   // Mutation: flipping the mode prop default from 'add' to 'edit' would
   // change the confirm-button label and surface the wrong toolset — caught
   // by the 'Save' vs 'Add to day' assertion.
-  await openAddGramsForNewProduct(page, 'E2E Add No Trash', MACROS);
+  await openAddAmountForNewProduct(page, 'E2E Add No Trash', MACROS);
 
   // exact:true is mandatory per AGENTS.md — the FoodRow under the sheet
   // could contribute a substring "edit product" via the product name and
@@ -281,15 +281,15 @@ test('[J-093] add-mode GramsPicker shows the pencil but hides the trash (delete-
     addSheet(page).getByRole('button', { name: 'Delete entry', exact: true }),
   ).toHaveCount(0);
   // Belt-and-suspenders: the confirm button reads 'Add to day' (add mode),
-  // not 'Save' (edit mode). GramsPicker.tsx.
+  // not 'Save' (edit mode). AmountPicker.tsx.
   await expect(addSheet(page).getByRole('button', { name: /Add to day/ })).toBeVisible();
   await expect(addSheet(page).getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
 });
 
 test('[J-094] protein/carbs/fat projections render with one-decimal formatting', async ({ page, request }) => {
-  await signInFresh(page, request, 'grams');
+  await signInFresh(page, request, 'amount');
 
-  // GramsPicker.tsx — fmtOneDecimal returns `.toFixed(1)` so
+  // AmountPicker.tsx — fmtOneDecimal returns `.toFixed(1)` so
   // even whole-number projections surface as "N.0". Kcal uses fmtInt and
   // surfaces "N" (no decimal). Mutation: swapping fmtOneDecimal → fmtInt
   // for the three macro rows drops the ".M" suffix entirely; the regex
@@ -301,7 +301,7 @@ test('[J-094] protein/carbs/fat projections render with one-decimal formatting',
   // integer-only regexes for the kcal row — a regression that wired
   // fmtOneDecimal to kcal would surface there ("Kcal 100.0 /" doesn't match
   // /Kcal\s*100\s*\//).
-  await openAddGramsForNewProduct(page, 'E2E Decimals', MACROS);
+  await openAddAmountForNewProduct(page, 'E2E Decimals', MACROS);
   await expect(page.getByRole('spinbutton')).toHaveValue('100');
 
   const dailyTotals = page.getByRole('group', { name: 'Daily totals', exact: true });
@@ -318,7 +318,7 @@ test('[J-270] portion values stay separate from daily totals for fractional ml a
 }) => {
   await signInFresh(page, request, 'portion-add');
   await seedProductAndLog(page, 'E2E Portion Existing', MACROS, '50');
-  await openAddGramsForNewProduct(page, 'E2E Portion Drink', {
+  await openAddAmountForNewProduct(page, 'E2E Portion Drink', {
     kcal: '387', protein: '22.4', carbs: '13.3', fat: '0',
   }, 'ml');
 
@@ -355,7 +355,7 @@ test('[J-271] editing shows full portion nutrition and replaces the original in 
 
   const row = page.locator('.food-row').filter({ hasText: name });
   await row.locator('button').nth(1).tap();
-  const sheet = page.locator('.sheet').filter({ has: page.getByText('Edit amount', { exact: true }) });
+  const sheet = page.locator('.sheet').filter({ has: page.getByText('Edit entry', { exact: true }) });
   await expect(sheet).toBeVisible();
   await expectPortion(page, ['100', '10.0 g', '10.0 g', '2.0 g']);
   await expectMacroRow(page, 'Kcal', '150', 2400, '');

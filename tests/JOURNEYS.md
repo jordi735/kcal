@@ -40,7 +40,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-105 · First log replaces AddPicker `idleEmpty` with the `Recent` section + the just-logged product
 - J-106 · `addedProductIds` check icon (CheckIcon) appears next to today-logged products in AddPicker; an unlogged sibling product (same library) does not get the icon
 - J-107 · A brand-new user opens Settings and sees migration defaults in all four goal fields (kcal=2400, protein=180, carbs=240, fat=80), with no macro-vs-kcal mismatch banner
-- J-108 · First log persists across a hard page reload: row, grams, kcal, and MacroSummary totals all rebuild from `GET /entries` after the cold-cache fetch
+- J-108 · First log persists across a hard page reload: row, amount, kcal, and MacroSummary totals all rebuild from `GET /entries` after the cold-cache fetch
 
 # 4. Product creation & editing
 
@@ -58,7 +58,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-067 · Edit-mode `PUT /products/:id` rejects kcal > 2000 cap; form stays open
 - J-068 · `PUT /products/:id` with unknown id returns 404 `not_found`
 - J-069 · `PUT /products/:id` with malformed id (zero, negative, non-numeric) returns 400 `invalid_id`
-- J-074 · Cancel in product-edit form returns to GramsPicker without issuing a PUT
+- J-074 · Cancel in product-edit form returns to AmountPicker without issuing a PUT
 - J-086 · NewProductForm Save & Continue is disabled until name and all four macros are filled (and re-disables when any one is cleared)
 - J-109 · Unit toggle to "ml" flips the macro-card label to "Per 100ml" and the saved product round-trips through `/products/all` with `unit: "ml"`
 - J-110 · Brand entered in NewProductForm persists: case-preserved in the FoodRow ("· Atlas Farms") and uppercased in the AddPicker row ("ATLAS FARMS")
@@ -71,7 +71,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 
 - J-226 · Cancelling barcode scanning returns to a new product with its entire draft intact
 - J-227 · Cancelling barcode scanning preserves a temporary product draft and its temporary status
-- J-228 · Cancelling barcode scanning preserves an edited product draft and its GramsPicker return destination
+- J-228 · Cancelling barcode scanning preserves an edited product draft and its AmountPicker return destination
 - J-234 · Barcode results preserve typed metadata, temporary status and edit context while replacing only the barcode
 - J-235 · Barcode scanner snapshots keep complete nutrition and raw metadata, omit incomplete nutrition, and trim metadata only when submitting
 - J-256 · Real EAN-13 video decoding returns the exact barcode once and releases the camera before lookup completion
@@ -82,36 +82,36 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 
 # 5. Entry CRUD
 
-- J-015 · Log an entry (pick product, enter grams, save)
-- J-016 · Edit entry grams in place
+- J-015 · Log an entry (pick product, enter amount, save)
+- J-016 · Edit entry amount in place
 - J-017 · Delete an entry
 - J-062 · `DELETE /entries/:id` with malformed id (zero, negative, non-numeric) returns 400 `invalid_id`
 - J-063 · `DELETE /entries/:id` with unknown id returns 404 `not_found`
 - J-070 · `PATCH /entries/:id` with unknown id returns 404 `not_found`
 - J-071 · `PATCH /entries/:id` with malformed id (zero, negative, non-numeric) returns 400 `invalid_id`
 - J-072 · `PATCH /entries/:id` with empty body returns 400 `invalid_entry`
-- J-073 · `PATCH /entries/:id` with grams ≤ 0 returns 400 `invalid_entry`
-- J-079 · `POST /entries` with malformed body (each `isNewEntryBody` branch — bad product_id, grams, date, time) returns 400 `invalid_entry`
+- J-073 · `PATCH /entries/:id` with amount ≤ 0 returns 400 `invalid_entry`
+- J-079 · `POST /entries` with malformed body (each `isNewEntryBody` branch — bad product_id, amount, date, time) returns 400 `invalid_entry`
 - J-080 · `POST /entries` with non-existent `product_id` returns 404 `product_not_found`
 - J-081 · `POST /entries` enforces per-user isolation: user B logging against user A's private product returns 404 `product_not_found` and never inserts
 - J-082 · `GET /entries` with malformed or missing `date` returns 400 `invalid_date`
 - J-083 · `GET /entries/week` with malformed or missing `start` returns 400 `invalid_date`
-- J-084 · `GET /entries/recent-grams` with malformed or missing `product_id` returns 400 `invalid_product_id`
-- J-085 · GramsPicker pre-fills grams from the product's most recent log (recent-grams effect overrides the 100 default)
-- J-087 · Default grams in add-mode GramsPicker is 100 for a brand-new product, with matching portion nutrition and daily projection
-- J-088 · `+` button in GramsPicker bumps grams by +10 and updates portion nutrition and the daily projection
-- J-089 · `-` button in GramsPicker decreases grams by 10 and updates portion nutrition and the daily projection
-- J-090 · `-` button in GramsPicker clamps grams at 1 (cannot go to 0 or below)
-- J-091 · Quick-value pill tap in GramsPicker sets grams and updates portion nutrition and the daily projection
-- J-092 · Recent grams replace the default quick row and update portion nutrition separately from the existing daily total
-- J-093 · Add-mode GramsPicker shows the pencil (`Edit product`, escalation to product-edit) but hides the trash (`Delete entry` is edit-only)
+- J-084 · `GET /entries/recent-amounts` with malformed or missing `product_id` returns 400 `invalid_product_id`
+- J-085 · AmountPicker pre-fills amount from the product's most recent log (recent-amounts effect overrides the 100 default)
+- J-087 · Default amount in add-mode AmountPicker is 100 for a brand-new product, with matching portion nutrition and daily projection
+- J-088 · `+` button in AmountPicker bumps amount by +10 and updates portion nutrition and the daily projection
+- J-089 · `-` button in AmountPicker decreases amount by 10 and updates portion nutrition and the daily projection
+- J-090 · `-` button in AmountPicker clamps amount at 1 (cannot go to 0 or below)
+- J-091 · Quick-value pill tap in AmountPicker sets amount and updates portion nutrition and the daily projection
+- J-092 · Recent amount replace the default quick row and update portion nutrition separately from the existing daily total
+- J-093 · Add-mode AmountPicker shows the pencil (`Edit product`, escalation to product-edit) but hides the trash (`Delete entry` is edit-only)
 - J-094 · Protein/carbs/fat GoalRow projections render with one-decimal formatting (not integer)
 - J-168 · Future-day entries stay in insertion order: a pre-log remains above next-morning and later additions before and after reload
 
 - J-231 · Serialized entry requests preserve insertion order and totals across reload
 - J-232 · Adding before a day loads does not overwrite its already loaded week total
 - J-233 · A rejected entry edit leaves client entries and totals unchanged
-- J-270 · Portion nutrition stays separate from daily totals, rounds fractional ml amounts correctly, keeps zero nutrients in grams, and retains the last valid preview during blank input
+- J-270 · Portion nutrition stays separate from daily totals, rounds fractional ml amounts correctly, keeps zero nutrients in amount, and retains the last valid preview during blank input
 - J-271 · Editing shows the full selected portion's nutrition and replaces the original entry in projected daily totals
 
 # 6. Daily goals & macro auto-compute
@@ -149,7 +149,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-129 · Long-press on an already-selected row deselects it (input symmetry — `toggleSelect` runs whether triggered by tap or by `onContextMenu`)
 - J-130 · Dot tap in selection mode toggles `tagged`, not `select` (the dot button bypasses `selectionMode` logic; tagging stays operational while a row is selected)
 - J-131 · Long-press on the dot does NOT enter selection mode (`onContextMenu` is wired only on the main body button — sibling dispatches don't bubble to the body's handler)
-- J-132 · Tap in selection mode adds to selection only — `onEdit` does not fire and GramsPicker does not mount (negative-path of the `if (selectionMode)` branch in `FoodRow` click handler)
+- J-132 · Tap in selection mode adds to selection only — `onEdit` does not fire and AmountPicker does not mount (negative-path of the `if (selectionMode)` branch in `FoodRow` click handler)
 - J-133 · Multi-tag mixed state issues exactly one PATCH (already-tagged entry skipped per `App.onMarkTagged` skip-when-equal guard); pinned via a `page.on('request')` counter
 
 # 7a. Named entry groups
@@ -165,7 +165,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-177 · Product deletion cleans up a group that would otherwise be left with one child
 - J-178 · Enter submits the group-name field and creates the folded parent
 - J-179 · Backdrop dismissal creates no group and preserves the underlying entry selection
-- J-180 · Editing a grouped child’s grams updates the parent aggregate while retaining persisted membership
+- J-180 · Editing a grouped child’s amount updates the parent aggregate while retaining persisted membership
 
 # 8. Tagging single entries
 
@@ -174,8 +174,8 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-033 · Dot `aria-label` flips between "Mark as eaten" and "Mark as not eaten"
 - J-149 · `PATCH /entries/:id` rejects non-boolean `tagged` (`'true'` / `1` / `null`) with 400 `invalid_entry`
 - J-150 · `PATCH /entries/:id` from another user returns 404 `not_found` and never flips the owner's flag (per-user isolation)
-- J-151 · Dot tap does not change MacroSummary kcal totals (`tagged` is purely a UI marker; macros come from grams × per100)
-- J-152 · Tagged flag survives a grams edit (grams-only PATCH must not clear `tagged`)
+- J-151 · Dot tap does not change MacroSummary kcal totals (`tagged` is purely a UI marker; macros come from amount × per100)
+- J-152 · Tagged flag survives an amount edit (amount-only PATCH must not clear `tagged`)
 - J-153 · Two rows tag/untag independently (per-row state isolation; no shared mutation)
 - J-154 · Dot tap issues exactly one PATCH per toggle (network counter; `App.onMarkTagged` skip-when-equal guard)
 
@@ -232,18 +232,18 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 
 # 13. Keyboard `Enter` semantics
 
-- J-043 · Enter on GramsPicker add-mode input logs the entry
-- J-044 · Enter on GramsPicker edit-mode input saves the change
+- J-043 · Enter on AmountPicker add-mode input logs the entry
+- J-044 · Enter on AmountPicker edit-mode input saves the change
 - J-045 · Enter on AddPicker search only blurs (no submit; no implicit create / pick)
-- J-095 · Enter on empty GramsPicker input is a no-op (sheet stays open; no entry mutated; input remains alive)
+- J-095 · Enter on empty AmountPicker input is a no-op (sheet stays open; no entry mutated; input remains alive)
 - J-096 · Enter on invalid email is a no-op (still on email step; submit button stays disabled; no `/auth/request-code` request)
 
 # 14. Modal-hijack guard (flowGenRef race)
 
-- J-047 · `onProductSave`: dismiss while `POST /products` is in-flight does NOT pop GramsPicker after the response lands
-- J-113 · `onProductSave`: without dismissal, GramsPicker DOES open after a slow `POST /products` resolves (positive control for J-047 — pins the comparator direction)
+- J-047 · `onProductSave`: dismiss while `POST /products` is in-flight does NOT pop AmountPicker after the response lands
+- J-113 · `onProductSave`: without dismissal, AmountPicker DOES open after a slow `POST /products` resolves (positive control for J-047 — pins the comparator direction)
 - J-114 · `onProductSave`: dismiss mid-save followed by a server 500 suppresses the error toast (catch-branch `flowGenRef` gate)
-- J-115 · `onPick`: dismiss while `POST /products/adopt/:id` is in-flight does NOT pop GramsPicker after the response lands
+- J-115 · `onPick`: dismiss while `POST /products/adopt/:id` is in-flight does NOT pop AmountPicker after the response lands
 - J-116 · `onPick`: dismiss mid-adopt followed by a server 500 suppresses the error toast (catch-branch `flowGenRef` gate)
 - J-117 · `onProductSave`: without dismissal, a server 500 DOES surface the error toast and leaves the form mounted for retry (positive control for J-114 — pins the catch-branch comparator)
 
@@ -411,6 +411,35 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-436 · Old entry receipts retain their original floating-point snapshots after resource deletion
 - J-437 · Instrumented MCP summaries read daily aggregates, goal history and weights once each
 - J-438 · Product validation preserves separate raw-length and normalized-length diagnostics
+
+# 21. MCP v5 amounts, search and entry corrections
+
+- J-440 · V4 receipts replay through the amount rename after edits deletion and process restart
+- J-450 · App and MCP search require every term across name and brand in any order
+- J-451 · Multi-term searches preserve literal punctuation and meaningful Unicode accents
+- J-452 · Token search filters before pagination and preserves alphabetical ID ties
+- J-453 · Recent token search retains logged-only filtering and creation-time ordering
+- J-454 · Global token search keeps owned barcode copies and excludes private or temporary sources
+- J-455 · Add Food finds a product from reordered name and brand terms
+- J-460 · Product picker labels liquid nutrition per 100ml
+- J-461 · Replacing a grouped food keeps its quantity, identity, time and group while updating totals
+- J-462 · Switching quantity units requires a new amount and blocks blank button and Enter submission
+- J-463 · Backing out of food selection preserves the quantity and clock-time draft through a refresh
+- J-464 · Library-product editing preserves the entry draft on cancel and save
+- J-465 · A late food-correction response cannot replace a newer foreground snapshot
+- J-466 · Temporary entries allow time-only corrections without changing their amount
+- J-467 · Failed reconciliation after a committed food correction remains a refresh failure
+- J-468 · Time and same-unit food corrections preserve an untouched legacy amount
+- J-469 · Amount-only correction preserves an untouched invalid legacy clock time
+- J-470 · Dismissing a product form wins over a save completed during its closing fade
+- J-480 · REST and MCP use amount for g and ml and reject legacy grams inputs
+- J-481 · Food and clock corrections preserve grouped entry identity and update all nutrition reads
+- J-482 · Cross-unit food replacements require an explicit amount and reject atomically
+- J-483 · Invalid or unauthorized entry corrections reject without changing food state
+- J-484 · Existing temporary and legacy entries preserve invalid fields unless replaced
+- J-485 · Amount migration preserves existing values groups metadata and raw receipt bytes
+- J-486 · V5 reminder migration flags only live connections and does not flag later connections
+- J-487 · Stale v4 dismissal preserves the v5 reminder and v5 dismissal survives a new session
 
 # Verification
 

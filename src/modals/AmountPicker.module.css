@@ -1,3 +1,6 @@
+.pane { display: contents; }
+.pane[hidden] { display: none; }
+
 .header {
   padding: 0 20px 10px;
   display: flex;
@@ -21,6 +24,36 @@
 
 .productRow {
   padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.changeFood {
+  flex-shrink: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--fg-dim);
+}
+
+.timeField {
+  margin: 18px 20px 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--fg-dim);
+}
+
+.timeField input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: var(--fg);
+  background: var(--bg-elev-2);
 }
 
 .productInfo {
@@ -52,7 +85,7 @@
   flex-shrink: 0;
 }
 
-.gramsBox {
+.amountBox {
   margin: 0 20px;
   padding: 24px;
   background: var(--bg-elev-2);
@@ -86,14 +119,14 @@
   background: var(--bg-elev);
 }
 
-.gramsRow {
+.amountRow {
   display: flex;
   align-items: baseline;
   gap: 6px;
   min-width: 0;
 }
 
-.gramsInput {
+.amountInput {
   font-size: 56px;
   font-weight: 500;
   letter-spacing: -0.03em;
@@ -103,7 +136,7 @@
   text-align: center;
 }
 
-.gramsUnit {
+.amountUnit {
   flex-shrink: 0;
   font-size: 18px;
   color: var(--fg-dimmer);

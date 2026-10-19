@@ -16,6 +16,7 @@ export type {
   EntryGroupRef,
   EntryGroup,
   EntryWithMacros,
+  EntryUpdate,
   McpEntry,
   WeightInput,
   WeightEntry,
@@ -163,7 +164,7 @@ export type ProductPatch = Partial<Omit<UpdateProductBody, 'per100'>> & {
 
 export type EntryJoinRow = {
   id: number;
-  grams: number;
+  amount: number;
   local_date: string;
   local_time: string;
   tagged: number;
@@ -191,12 +192,10 @@ export type WeekSumRow = {
 
 export type NewEntryBody = {
   product_id: number;
-  grams: number;
+  amount: number;
   local_date: string;
   local_time: string;
 };
-
-export type EntryUpdate = { grams?: number; tagged?: boolean };
 
 export type EntryMembershipRow = {
   id: number;

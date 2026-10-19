@@ -62,10 +62,10 @@ export function registerWriteTools(server: McpServer, user_id: number, canWrite:
 
   if (canWrite) {
     server.registerTool('create_entries', {
-      description: 'Atomically log 1–50 saved foods from the connected account’s library at one explicit local date and time. Each item supplies an owned, non-temporary product_id and grams (the amount in its g or ml unit, at least 1; decimals allowed). Duplicate foods create distinct entries in input order. Optional group_name groups all new entries and requires at least two items. Either every entry and group is saved or none is. Reuse idempotency_key and the same arguments to retry; a new key creates new logs. Totals describe only the new entries.',
+      description: 'Atomically log 1–50 saved foods from the connected account’s library at one explicit local date and time. Each item supplies an owned, non-temporary product_id and amount (the amount in its g or ml unit, at least 1; decimals allowed). Duplicate foods create distinct entries in input order. Optional group_name groups all new entries and requires at least two items. Either every entry and group is saved or none is. Reuse idempotency_key and the same arguments to retry; a new key creates new logs. Totals describe only the new entries.',
       inputSchema: z.strictObject({
         idempotency_key: idempotencyKey,
-        entries: z.array(z.strictObject({ product_id: positiveId, grams: amount })).min(1).max(50),
+        entries: z.array(z.strictObject({ product_id: positiveId, amount: amount })).min(1).max(50),
         local_date: localDate,
         local_time: localTime,
         group_name: entryGroupName.optional(),
@@ -81,13 +81,19 @@ export function registerWriteTools(server: McpServer, user_id: number, canWrite:
     });
 
     server.registerTool('update_entry', {
-      description: 'Edit one owned food log’s amount, including existing temporary logs. Supply entry_id and grams. New amounts must be at least 1 g/ml; decimals are allowed. Food, date, time, and group cannot be changed through this tool. Amount changes recalculate macros and totals.',
-      inputSchema: z.strictObject({ entry_id: positiveId, grams: amount }),
+      description: 'Correct one owned food log without recreating it, including an existing temporary log. Supply entry_id and at least one of amount, product_id, or local_time (HH:MM). Amount uses the food’s g or ml unit, at least 1; decimals are allowed. A replacement product must be an owned saved food. Replacing food across g/ml units requires an explicit amount; there is no automatic conversion. Omitted fields are preserved. Amount or food changes recalculate nutrition. Entry ID, local date, creation time, and group membership remain unchanged; morning and evening entries can stay grouped.',
+      inputSchema: z.strictObject({
+        entry_id: positiveId, amount: amount.optional(), product_id: positiveId.optional(), local_time: localTime.optional(),
+      }).refine(({ entry_id: _id, ...patch }) => Object.values(patch).some((value) => value !== undefined), 'Supply at least one entry change'),
       outputSchema: entryWriteSchema,
       annotations: changeAnnotations,
-    }, ({ entry_id, grams }) => writeResult('update_entry', entryWriteSchema, () => ({
+    }, ({ entry_id, amount, product_id, local_time }) => writeResult('update_entry', entryWriteSchema, () => ({
       user_id,
-      entry: toMcpEntry(updateEntry(user_id, entry_id, { grams })),
+      entry: toMcpEntry(updateEntry(user_id, entry_id, {
+        ...(amount === undefined ? {} : { amount }),
+        ...(product_id === undefined ? {} : { product_id }),
+        ...(local_time === undefined ? {} : { local_time }),
+      })),
     })));
 
     server.registerTool('delete_entry', {

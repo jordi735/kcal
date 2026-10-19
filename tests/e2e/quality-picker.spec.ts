@@ -32,13 +32,13 @@ async function pickerApp(page: Page) {
     } else if (url.pathname === '/entries' && request.method() === 'GET') {
       await route.fulfill({ json: [] });
     } else if (url.pathname === '/entries' && request.method() === 'POST') {
-      const body = request.postDataJSON() as { grams: number; local_date: string; local_time: string };
-      state.amounts.push(body.grams);
+      const body = request.postDataJSON() as { amount: number; local_date: string; local_time: string };
+      state.amounts.push(body.amount);
       await route.fulfill({ json: { id: 1, ...body, product: food, group: null, tagged: false, macros: food.per100 } });
     } else if (url.pathname === '/entries/week') {
       await route.fulfill({ json: {} });
-    } else if (url.pathname === '/entries/recent-grams') {
-      await route.fulfill({ json: { grams: [] } });
+    } else if (url.pathname === '/entries/recent-amounts') {
+      await route.fulfill({ json: { amounts: [] } });
     } else if (url.pathname === '/products/all' || url.pathname === '/products/recent') {
       const all = url.pathname.endsWith('/all');
       await route.fulfill(all ? state.allFails ? { status: 500, json: { error: 'unavailable' } } : { json: state.all }

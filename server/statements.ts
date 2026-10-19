@@ -17,7 +17,7 @@ const PRODUCT_COLS_P =
 // Columns for the entries-JOIN-products shape, with `p_` prefixes so the
 // result row can be deserialised into EntryJoinRow without collisions.
 const ENTRY_WITH_PRODUCT_COLS = `
-  e.id AS id, e.grams AS grams, e.local_date AS local_date, e.local_time AS local_time,
+  e.id AS id, e.amount AS amount, e.local_date AS local_date, e.local_time AS local_time,
   e.tagged AS tagged,
   g.id AS group_id, g.name AS group_name,
   p.id AS p_id, p.name AS p_name, p.brand AS p_brand, p.unit AS p_unit, p.barcode AS p_barcode,
@@ -133,18 +133,23 @@ export const statements = {
   },
 
   products: {
-    // (user_id, folded_query, folded_query, limit, offset). Empty query browses.
-    // instr() treats %, _, and backslashes literally, without an escape syntax.
+    // (user_id, folded_terms_json, limit, offset). Empty terms browse.
+    // Every term must match name or brand. instr() keeps %, _, and backslashes
+    // literal; coalescing a missing brand keeps a missing term from matching.
     pageByName: db.prepare(`
       SELECT ${PRODUCT_COLS}
       FROM products
       WHERE created_by = ?
         AND is_temp = 0
-        AND (instr(kcal_search_text(name), ?) > 0 OR instr(kcal_search_text(brand), ?) > 0)
+        AND NOT EXISTS (
+          SELECT 1 FROM json_each(?) term
+          WHERE instr(kcal_search_text(name), term.value) = 0
+            AND instr(kcal_search_text(COALESCE(brand, '')), term.value) = 0
+        )
       ORDER BY kcal_search_text(name) ASC, id ASC
       LIMIT ? OFFSET ?
     `),
-    // (user_id, user_id, folded_query, folded_query, limit, offset).
+    // (user_id, user_id, folded_terms_json, limit, offset).
     // Recency means the creation time of the last surviving log, not its date.
     pageByRecent: db.prepare(`
       SELECT ${PRODUCT_COLS_P}
@@ -154,11 +159,15 @@ export const statements = {
         FROM entries WHERE user_id = ? GROUP BY product_id
       ) r ON r.product_id = p.id
       WHERE p.created_by = ? AND p.is_temp = 0
-        AND (instr(kcal_search_text(p.name), ?) > 0 OR instr(kcal_search_text(p.brand), ?) > 0)
+        AND NOT EXISTS (
+          SELECT 1 FROM json_each(?) term
+          WHERE instr(kcal_search_text(p.name), term.value) = 0
+            AND instr(kcal_search_text(COALESCE(p.brand, '')), term.value) = 0
+        )
       ORDER BY r.last_used DESC, p.id DESC
       LIMIT ? OFFSET ?
     `),
-    // (folded_query, folded_query, user_id, user_id, user_id)
+    // (folded_terms_json, user_id, user_id, user_id)
     //   - user_id #1: candidate filter (own OR has barcode)
     //   - user_id #2: ranking (own copy wins each barcode partition)
     //   - user_id #3: is_mine flag in the projection
@@ -173,7 +182,11 @@ export const statements = {
                is_temp, created_by, created_at
         FROM products
         WHERE is_temp = 0
-          AND (instr(kcal_search_text(name), ?) > 0 OR instr(kcal_search_text(brand), ?) > 0)
+          AND NOT EXISTS (
+            SELECT 1 FROM json_each(?) term
+            WHERE instr(kcal_search_text(name), term.value) = 0
+              AND instr(kcal_search_text(COALESCE(brand, '')), term.value) = 0
+          )
           AND (created_by = ? OR barcode IS NOT NULL)
       ),
       ranked AS (
@@ -304,10 +317,10 @@ export const statements = {
     weekSum: db.prepare(`
       SELECT
         e.local_date                              AS date,
-        SUM(e.grams * p.kcal_per100    / 100.0)   AS kcal,
-        SUM(e.grams * p.protein_per100 / 100.0)   AS protein,
-        SUM(e.grams * p.carbs_per100   / 100.0)   AS carbs,
-        SUM(e.grams * p.fat_per100     / 100.0)   AS fat
+        SUM(e.amount * p.kcal_per100    / 100.0)   AS kcal,
+        SUM(e.amount * p.protein_per100 / 100.0)   AS protein,
+        SUM(e.amount * p.carbs_per100   / 100.0)   AS carbs,
+        SUM(e.amount * p.fat_per100     / 100.0)   AS fat
       ${ENTRY_JOIN_FROM}
       WHERE e.user_id = ?
         AND e.local_date >= ?
@@ -327,19 +340,19 @@ export const statements = {
       FROM entries
       WHERE user_id = ? AND id = ?
     `),
-    // (user_id, product_id, grams, local_date, local_time, created_at)
+    // (user_id, product_id, amount, local_date, local_time, created_at)
     insert: db.prepare(`
-      INSERT INTO entries (user_id, product_id, grams, local_date, local_time, created_at)
+      INSERT INTO entries (user_id, product_id, amount, local_date, local_time, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `),
-    // (grams, user_id, id)
-    updateGrams: db.prepare(
-      'UPDATE entries SET grams = ? WHERE user_id = ? AND id = ?',
-    ),
-    // (tagged, user_id, id)
-    updateTagged: db.prepare(
-      'UPDATE entries SET tagged = ? WHERE user_id = ? AND id = ?',
-    ),
+    // (product_id_or_null, amount_or_null, local_time_or_null, tagged_or_null, user_id, id)
+    // Null bindings preserve omitted fields, including legacy stored values.
+    update: db.prepare(`
+      UPDATE entries
+      SET product_id = COALESCE(?, product_id), amount = COALESCE(?, amount),
+          local_time = COALESCE(?, local_time), tagged = COALESCE(?, tagged)
+      WHERE user_id = ? AND id = ?
+    `),
     // (group_id, user_id, id) — creation-only assignment; the NULL guard
     // prevents concurrent regrouping from silently stealing an entry.
     assignGroup: db.prepare(
@@ -369,14 +382,14 @@ export const statements = {
     deleteForProduct: db.prepare(
       'DELETE FROM entries WHERE user_id = ? AND product_id = ?',
     ),
-    // (user_id, product_id) — one row per distinct grams, ordered by most
+    // (user_id, product_id) — one row per distinct amount, ordered by most
     // recent use of each. DISTINCT + ORDER BY over a non-projected column is
     // implementation-defined in SQLite and yielded first-use ordering.
-    recentGrams: db.prepare(`
-      SELECT grams
+    recentAmounts: db.prepare(`
+      SELECT amount
       FROM entries
       WHERE user_id = ? AND product_id = ?
-      GROUP BY grams
+      GROUP BY amount
       ORDER BY MAX(created_at) DESC
       LIMIT 5
     `),

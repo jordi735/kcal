@@ -81,7 +81,7 @@ This is gap-discovery, not just file enumeration. The manifest you produce drive
    - The Testing Guidelines and applicable invariants in `AGENTS.md`.
    - Source files in `src/components/`, `src/hooks/`, `server/routes/` that this spec exercises. REVIEW MODE: infer from existing imports, button labels, URL paths, role queries. CREATE MODE: infer from the planned filename and the gap that put it on the manifest, plus any related source.
    - `tests/e2e/helpers.ts` (read-only — you may invoke its exports but not modify it).
-   - 1-2 existing specs as style references (`entry.spec.ts` for AddPicker → NewProductForm → GramsPicker flow; `sheet.spec.ts` for gesture patterns; `auth.spec.ts` for sign-in flows; pick whichever is closest to the spec under work).
+   - 1-2 existing specs as style references (`entry.spec.ts` for AddPicker → NewProductForm → AmountPicker flow; `sheet.spec.ts` for gesture patterns; `auth.spec.ts` for sign-in flows; pick whichever is closest to the spec under work).
    - REVIEW MODE only: the spec file itself.
 5. **CREATE MODE branch** (skip if REVIEW MODE):
    a. Identify every journey this new spec should own. Use the filename, the gap analysis from INIT, and the source code to enumerate them. Aim high: a new spec typically covers 4-8 journeys (happy + negative + edge cases for the same feature area). Examples of journey clusters per spec name: `onboarding` covers first-time user, first product, first log; `barcode` covers scan-found, scan-not-found, scan-malformed, scan-cancel; `logout` covers 401-auto-logout, login-code-expiry, session-revocation.
@@ -129,7 +129,7 @@ For each spec file (whether created or reviewed), check:
 
 1. **Every test has a `[J-###]` prefix.** No exceptions. The ID must exist as a unique entry in `tests/JOURNEYS.md` with a one-line description that matches the test behavior. The accessible name format is `[J-###] <plain-language summary>` — both halves must be present.
 
-2. **`tap()`, not `click()`, for buttons inside `Sheet` modals** (`AddPicker`, `NewProductForm`, `GramsPicker`, `Settings`). Per the Testing Guidelines in AGENTS.md, `click()` silently drops events on the Pixel 7 mobile profile. `Login` is the only Sheet-free flow where `click()` is acceptable. `page.fill()` works fine in either context.
+2. **`tap()`, not `click()`, for buttons inside `Sheet` modals** (`AddPicker`, `NewProductForm`, `AmountPicker`, `Settings`). Per the Testing Guidelines in AGENTS.md, `click()` silently drops events on the Pixel 7 mobile profile. `Login` is the only Sheet-free flow where `click()` is acceptable. `page.fill()` works fine in either context.
 
 3. **No `waitForTimeout` or arbitrary sleeps.** Every wait must anchor on a locator state, a heading visibility, a `toHaveCount`, or a `page.waitForResponse`. Time-based waits are the #1 source of flake. The drag/swipe helpers in `Sheet`/`WeekStrip` synthesize pointer events via `page.mouse` — those are an acceptable exception because they have no asynchronous boundary to wait on.
 
@@ -141,7 +141,7 @@ For each spec file (whether created or reviewed), check:
 
 7. **Helpers usage (DRY).** Use `seedProductAndLog`, `fillNutField`, `longPress` from `tests/e2e/helpers.ts` instead of re-implementing them inline. If a new repeated pattern appears in three or more specs, log it under MISSING (helper extraction is a separate dedicated pass — do not modify `helpers.ts` from this pass).
 
-8. **Assertion strength.** Prefer `toHaveCount(n)`, `toHaveText`, `toContainText("600")` (the computed value `grams × per100 / 100`) over `toBeVisible()` alone. Replace `toBeTruthy` with the most specific equality the assertion can express.
+8. **Assertion strength.** Prefer `toHaveCount(n)`, `toHaveText`, `toContainText("600")` (the computed value `amount × per100 / 100`) over `toBeVisible()` alone. Replace `toBeTruthy` with the most specific equality the assertion can express.
 
 9. **Mutation resistance.** For each test, consider three mutations to the underlying source: (a) flip a comparator (`>` → `>=`, `===` → `!==`), (b) off-by-one a constant (Sheet drag threshold 80, WeekStrip commit threshold 50, kcal cap 2000, login attempt cap 5), (c) swap `&&`/`||` or negate a condition. If the assertions would still pass under any of these, strengthen them.
 
@@ -151,7 +151,7 @@ For each spec file (whether created or reviewed), check:
 
 12. **Per-spec isolation when needed.** Specs that need a fresh user (sign-out, empty state, first-time onboarding) MUST override `storageState` with `test.use({ storageState: { cookies: [], origins: [] } })` and sign in a per-test unique email like `*-${Date.now()}@test.local`.
 
-13. **Coverage of AGENTS.md invariants.** Every IMPORTANT / MUST / Do-NOT in the Testing Guidelines and applicable backend invariants is an implicit test contract. Examples that MUST appear somewhere in the suite: `tap()` vs `click()` discipline (covered structurally — every Sheet-internal interaction is tap); Sheet drag thresholds 80/6 (J-037/J-038/J-039); WeekStrip swipe thresholds 50/8 (J-040/J-041/J-042); barcode adopt idempotency (J-035); cross-user catalog privacy "barcode = shared, no barcode = private" (J-036); long-press via `onContextMenu` (J-023); kcal computed-from-grams retroactive update (J-013); macro auto-recompute on `+`/`-` (J-019/J-020); kcal-vs-macros mismatch warning over 50 (J-021). If an AGENTS.md invariant has no journey, ADD a test for it (or log MISSING with a quote of the invariant if camera/clock/infrastructure-blocked).
+13. **Coverage of AGENTS.md invariants.** Every IMPORTANT / MUST / Do-NOT in the Testing Guidelines and applicable backend invariants is an implicit test contract. Examples that MUST appear somewhere in the suite: `tap()` vs `click()` discipline (covered structurally — every Sheet-internal interaction is tap); Sheet drag thresholds 80/6 (J-037/J-038/J-039); WeekStrip swipe thresholds 50/8 (J-040/J-041/J-042); barcode adopt idempotency (J-035); cross-user catalog privacy "barcode = shared, no barcode = private" (J-036); long-press via `onContextMenu` (J-023); kcal computed-from-amount retroactive update (J-013); macro auto-recompute on `+`/`-` (J-019/J-020); kcal-vs-macros mismatch warning over 50 (J-021). If an AGENTS.md invariant has no journey, ADD a test for it (or log MISSING with a quote of the invariant if camera/clock/infrastructure-blocked).
 
 14. **Setup-file integrity (read-only check).** While handling a regular spec, if you notice `auth.setup.ts` / `auth.setup2.ts` / `global-setup.ts` / `helpers.ts` are referenced incorrectly, or a helper signature has drifted, log under MISSING. Do NOT modify those files from a regular pass.
 

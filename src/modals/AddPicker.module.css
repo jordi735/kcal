@@ -55,10 +55,20 @@
 
 .rowMacros {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.nutrition {
+  display: flex;
   align-items: center;
   gap: 14px;
   flex-shrink: 0;
 }
+
+.rowUnit { color: var(--fg-dimmer); }
 
 .rowKcal {
   font-size: 14px;

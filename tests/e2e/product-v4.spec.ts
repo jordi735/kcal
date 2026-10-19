@@ -71,7 +71,7 @@ test('[J-362] recent product pages use log creation time with stable ties and ex
   const entries: EntryWithMacros[] = [];
   for (const [product, date] of [[oldest, '2030-01-01'], [tieOne, '1999-01-01'], [tieTwo, '2000-01-01'], [temporary, '2025-01-01']] as const) {
     entries.push(await rest<EntryWithMacros>(request, account.token, 'post', '/entries', {
-      product_id: product.id, grams: 100, local_date: date, local_time: '12:00',
+      product_id: product.id, amount: 100, local_date: date, local_time: '12:00',
     }));
   }
   const db = new Database('/tmp/kcal-e2e.db');

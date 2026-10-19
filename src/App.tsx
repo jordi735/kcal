@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type {
   BarcodeLookupResponse,
   EntryGroup,
+  EntryUpdate,
   EntryWithMacros,
   Product,
 } from './types';
@@ -12,6 +13,7 @@ import { Login } from './screens/Login';
 import { OAuthConnect } from './screens/OAuthConnect';
 import { Home } from './screens/Home';
 import type { ProductDraft } from './modals/NewProductForm';
+import type { AmountSelection, EntryEditorDraft } from './modals/AmountPicker';
 import { AppModals } from './components/AppModals';
 import { SheetOverlay } from './components/SheetOverlay';
 import { TransientErrorToast } from './components/TransientErrorToast';
@@ -75,7 +77,12 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     activeSheetCloseRef.current = fn;
   }, []);
   const [sheetExiting, setSheetExiting] = useState(false);
-  const notifySheetExit = useCallback(() => setSheetExiting(true), []);
+  const notifySheetExit = useCallback(() => {
+    // Closing owns navigation from the first animation frame. A committed
+    // write may still refresh data, but must not reopen its editor mid-fade.
+    flowGenRef.current++;
+    setSheetExiting(true);
+  }, []);
 
   const todayKey = toLocalDateString(new Date());
   const selectedKey = toLocalDateString(selectedDate);
@@ -131,7 +138,7 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
   const onAddEntry = () => setModal({ kind: 'add-picker' });
 
   const onEditEntry = (entry: EntryWithMacros) => {
-    setModal({ kind: 'grams-picker', product: entry.product, entry });
+    setModal({ kind: 'amount-picker', product: entry.product, entry });
   };
 
   const onDeleteEntries = (list: EntryWithMacros[]) => {
@@ -217,7 +224,7 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
           ? await queueFoodMutation(() => api<Product>(`/products/adopt/${product.id}`, { method: 'POST', session: scope }))
           : product;
       if (myGen !== flowGenRef.current) return;
-      setModal({ kind: 'grams-picker', product: owned, entry: undefined });
+      setModal({ kind: 'amount-picker', product: owned, entry: undefined });
     } catch (err) {
       if (myGen !== flowGenRef.current) return;
       reportError(err instanceof Error ? err.message : "Couldn't add product");
@@ -255,7 +262,7 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
       );
       if (myGen !== flowGenRef.current) return;
       if (result.kind === 'own') {
-        setModal({ kind: 'grams-picker', product: result.product, entry: undefined });
+        setModal({ kind: 'amount-picker', product: result.product, entry: undefined });
       } else {
         // 'template' — another user has this barcode. Open the new-product
         // form prefilled; saving creates the scanning user's own copy.
@@ -288,6 +295,7 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
         draftSoFar,
         editProduct: modal.product,
         editEntry: modal.entry,
+        ...(modal.entryDraft !== undefined ? { entryDraft: modal.entryDraft } : {}),
       });
     }
   };
@@ -307,7 +315,7 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     try {
       const saved = await queueFoodMutation(() => api<Product>('/products', { method: 'POST', body: draft, session: scope }));
       if (myGen !== flowGenRef.current) return;
-      setModal({ kind: 'grams-picker', product: saved, entry: undefined });
+      setModal({ kind: 'amount-picker', product: saved, entry: undefined });
     } catch (err) {
       if (myGen !== flowGenRef.current) return;
       reportError(err instanceof Error ? err.message : "Couldn't save product");
@@ -315,14 +323,16 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     }
   };
 
-  const onEditProduct = () => {
-    if (modal.kind !== 'grams-picker') return;
-    setModal({ kind: 'edit-product', product: modal.product, entry: modal.entry });
+  const onEditProduct = (product: Product, entryDraft: EntryEditorDraft) => {
+    if (modal.kind !== 'amount-picker') return;
+    setModal({ kind: 'edit-product', product, entry: modal.entry, entryDraft });
   };
 
   const onEditProductClose = () => {
     if (modal.kind !== 'edit-product') return;
-    setModal({ kind: 'grams-picker', product: modal.product, entry: modal.entry });
+    setModal({ kind: 'amount-picker', product: modal.product, entry: modal.entry,
+      ...(modal.entryDraft !== undefined ? { entryDraft: modal.entryDraft } : {}),
+    });
   };
 
   const onProductEditSave = async (draft: ProductDraft): Promise<void> => {
@@ -331,11 +341,17 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     const myGen = flowGenRef.current;
     const { is_temp: _unused, ...putBody } = draft;
     try {
-      await queueFoodMutation(async () => {
-        await api<Product>(`/products/${productId}`, { method: 'PUT', body: putBody, session: scope });
+      const saved = await queueFoodMutation(async () => {
+        const product = await api<Product>(`/products/${productId}`, { method: 'PUT', body: putBody, session: scope });
         await refreshAll();
+        return product;
       });
-      if (myGen === flowGenRef.current) setModal({ kind: 'none' });
+      if (myGen === flowGenRef.current) {
+        if (modal.entry === undefined) setModal({ kind: 'none' });
+        else setModal({ kind: 'amount-picker', product: saved, entry: modal.entry,
+          ...(modal.entryDraft !== undefined ? { entryDraft: modal.entryDraft } : {}),
+        });
+      }
     } catch (err) {
       if (myGen !== flowGenRef.current) return;
       reportError(err instanceof Error ? err.message : "Couldn't save product");
@@ -358,20 +374,24 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     }
   };
 
-  // GramsPicker handlers
-  const onGramsConfirm = (grams: number) => {
-    if (modal.kind !== 'grams-picker') return;
-    const { product, entry } = modal;
+  // AmountPicker handlers
+  const onAmountConfirm = ({ product_id, unit, amount, local_time }: AmountSelection) => {
+    if (modal.kind !== 'amount-picker') return;
+    const { entry } = modal;
 
     if (entry !== undefined) {
-      updateEntry(entry.id, { grams }).catch((err) => {
+      const patch: EntryUpdate = {};
+      if (product_id !== entry.product.id) patch.product_id = product_id;
+      if (amount !== entry.amount || unit !== entry.product.unit) patch.amount = amount;
+      if (local_time !== undefined && local_time !== entry.local_time) patch.local_time = local_time;
+      if (Object.keys(patch).length > 0) void updateEntry(entry.id, patch).catch((err) => {
         reportError(err instanceof Error ? err.message : "Couldn't update entry");
       });
     } else {
       const now = new Date();
       addEntry({
-        product_id: product.id,
-        grams,
+        product_id,
+        amount,
         local_date: selectedKey,
         local_time: toLocalTimeString(now),
       }).catch((err) => {
@@ -381,8 +401,8 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     closeModal();
   };
 
-  const onGramsDelete = () => {
-    if (modal.kind !== 'grams-picker' || modal.entry === undefined) return;
+  const onAmountDelete = () => {
+    if (modal.kind !== 'amount-picker' || modal.entry === undefined) return;
     const toDelete = modal.entry;
     removeEntry(toDelete.id, toDelete.local_date).catch((err) => {
       reportError(err instanceof Error ? err.message : "Couldn't remove entry");
@@ -455,8 +475,8 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
           onScanBarcode,
           onProductSave,
           onScanBarcodeFromForm,
-          onGramsDelete,
-          onGramsConfirm,
+          onAmountDelete,
+          onAmountConfirm,
           onEditProduct,
           onProductEditSave,
           onProductDelete,

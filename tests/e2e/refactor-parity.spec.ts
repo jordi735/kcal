@@ -38,11 +38,11 @@ async function product(request: APIRequestContext, token: string, name: string):
   return response.json();
 }
 
-async function logFood(page: Page, name: string, grams: string) {
+async function logFood(page: Page, name: string, amount: string) {
   await page.getByRole('button', { name: 'ADD FOOD', exact: true }).tap();
   await page.locator('.sheet').getByRole('button').filter({ hasText: name }).tap();
   await expect(page.locator('.sheet').getByText('How much?', { exact: true })).toBeVisible();
-  await page.locator('.sheet').getByRole('spinbutton').fill(grams);
+  await page.locator('.sheet').getByRole('spinbutton').fill(amount);
   await page.locator('.sheet').getByRole('button', { name: /Add to day/ }).tap();
   await expect(page.locator('.sheet')).toHaveCount(0);
 }
@@ -273,7 +273,7 @@ test('[J-232] adding before a day finishes loading preserves the loaded week tot
   const saved = await product(request, token, 'E2E Parity Unloaded');
   const seeded = await request.post('/entries', {
     headers: { Authorization: `Bearer ${token}` },
-    data: { product_id: saved.id, grams: 300, local_date: date, local_time: '10:00' },
+    data: { product_id: saved.id, amount: 300, local_date: date, local_time: '10:00' },
   });
   expect(seeded.ok()).toBe(true);
   const release = deferred();
@@ -331,7 +331,7 @@ test('[J-234] barcode results preserve typed metadata and change only the barcod
 
   const saved: Product = { ...draft, id: 12, is_temp: false };
   const entry: EntryWithMacros = {
-    id: 34, product: saved, grams: 50, local_date: '2031-02-03', local_time: '12:30',
+    id: 34, product: saved, amount: 50, local_date: '2031-02-03', local_time: '12:30',
     tagged: true, group: null, macros: { kcal: 50, protein: 0.5, carbs: 1, fat: 1.5 },
   };
   for (const editEntry of [undefined, entry]) {

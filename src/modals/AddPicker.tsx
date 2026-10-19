@@ -18,12 +18,14 @@ type AddPickerProps = {
   addedProductIds: ReadonlySet<number>;
   refreshVersion: number;
   onRefreshError: () => void;
+  savedOnly?: boolean;
+  onBack?: () => void;
 };
 
 export function AddPicker(props: AddPickerProps) {
   return (
     <Sheet onClose={props.onClose} style={cssVars({ '--sheet-height': '92%' })}>
-      <AddPickerInner {...props} />
+      <AddPickerContent {...props} />
     </Sheet>
   );
 }
@@ -36,7 +38,8 @@ type ProductLoad = {
 };
 const initialLoad: ProductLoad = { status: 'loading', products: null };
 
-function AddPickerInner({
+// Also renders as a local entry-editor subview, without nesting Sheets.
+export function AddPickerContent({
   onPick,
   onCreateNew,
   onAddTemp,
@@ -44,6 +47,8 @@ function AddPickerInner({
   addedProductIds,
   refreshVersion,
   onRefreshError,
+  savedOnly = false,
+  onBack,
 }: InnerProps) {
   const close = useSheetClose();
   const [q, setQ] = useState('');
@@ -167,8 +172,11 @@ function AddPickerInner({
           )}
         </div>
         <div className={styles.rowMacros}>
-          <span className={`mono ${styles.rowKcal}`}>{Math.round(p.per100.kcal)}</span>
-          <MacroBreakdown macros={p.per100} />
+          <div className={styles.nutrition}>
+            <span className={`mono ${styles.rowKcal}`}>{Math.round(p.per100.kcal)}</span>
+            <MacroBreakdown macros={p.per100} />
+          </div>
+          <span className={`mono tiny ${styles.rowUnit}`}>per 100{p.unit}</span>
         </div>
       </button>
     );
@@ -177,16 +185,15 @@ function AddPickerInner({
   const sectionHeader = (label: string) => (
     <div className={styles.sectionHeader}>
       <span className={`mono tiny caps ${styles.sectionLabel}`}>{label}</span>
-      <span className={`mono tiny caps ${styles.sectionLabel}`}>per 100g</span>
     </div>
   );
 
   return (
     <>
       <div className={styles.header}>
-        <span className={`mono caps ${styles.title}`}>Add Food</span>
-        <button onClick={close} className={`mono tiny caps ${styles.cancelBtn}`}>
-          Cancel
+        <span className={`mono caps ${styles.title}`}>{savedOnly ? 'Change food' : 'Add Food'}</span>
+        <button onClick={onBack ?? close} className={`mono tiny caps ${styles.cancelBtn}`}>
+          {onBack === undefined ? 'Cancel' : 'Back'}
         </button>
       </div>
 
@@ -212,12 +219,12 @@ function AddPickerInner({
             </button>
           )}
         </div>
-        <button onClick={onScanBarcode} className={styles.scanBtn} aria-label="Scan barcode">
+        {!savedOnly && <button onClick={onScanBarcode} className={styles.scanBtn} aria-label="Scan barcode">
           <BarcodeIcon size={20} />
-        </button>
+        </button>}
       </div>
 
-      <div className={styles.scopeRow}>
+      {!savedOnly && <div className={styles.scopeRow}>
         <button
           onClick={() => setGlobal(false)}
           className={`${styles.scopeBtn}${!global ? ` ${styles.scopeBtnActive}` : ''}`}
@@ -230,7 +237,7 @@ function AddPickerInner({
         >
           Global
         </button>
-      </div>
+      </div>}
 
       <div data-sheet-scroll className={`no-scroll ${styles.list}`}>
         {showingSearch ? (
@@ -264,7 +271,7 @@ function AddPickerInner({
               allProducts.status === 'loading' && allProducts.products === null) &&
               <div className={`mono tiny caps ${styles.loadingMsg}`}>Loading...</div>}
             {idleEmpty && <div className={styles.emptyMsg}>
-              Your library is empty. Tap + Add New to create your first product.
+              {savedOnly ? 'Your saved food library is empty.' : 'Your library is empty. Tap + Add New to create your first product.'}
             </div>}
             {recentProducts.length > 0 && (
               <>
@@ -282,7 +289,7 @@ function AddPickerInner({
         )}
       </div>
 
-      <div className={styles.footer}>
+      {!savedOnly && <div className={styles.footer}>
         <button
           onClick={() => onAddTemp(q)}
           className={`btn-secondary ${styles.tempBtn}`}
@@ -297,7 +304,7 @@ function AddPickerInner({
           <PlusIcon size={14} />
           Add New
         </button>
-      </div>
+      </div>}
     </>
   );
 }

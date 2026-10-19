@@ -16,9 +16,9 @@ test('[J-104] full first-time onboarding: signup → empty → first product →
 }) => {
   // The end-to-end happy path that NO existing test asserts in one go. Each
   // hop along the chain is individually covered (empty state, AddPicker
-  // idleEmpty, NewProductForm validation, GramsPicker default 100, MacroSummary
+  // idleEmpty, NewProductForm validation, AmountPicker default 100, MacroSummary
   // computed totals), but the integration between them is not — a regression
-  // that broke the new-product → grams-picker modal transition, dropped the
+  // that broke the new-product → amount-picker modal transition, dropped the
   // optimistic addEntry update, or stale-cached entriesByDate would slip past
   // every per-component test. This spec ties them together.
   await signInFresh(page, request, 'onb');
@@ -46,10 +46,10 @@ test('[J-104] full first-time onboarding: signup → empty → first product →
   await fillNutField(page, 'Fat', '5');
   await page.getByRole('button', { name: /Save & Continue/ }).tap();
 
-  // App.tsx onProductSave transitions modal to grams-picker after
+  // App.tsx onProductSave transitions modal to amount-picker after
   // the POST /products resolves. AddPicker's search input is gone; "How much?"
-  // (GramsPicker.tsx) is mounted. Catches a regression that re-opened
-  // AddPicker instead of GramsPicker after save.
+  // (AmountPicker.tsx) is mounted. Catches a regression that re-opened
+  // AddPicker instead of AmountPicker after save.
   await expect(page.getByText('How much?')).toBeVisible();
   await expect(page.getByPlaceholder('Search products...')).toHaveCount(0);
   await page.getByRole('spinbutton').fill('100');

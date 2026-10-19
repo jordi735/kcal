@@ -24,7 +24,7 @@ export function FoodRow({
   onToggleTagged,
   onLongPress,
 }: FoodRowProps) {
-  const { product, macros, grams, local_time } = entry;
+  const { product, macros, amount, local_time } = entry;
 
   return (
     <div className={`food-row ${styles.row}${selected ? ` ${styles.selected}` : ''}`}>
@@ -56,7 +56,7 @@ export function FoodRow({
             )}
           </div>
           <div className={`mono ${styles.meta}`}>
-            <span>{grams}{product.unit}</span>
+            <span>{amount}{product.unit}</span>
             {product.brand && (
               <span className={`${styles.metaDim} ${styles.brand}`}>· {product.brand}</span>
             )}

@@ -19,7 +19,7 @@ const test = createMcpTest({ emailPrefix: 'mcp', scope: 'kcal:read' });
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test('[J-188] MCP discovers six account-scoped read-only tools with output schemas', async ({ mcp }) => {
-  expect(mcp.getServerVersion()).toEqual({ name: 'kcal', version: '4.0.0' });
+  expect(mcp.getServerVersion()).toEqual({ name: 'kcal', version: '5.0.0' });
   expect(mcp.getInstructions()).not.toMatch(/tagged|\btags\b|\beaten\b/);
   const { tools } = await mcp.listTools();
   expect(tools.map((tool) => tool.name).sort()).toEqual([
@@ -66,8 +66,8 @@ test('[J-189] MCP food reads and summaries match app totals across users, groups
     per100: { kcal: 200, protein: 10, carbs: 20, fat: 5 },
   };
   const product = await write<Product>(request, a.token, 'post', '/products', productBody);
-  const entry = (date: string, grams: number) => write<EntryWithMacros>(request, a.token, 'post', '/entries', {
-    product_id: product.id, grams, local_date: date, local_time: '12:30',
+  const entry = (date: string, amount: number) => write<EntryWithMacros>(request, a.token, 'post', '/entries', {
+    product_id: product.id, amount, local_date: date, local_time: '12:30',
   });
   const first = await entry('2024-12-30', 150);
   const second = await entry('2024-12-30', 50);
@@ -181,7 +181,7 @@ test('[J-261] MCP includes every logged meal regardless of app checkmarks', asyn
     });
     for (const local_time of times) {
       const entry = await write<EntryWithMacros>(request, account.token, 'post', '/entries', {
-        product_id: product.id, grams: 100, local_date: date, local_time,
+        product_id: product.id, amount: 100, local_date: date, local_time,
       });
       if (name === 'Wrap') await write(request, account.token, 'patch', `/entries/${entry.id}`, { tagged: true });
       entries.push(entry);
@@ -288,7 +288,7 @@ test('[J-200] MCP summaries distinguish missing days from zero-calorie logged da
   const body = { name: `MCP summary water ${user.id}`, brand: null, unit: 'ml', barcode: null, is_temp: false, per100: ZERO };
   const water = await write<Product>(request, token, 'post', '/products', body);
   await write(request, token, 'post', '/entries', {
-    product_id: water.id, grams: 250, local_date: '2024-02-29', local_time: '09:00',
+    product_id: water.id, amount: 250, local_date: '2024-02-29', local_time: '09:00',
   });
   const zero = await call<McpSummaryResult>(mcp, 'get_summary', range);
   expect(zero).toMatchObject({ days_logged: 1, days_without_entries: 2, totals: ZERO, average_on_logged_days: ZERO });
@@ -296,16 +296,16 @@ test('[J-200] MCP summaries distinguish missing days from zero-calorie logged da
   const product = await write<Product>(request, token, 'post', '/products', {
     ...body, name: `MCP summary food ${user.id}`, unit: 'g', per100: { kcal: 150, protein: 9, carbs: 18, fat: 6 },
   });
-  for (const [local_date, grams] of [
+  for (const [local_date, amount] of [
     ['2024-02-28', 100], ['2024-03-01', 100], ['2024-02-28', 50],
     ['2024-02-27', 999], ['2024-03-02', 999],
   ] as const) {
-    await write(request, token, 'post', '/entries', { product_id: product.id, grams, local_date, local_time: '12:30' });
+    await write(request, token, 'post', '/entries', { product_id: product.id, amount, local_date, local_time: '12:30' });
   }
   // Legacy impossible dates remain readable but never count as calendar days.
   const legacyDb = new Database('/tmp/kcal-e2e.db');
   try {
-    legacyDb.prepare('INSERT INTO entries (user_id, product_id, grams, local_date, local_time, created_at) VALUES (?, ?, ?, ?, ?, 0)')
+    legacyDb.prepare('INSERT INTO entries (user_id, product_id, amount, local_date, local_time, created_at) VALUES (?, ?, ?, ?, ?, 0)')
       .run(user.id, product.id, 999, '2024-02-30', '12:30');
     legacyDb.prepare('INSERT INTO weights (user_id, local_date, weight_kg, created_at) VALUES (?, ?, ?, 0)')
       .run(user.id, '2024-02-30', 82);

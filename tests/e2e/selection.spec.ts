@@ -264,7 +264,7 @@ test('[J-131] long-press on the dot does NOT enter selection mode', async ({ pag
   await expect(page.getByText('1 selected', { exact: true })).toHaveCount(0);
 });
 
-test('[J-132] tap in selection mode adds to selection only — no GramsPicker', async ({ page }) => {
+test('[J-132] tap in selection mode adds to selection only — no AmountPicker', async ({ page }) => {
   const s = 'ZD';
   await seedPair(page, s);
 
@@ -273,7 +273,7 @@ test('[J-132] tap in selection mode adds to selection only — no GramsPicker', 
 
   // Tapping B in selection mode hits the if-branch in FoodRow.tsx:
   //   if (selectionMode) onToggleSelect(entry); else onEdit(entry);
-  // so onEdit must NOT fire and GramsPicker must NOT mount. A regression
+  // so onEdit must NOT fire and AmountPicker must NOT mount. A regression
   // that drops the `if` (or flips the comparator) would open the editor
   // here while still adding to selection — dual-effect bug.
   await mainButton(page, `E2E Sel B ${s}`).tap();

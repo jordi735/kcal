@@ -16,7 +16,7 @@ import type {
 } from './types.js';
 
 export function createEntry(userId: number, body: NewEntryBody, savedOnly = false): EntryWithMacros {
-  if (!isEntryAmount(body.grams) || !isLocalDate(body.local_date) || !isLocalTime(body.local_time)) {
+  if (!isEntryAmount(body.amount) || !isLocalDate(body.local_date) || !isLocalTime(body.local_time)) {
     throw new WriteError(400, 'invalid_entry');
   }
   const entry = db.transaction(() => {
@@ -26,7 +26,7 @@ export function createEntry(userId: number, body: NewEntryBody, savedOnly = fals
     const inserted = statements.entries.insert.run(
       userId,
       body.product_id,
-      body.grams,
+      body.amount,
       body.local_date,
       body.local_time,
       Date.now(),
@@ -42,7 +42,7 @@ export function createEntry(userId: number, body: NewEntryBody, savedOnly = fals
 
 // The MCP receipt adds an outer transaction; nested helpers use savepoints.
 export function createEntries(userId: number, body: {
-  entries: { product_id: number; grams: number }[];
+  entries: { product_id: number; amount: number }[];
   local_date: string;
   local_time: string;
   group_name?: string;
@@ -68,21 +68,26 @@ export function createEntries(userId: number, body: {
 export function updateEntry(userId: number, entryId: number, body: EntryUpdate): EntryWithMacros {
   // Legacy stored amounts stay readable and taggable. The current amount rule
   // applies only when the caller supplies a replacement amount.
-  if (body.grams !== undefined && !isEntryAmount(body.grams)) {
+  if ((body.amount !== undefined && !isEntryAmount(body.amount))
+    || (body.product_id !== undefined && !isPositiveInt(body.product_id))
+    || (body.local_time !== undefined && !isLocalTime(body.local_time))
+    || (body.tagged !== undefined && typeof body.tagged !== 'boolean')
+    || [body.amount, body.product_id, body.local_time, body.tagged].every((value) => value === undefined)) {
     throw new WriteError(400, 'invalid_entry');
   }
   const entry = db.transaction(() => {
-    if (statements.entries.selectMembershipById.get(userId, entryId) === undefined) {
-      throw new WriteError(404, 'not_found');
+    const current = statements.entries.selectById.get(userId, entryId) as EntryJoinRow | undefined;
+    if (current === undefined) throw new WriteError(404, 'not_found');
+    if (body.product_id !== undefined) {
+      const product = statements.products.selectById.get(userId, body.product_id) as ProductRow | undefined;
+      if (product === undefined) throw new WriteError(404, 'product_not_found');
+      if (product.is_temp !== 0) throw new WriteError(400, 'product_not_loggable');
+      if (rowToProduct(product).unit !== rowToEntry(current).product.unit && body.amount === undefined) {
+        throw new WriteError(400, 'amount_required_for_unit_change');
+      }
     }
-    if (body.grams !== undefined) {
-      const result = statements.entries.updateGrams.run(body.grams, userId, entryId);
-      if (result.changes === 0) throw new WriteError(404, 'not_found');
-    }
-    if (body.tagged !== undefined) {
-      const result = statements.entries.updateTagged.run(body.tagged ? 1 : 0, userId, entryId);
-      if (result.changes === 0) throw new WriteError(404, 'not_found');
-    }
+    statements.entries.update.run(body.product_id ?? null, body.amount ?? null, body.local_time ?? null,
+      body.tagged === undefined ? null : body.tagged ? 1 : 0, userId, entryId);
     const row = statements.entries.selectById.get(userId, entryId) as EntryJoinRow | undefined;
     if (row === undefined) throw new WriteError(404, 'not_found');
     return rowToEntry(row);

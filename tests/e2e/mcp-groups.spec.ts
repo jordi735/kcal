@@ -23,9 +23,9 @@ async function createProduct(mcp: Client, name: string): Promise<Product> {
 }
 
 async function createEntry(
-  mcp: Client, product_id: number, local_date: string, grams = 100, local_time = '12:30',
+  mcp: Client, product_id: number, local_date: string, amount = 100, local_time = '12:30',
 ): Promise<McpEntry> {
-  return (await call<McpEntriesCreateResult>(mcp, 'create_entries', { entries: [{ product_id, grams }], local_date, local_time })).entries[0]!;
+  return (await call<McpEntriesCreateResult>(mcp, 'create_entries', { entries: [{ product_id, amount }], local_date, local_time })).entries[0]!;
 }
 
 async function createGroup(mcp: Client, name: string, entry_ids: number[]): Promise<McpEntryGroupCreateResult> {
@@ -209,7 +209,7 @@ test('[J-220] MCP groups reject invalid memberships and unsupported edits withou
     ['update_entry_group', { ...rename, name: null }],
     ['update_entry_group', { ...rename, entry_ids: [a.id, b.id] }],
     ['update_entry_group', { ...rename, local_date: '2024-03-01' }],
-    ['update_entry_group', { ...rename, grams: 200 }],
+    ['update_entry_group', { ...rename, amount: 200 }],
     ['update_entry_group', { ...rename, per100: NUTRITION }],
     ['update_entry_group', { ...rename, tagged: true }],
     ['update_entry_group', { ...rename, user_id: account.user.id }],
@@ -236,7 +236,7 @@ test('[J-220] MCP groups reject invalid memberships and unsupported edits withou
   try {
     db.prepare('UPDATE entries SET local_date = ? WHERE user_id = ? AND id IN (?, ?)')
       .run('2024-02-30', account.user.id, impossibleA.id, impossibleB.id);
-    db.prepare('UPDATE entries SET grams = ? WHERE user_id = ? AND id = ?')
+    db.prepare('UPDATE entries SET amount = ? WHERE user_id = ? AND id = ?')
       .run(1e308, account.user.id, extremeA.id);
   } finally {
     db.close();
@@ -304,7 +304,7 @@ test('[J-222] MCP groups support temporary children and deletion while preservin
   });
   // The UI creates and logs temporary foods through REST; MCP can manage that existing log.
   const tempEntry = await rest<EntryWithMacros>(request, account.token, 'post', '/entries', {
-    product_id: temporary.id, grams: 50, local_date: date, local_time: '08:00',
+    product_id: temporary.id, amount: 50, local_date: date, local_time: '08:00',
   });
   const savedA = await createEntry(mcp, saved.id, date, 100);
   const savedB = await createEntry(mcp, saved.id, date, 25);
@@ -313,8 +313,8 @@ test('[J-222] MCP groups support temporary children and deletion while preservin
   expect(group.entries[0]!.product.is_temp).toBe(true);
   const groupRef = { id: group.group.id, name: group.group.name };
   await rest(request, account.token, 'patch', `/entries/${tempEntry.id}`, { tagged: true });
-  const changed = await call<McpEntryWriteResult>(mcp, 'update_entry', { entry_id: tempEntry.id, grams: 75 });
-  expect(changed.entry).toEqual({ ...mcpEntry(tempEntry), grams: 75, group: groupRef,
+  const changed = await call<McpEntryWriteResult>(mcp, 'update_entry', { entry_id: tempEntry.id, amount: 75 });
+  expect(changed.entry).toEqual({ ...mcpEntry(tempEntry), amount: 75, group: groupRef,
     macros: { kcal: 150, protein: 7.5, carbs: 15, fat: 3.75 },
   });
   expect((await call<McpDayResult>(mcp, 'get_day', { date })).totals)

@@ -2,31 +2,31 @@ import { expect, test } from '@playwright/test';
 import { tokenFrom } from './auth-helpers';
 import { fillNutField, seedProductAndLog } from './helpers';
 
-// Edit flows. Entry edit opens GramsPicker in mode='edit' (title 'Edit amount',
+// Edit flows. Entry edit opens AmountPicker in mode='edit' (title 'Edit entry',
 // confirm button 'Save', delete TrashIcon aria-label 'Delete entry'). Product
 // edit opens NewProductForm in mode='edit' (title 'Save changes'). The
 // retroactive-macro invariant lives in App.tsx onProductEditSave: product-edit save
 // refetches the day + week, so macros change without a page reload. Cancel in
-// edit-product routes back to GramsPicker (App.tsx onEditProductClose), NOT home.
+// edit-product routes back to AmountPicker (App.tsx onEditProductClose), NOT home.
 
 const MACROS = { kcal: '100', protein: '10', carbs: '10', fat: '2' };
 
 // auth.setup.ts persisted user A's session token to user.json. The contract
 // tests just need a bearer token to prove route validators reject bad input —
 // no UI needed, so read the file directly to avoid a page navigation.
-test('[J-016] edit grams updates the row without adding a new entry', async ({ page }) => {
-  const name = 'E2E Edit Grams';
+test('[J-016] edit amount updates the row without adding a new entry', async ({ page }) => {
+  const name = 'E2E Edit Amount';
   await page.goto('/');
   await seedProductAndLog(page, name, MACROS, '100');
 
   const row = page.locator('.food-row').filter({ hasText: name });
 
-  // Tap the main button (nth(1) — dot is 0) to open GramsPicker in edit mode.
+  // Tap the main button (nth(1) — dot is 0) to open AmountPicker in edit mode.
   await row.locator('button').nth(1).tap();
-  await page.getByText('Edit amount').waitFor({ state: 'visible' });
+  await page.getByText('Edit entry').waitFor({ state: 'visible' });
 
   await page.getByRole('spinbutton').fill('200');
-  // Confirm button in edit mode is 'Save' (GramsPicker.tsx).
+  // Confirm button in edit mode is 'Save' (AmountPicker.tsx).
   await page.getByRole('button', { name: 'Save', exact: true }).tap();
 
   // Editing an existing entry updates in place — still exactly one row.
@@ -41,9 +41,9 @@ test('[J-017] delete button in edit sheet removes the entry', async ({ page }) =
 
   const row = page.locator('.food-row').filter({ hasText: name });
   await row.locator('button').nth(1).tap();
-  await page.getByText('Edit amount').waitFor({ state: 'visible' });
+  await page.getByText('Edit entry').waitFor({ state: 'visible' });
 
-  // GramsPicker.tsx — TrashIcon button with aria-label 'Delete entry'.
+  // AmountPicker.tsx — TrashIcon button with aria-label 'Delete entry'.
   // No confirmation dialog; one tap removes the row.
   await page.getByRole('button', { name: 'Delete entry' }).tap();
 
@@ -52,7 +52,7 @@ test('[J-017] delete button in edit sheet removes the entry', async ({ page }) =
 
 test('[J-013] editing a product retroactively updates the row on the same day', async ({ page }) => {
   // The crown jewel: per AGENTS.md, "Macros are computed, never stored."
-  // entries only store grams + product_id; macro totals join products on every
+  // entries only store amount + product_id; macro totals join products on every
   // read. After a product edit, App.tsx onProductEditSave refetches the day + week,
   // re-deriving macros via the sumMacros useMemo without a page reload.
   const name = 'E2E Edit Product';
@@ -68,7 +68,7 @@ test('[J-013] editing a product retroactively updates the row on the same day', 
 
   // Enter edit mode, then tap the pencil icon to escalate to product-edit.
   await row.locator('button').nth(1).tap();
-  await page.getByText('Edit amount').waitFor({ state: 'visible' });
+  await page.getByText('Edit entry').waitFor({ state: 'visible' });
   // `exact: true` — the FoodRow behind the sheet has an accessible name that
   // substring-matches 'edit product' (the product's own name is 'E2E Edit
   // Product'), so Playwright's default substring match resolves two buttons.
@@ -90,14 +90,14 @@ test('[J-013] editing a product retroactively updates the row on the same day', 
   await expect(row.getByText('500', { exact: true })).toBeVisible();
   // And the old kcal value (100) is no longer present in the row at all —
   // proves no stale row leaked through. (100 also doesn't appear elsewhere:
-  // grams="100g" is not exact "100", protein/carbs/fat are 10/10/2.)
+  // amount="100g" is not exact "100", protein/carbs/fat are 10/10/2.)
   await expect(row.getByText('100', { exact: true })).toHaveCount(0);
 });
 
 test('[J-014] Add Temp Item flow renders a TMP badge on the row', async ({ page }) => {
   // FoodRow.tsx — is_temp products render a 'TMP' badge next to the
   // product name. The temp flow is AddPicker search → 'Add Temp' button →
-  // NewProductForm (isTemp=true, save button reads 'Add to Day') → GramsPicker.
+  // NewProductForm (isTemp=true, save button reads 'Add to Day') → AmountPicker.
   const name = 'E2E Temp Thing';
   await page.goto('/');
 
@@ -113,7 +113,7 @@ test('[J-014] Add Temp Item flow renders a TMP badge on the row', async ({ page 
   await fillNutField(page, 'Carbs', '5');
   await fillNutField(page, 'Fat', '1');
   // Temp-mode confirm is 'Add to Day' (capital D) per NewProductForm.tsx —
-  // distinct from GramsPicker's 'Add to day' (lowercase d). `exact: true`
+  // distinct from AmountPicker's 'Add to day' (lowercase d). `exact: true`
   // would collide because Playwright's name-match is already case-insensitive
   // by default; rely on the fact that only one of the two sheets is mounted.
   await page.getByRole('button', { name: 'Add to Day' }).tap();
@@ -140,7 +140,7 @@ test('[J-066] Atwater mismatch warning appears when kcal disagrees with macros b
 
   const row = page.locator('.food-row').filter({ hasText: name });
   await row.locator('button').nth(1).tap();
-  await page.getByText('Edit amount').waitFor({ state: 'visible' });
+  await page.getByText('Edit entry').waitFor({ state: 'visible' });
   await page.getByRole('button', { name: 'Edit product', exact: true }).tap();
   await page.getByRole('button', { name: 'Save changes' }).waitFor({ state: 'visible' });
 
@@ -169,7 +169,7 @@ test('[J-067] edit-mode kcal>2000 cap is rejected; form stays open', async ({ pa
 
   const row = page.locator('.food-row').filter({ hasText: name });
   await row.locator('button').nth(1).tap();
-  await page.getByText('Edit amount').waitFor({ state: 'visible' });
+  await page.getByText('Edit entry').waitFor({ state: 'visible' });
   await page.getByRole('button', { name: 'Edit product', exact: true }).tap();
   await page.getByRole('button', { name: 'Save changes' }).waitFor({ state: 'visible' });
 
@@ -235,7 +235,7 @@ test('[J-070] PATCH /entries/:id with unknown id returns 404 not_found', async (
   const token = tokenFrom('tests/e2e/.auth/user.json');
   const res = await request.patch('/entries/9999999', {
     headers: { Authorization: `Bearer ${token}` },
-    data: { grams: 200 },
+    data: { amount: 200 },
   });
   expect(res.status()).toBe(404);
   expect(await res.json()).toEqual({ error: 'not_found' });
@@ -247,7 +247,7 @@ test('[J-071] PATCH /entries/:id with malformed id returns 400 invalid_id', asyn
   for (const bad of ['0', '-1', 'abc']) {
     const res = await request.patch(`/entries/${bad}`, {
       headers: { Authorization: `Bearer ${token}` },
-      data: { grams: 200 },
+      data: { amount: 200 },
     });
     expect(res.status(), `id="${bad}"`).toBe(400);
     expect(await res.json()).toEqual({ error: 'invalid_id' });
@@ -255,7 +255,7 @@ test('[J-071] PATCH /entries/:id with malformed id returns 400 invalid_id', asyn
 });
 
 test('[J-072] PATCH /entries/:id with empty body returns 400 invalid_entry', async ({ request }) => {
-  // entries.ts — isUpdateEntryBody requires at least one of `grams`
+  // entries.ts — isUpdateEntryBody requires at least one of `amount`
   // or `tagged`. Empty {} is rejected so a stray no-op PATCH can't masquerade
   // as a successful update.
   const token = tokenFrom('tests/e2e/.auth/user.json');
@@ -267,25 +267,25 @@ test('[J-072] PATCH /entries/:id with empty body returns 400 invalid_entry', asy
   expect(await res.json()).toEqual({ error: 'invalid_entry' });
 });
 
-test('[J-073] PATCH /entries/:id rejects non-positive grams with 400 invalid_entry', async ({ request }) => {
+test('[J-073] PATCH /entries/:id rejects non-positive amount with 400 invalid_entry', async ({ request }) => {
   // The shared isEntryAmount guard excludes amounts below 1, NaN and Infinity. Three
   // bad values exercise three cases: zero, a negative, and a string rejected
   // by the type guard without coercion. All must
   // funnel to 400 `invalid_entry` BEFORE the router touches any statement.
   const token = tokenFrom('tests/e2e/.auth/user.json');
   const cases: Array<unknown> = [0, -10, 'abc'];
-  for (const grams of cases) {
+  for (const amount of cases) {
     const res = await request.patch('/entries/1', {
       headers: { Authorization: `Bearer ${token}` },
-      data: { grams },
+      data: { amount },
     });
-    expect(res.status(), `grams=${JSON.stringify(grams)}`).toBe(400);
+    expect(res.status(), `amount=${JSON.stringify(amount)}`).toBe(400);
     expect(await res.json()).toEqual({ error: 'invalid_entry' });
   }
 });
 
-test('[J-074] cancel in product-edit form returns to GramsPicker without issuing a PUT', async ({ page }) => {
-  // App.tsx onEditProductClose: edit-product onClose flips back to grams-picker (NOT
+test('[J-074] cancel in product-edit form returns to AmountPicker without issuing a PUT', async ({ page }) => {
+  // App.tsx onEditProductClose: edit-product onClose flips back to amount-picker (NOT
   // home). The Cancel button (NewProductForm.tsx) calls useSheetClose
   // → onClose. A regression that wired Cancel to onDismiss instead would land
   // the user on the home screen and silently lose the edit context.
@@ -304,7 +304,7 @@ test('[J-074] cancel in product-edit form returns to GramsPicker without issuing
 
   const row = page.locator('.food-row').filter({ hasText: name });
   await row.locator('button').nth(1).tap();
-  await page.getByText('Edit amount').waitFor({ state: 'visible' });
+  await page.getByText('Edit entry').waitFor({ state: 'visible' });
   await page.getByRole('button', { name: 'Edit product', exact: true }).tap();
   await page.getByRole('button', { name: 'Save changes' }).waitFor({ state: 'visible' });
 
@@ -315,16 +315,16 @@ test('[J-074] cancel in product-edit form returns to GramsPicker without issuing
   // Cancel button (top-right of NewProductForm).
   await page.getByRole('button', { name: 'Cancel', exact: true }).tap();
 
-  // Back to GramsPicker — Edit amount heading is mounted again.
-  await expect(page.getByText('Edit amount')).toBeVisible();
+  // Back to AmountPicker — Edit entry heading is mounted again.
+  await expect(page.getByText('Edit entry')).toBeVisible();
   // Save-changes button must be unmounted — proves the edit form actually
-  // closed, not just that "Edit amount" reappeared in the background stack.
+  // closed, not just that "Edit entry" reappeared in the background stack.
   await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0);
   // No PUT was issued — the cancel discarded the in-flight kcal=999 change.
   expect(putCount).toBe(0);
 
   // Belt-and-suspenders: the row's kcal column is still 100 (unchanged).
-  // Close GramsPicker by saving the unchanged grams, then check the row.
+  // Close AmountPicker by saving the unchanged amount, then check the row.
   await page.getByRole('spinbutton').fill('100');
   await page.getByRole('button', { name: 'Save', exact: true }).tap();
   await expect(row.getByText('100', { exact: true })).toBeVisible();

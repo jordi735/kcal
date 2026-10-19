@@ -1,6 +1,6 @@
 // Shared saved-food discovery. Authentication stays with each caller; every
 // owned-library statement binds the authenticated user at the SQL boundary.
-import { foldProductSearchText } from '../shared/normalize.js';
+import { productSearchTerms } from '../shared/normalize.js';
 import { statements } from './statements.js';
 import type { Product, ProductRow, ProductTemplate } from './types.js';
 
@@ -27,11 +27,11 @@ export function searchProductPage(userId: number, options: {
   limit: number;
   offset: number;
 }): { products: Product[]; next_offset: number | null } {
-  const query = foldProductSearchText(options.query?.trim() ?? '');
+  const terms = JSON.stringify(productSearchTerms(options.query ?? ''));
   const { limit, offset } = options;
   const rows = (options.sort === 'recent'
-    ? statements.products.pageByRecent.all(userId, userId, query, query, limit + 1, offset)
-    : statements.products.pageByName.all(userId, query, query, limit + 1, offset)) as ProductRow[];
+    ? statements.products.pageByRecent.all(userId, userId, terms, limit + 1, offset)
+    : statements.products.pageByName.all(userId, terms, limit + 1, offset)) as ProductRow[];
   return {
     products: rows.slice(0, limit).map(rowToProduct),
     next_offset: rows.length > limit ? offset + limit : null,

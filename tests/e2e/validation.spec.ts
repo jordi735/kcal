@@ -21,7 +21,7 @@ test('[J-011] server rejects product kcal > 2000 cap — form stays open, no row
   //
   // Mutation cases this catches:
   //   - cap removed entirely (kcal flowed through, row appears) — fails
-  //     `food-row count == 0` and the GramsPicker negative-path.
+  //     `food-row count == 0` and the AmountPicker negative-path.
   //   - error swallowed in App.tsx (sheet auto-closes despite 400) — fails
   //     `New Product` visibility.
   //   - response status code wrong — fails the explicit response.status() check.
@@ -52,8 +52,8 @@ test('[J-011] server rejects product kcal > 2000 cap — form stays open, no row
 
   // Form still mounted (positive — error UX leaves it open for retry).
   await expect(page.getByText('New Product', { exact: true })).toBeVisible();
-  // GramsPicker never opened (negative — successful flow short-circuited
-  // before reaching App.tsx's setModal('grams-picker')).
+  // AmountPicker never opened (negative — successful flow short-circuited
+  // before reaching App.tsx's setModal('amount-picker')).
   await expect(page.getByText('How much?')).toHaveCount(0);
   // No row inserted on the home list — proves the entry was never created.
   await expect(
@@ -93,7 +93,7 @@ test('[J-155] kcal at the 2000 cap is accepted (boundary; positive control for J
   ]);
   expect(response.status()).toBe(201);
 
-  // Save flowed through to GramsPicker — the success path.
+  // Save flowed through to AmountPicker — the success path.
   await expect(page.getByText('How much?')).toBeVisible();
   // NewProductForm unmounted (sheet replaced, not stacked underneath).
   await expect(page.getByText('New Product', { exact: true })).toHaveCount(0);

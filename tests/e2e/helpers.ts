@@ -3,9 +3,9 @@ import { startSignIn, submitSignInCode } from './auth-helpers';
 
 // Per-test fresh user: bypasses the shared `e2e@test.local` storageState so
 // existingTotals starts at 0 on today's date. Required by any spec that asserts
-// absolute kcal/macro projections in GramsPicker — those rows render
+// absolute kcal/macro projections in AmountPicker — those rows render
 // `existing + entry`, so a polluted day breaks hardcoded numbers (see
-// GramsPicker.tsx). The unique timestamp+random suffix avoids collisions
+// AmountPicker.tsx). The unique timestamp+random suffix avoids collisions
 // when the same prefix is used across many tests in one run. `emailPrefix`
 // is purely a debug breadcrumb in the users table — pick something distinctive
 // so triage of /tmp/kcal-e2e.db can attribute rows back to the source spec.
@@ -46,14 +46,14 @@ export async function longPress(locator: Locator) {
   await locator.dispatchEvent('contextmenu');
 }
 
-// Full AddPicker → NewProductForm → GramsPicker UI flow, stopping after the
+// Full AddPicker → NewProductForm → AmountPicker UI flow, stopping after the
 // entry is logged. Used as per-test seeding in selection/tagging specs.
 // `barcode` is optional — pass it to exercise the shared-catalog / adopt flow.
 export async function seedProductAndLog(
   page: Page,
   name: string,
   macros: { kcal: string; protein: string; carbs: string; fat: string },
-  grams: string,
+  amount: string,
   barcode?: string,
 ) {
   await page.getByRole('button', { name: 'ADD FOOD' }).tap();
@@ -74,11 +74,11 @@ export async function seedProductAndLog(
   await fillNutField(page, 'Carbs', macros.carbs);
   await fillNutField(page, 'Fat', macros.fat);
   await page.getByRole('button', { name: /Save & Continue/ }).tap();
-  // GramsPicker's sheet transitions in — sync on its heading before touching
+  // AmountPicker's sheet transitions in — sync on its heading before touching
   // the spinbutton, otherwise fill() fires against NewProductForm's inputs
   // that are briefly still mounted.
   await page.getByText('How much?').waitFor({ state: 'visible' });
-  await page.getByRole('spinbutton').fill(grams);
+  await page.getByRole('spinbutton').fill(amount);
   await page.getByRole('button', { name: /Add to day/ }).tap();
   // Wait for the new row to appear on the home list — confirms all sheets
   // have closed before the caller proceeds (e.g. to a second seed).

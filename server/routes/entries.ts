@@ -1,4 +1,4 @@
-// GET /entries, GET /entries/recent-grams, GET /entries/week,
+// GET /entries, GET /entries/recent-amounts, GET /entries/week,
 // entry-group CRUD, POST /entries, PATCH /entries/:id, DELETE /entries/:id.
 // Macros computed on read; never stored. Every query scoped by req.userId.
 
@@ -16,7 +16,7 @@ import {
   createEntryGroup, updateEntryGroup, setEntryGroupTagged, ungroupEntries,
 } from '../writes.js';
 import { isEntryAmount, isLocalDate, isLocalTime, parseEntryGroupName } from '../../shared/constraints.js';
-import type { NewEntryBody } from '../types.js';
+import type { EntryUpdate, NewEntryBody } from '../types.js';
 
 export const entriesRouter: Router = Router();
 
@@ -24,20 +24,23 @@ entriesRouter.use(authMiddleware);
 
 function isNewEntryBody(v: unknown): v is NewEntryBody {
   if (!isObject(v)) return false;
+  if ('grams' in v) return false;
   return (
     isPositiveInt(v.product_id) &&
-    isEntryAmount(v.grams) &&
+    isEntryAmount(v.amount) &&
     typeof v.local_date === 'string' && isLocalDate(v.local_date) &&
     typeof v.local_time === 'string' && isLocalTime(v.local_time)
   );
 }
 
-function isUpdateEntryBody(v: unknown): v is { grams?: number; tagged?: boolean } {
+function isUpdateEntryBody(v: unknown): v is EntryUpdate {
   if (!isObject(v)) return false;
-  if ('grams' in v && !isEntryAmount(v.grams)) return false;
+  if (Object.keys(v).some((key) => !['amount', 'product_id', 'local_time', 'tagged'].includes(key))) return false;
+  if ('amount' in v && !isEntryAmount(v.amount)) return false;
+  if ('product_id' in v && !isPositiveInt(v.product_id)) return false;
+  if ('local_time' in v && (typeof v.local_time !== 'string' || !isLocalTime(v.local_time))) return false;
   if ('tagged' in v && typeof v.tagged !== 'boolean') return false;
-  if (!('grams' in v) && !('tagged' in v)) return false;
-  return true;
+  return Object.keys(v).length > 0;
 }
 
 function parseNewEntryGroupBody(v: unknown): { name: string; entryIds: number[] } | null {
@@ -73,15 +76,15 @@ entriesRouter.get('/', (req, res) => {
 // Declared before `/:id` routes so the string literal wins over any
 // future id-shaped path. Current routes don't conflict, but this is cheap
 // insurance.
-entriesRouter.get('/recent-grams', (req, res) => {
+entriesRouter.get('/recent-amounts', (req, res) => {
   const rawId = req.query.product_id;
   const productId = typeof rawId === 'string' ? parsePositiveInt(rawId) : null;
   if (productId === null) {
     res.status(400).json({ error: 'invalid_product_id' });
     return;
   }
-  const rows = statements.entries.recentGrams.all(req.userId!, productId) as { grams: number }[];
-  res.json({ grams: rows.map((r) => r.grams) });
+  const rows = statements.entries.recentAmounts.all(req.userId!, productId) as { amount: number }[];
+  res.json({ amounts: rows.map((r) => r.amount) });
 });
 
 entriesRouter.get('/week', (req, res) => {

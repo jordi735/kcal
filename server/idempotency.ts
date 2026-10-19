@@ -7,8 +7,9 @@ import { db } from './db.js';
 import { statements } from './statements.js';
 import { WriteError } from './errors.js';
 import type { McpCreationReceipt, McpCreationReceiptRow } from './types.js';
+import { decodeV4Receipt, v4FingerprintInput } from './mcp/legacyReceipts.js';
 
-const RECEIPT_SCHEMA_VERSION = 4;
+const RECEIPT_SCHEMA_VERSION = 5;
 
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
@@ -30,12 +31,19 @@ export function createWithReceipt<T extends { receipt: McpCreationReceipt }>(
   return db.transaction(() => {
     const saved = statements.mcpReceipts.select.get(userId, key) as McpCreationReceiptRow | undefined;
     if (saved !== undefined) {
-      if (saved.tool_name !== toolName || saved.request_hash !== requestHash) {
+      if (saved.tool_name !== toolName) {
         throw new WriteError(409, 'idempotency_key_conflict');
       }
+      if (saved.schema_version !== 4 && saved.schema_version !== RECEIPT_SCHEMA_VERSION) {
+        throw new WriteError(500, 'idempotency_replay_unavailable');
+      }
+      const matchingHash = saved.schema_version === 4
+        ? createHash('sha256').update(canonicalJson({ tool: toolName, input: v4FingerprintInput(toolName, normalizedInput) })).digest('hex')
+        : requestHash;
+      if (saved.request_hash !== matchingHash) throw new WriteError(409, 'idempotency_key_conflict');
       try {
-        if (saved.schema_version !== RECEIPT_SCHEMA_VERSION) throw new Error('Unsupported receipt version');
-        const result = schema.parse(JSON.parse(saved.result_json));
+        const snapshot: unknown = JSON.parse(saved.result_json);
+        const result = schema.parse(saved.schema_version === 4 ? decodeV4Receipt(toolName, snapshot) : snapshot);
         if (result.receipt.idempotency_key !== key
           || result.receipt.applied_at !== new Date(saved.applied_at).toISOString()) {
           throw new Error('Invalid saved receipt metadata');

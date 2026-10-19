@@ -52,7 +52,7 @@ test('[J-109] unit toggle to ml flips "Per 100ml" label and persists unit:"ml"',
   await page.getByRole('spinbutton').fill('100');
   await page.getByRole('button', { name: /Add to day/ }).tap();
 
-  // FoodRow.tsx renders `${grams}${unit}`. A regression that ignored the
+  // FoodRow.tsx renders `${amount}${unit}`. A regression that ignored the
   // unit toggle in the POST body would land here as "100g".
   const row = page.locator('.food-row').filter({ hasText: name });
   await expect(row).toContainText('100ml');

@@ -39,7 +39,7 @@ export const entryGroupSchema = z.object({
 export const entrySchema = z.object({
   id: z.number().int(),
   product: productSchema,
-  grams: z.number(),
+  amount: z.number(),
   local_date: dateString,
   local_time: z.string().regex(TIME_RE),
   macros: macrosSchema,
@@ -71,7 +71,7 @@ export const changeAnnotations = {
   readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false,
 };
 export const positiveId = z.number().int().positive();
-// Keep SQLite's grams * per100 arithmetic finite as well as entry serialization.
+// Keep SQLite's amount * per100 arithmetic finite as well as entry serialization.
 export const amount = z.number().min(MIN_ENTRY_AMOUNT).max(MAX_ENTRY_AMOUNT);
 export const idempotencyKey = z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/)
   .describe('Unique operation key for this account; a UUID is recommended. Reuse the same key and arguments only when retrying this operation.');

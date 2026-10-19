@@ -131,6 +131,9 @@ Use `search_products` to browse a library, find a usual food, or look up a barco
 Every result has `{ user_id, products, template, next_offset }`:
 
 - Omit `query` to browse; supply nonblank `query` for literal name/brand matching.
+  Every distinct whitespace-separated word must occur in either the name or brand,
+  in any order. For example, `Fage yoghurt` finds `Greek yoghurt` by `Fage`.
+  There is no fuzzy matching, relevance ranking, alias or serving-size system.
   Surrounding whitespace is trimmed. Matching shares the app's Unicode lowercase
   and NFC normalization, preserves accents, and treats `%`, `_`, and backslashes
   literally rather than as wildcard syntax.
@@ -200,7 +203,7 @@ connections can discover them without a new scope or additional consent.
 | Tool | Arguments | Result (in addition to `user_id`) |
 | --- | --- | --- |
 | `create_entries` | `idempotency_key`, `entries`, `local_date`, `local_time`; optional `group_name` | New `entries`, nullable `group`, their `totals`, and `receipt` |
-| `update_entry` | `entry_id`, `grams` (both required) | Updated `entry` |
+| `update_entry` | `entry_id`; at least one of `amount`, `product_id`, `local_time` | Updated `entry` |
 | `delete_entry` | `entry_id` | `ok: true`, `entry_id`, nullable `dissolved_group_id` |
 | `create_product` | `idempotency_key`, `name`, `unit`, complete `per100`; optional nullable `brand`, `barcode` | Saved `product` and `receipt` |
 | `update_product` | `product_id`, supplied changes to `name`, `brand`, `unit`, `barcode`, or individual `per100` values | Updated `product` |
@@ -221,7 +224,7 @@ Existing temporary entries remain readable, editable, groupable, and
 deletable. The app's workflow for creating a new temporary food and its first log
 is unchanged.
 
-`create_entries` accepts 1–50 `{ product_id, grams }` items at one explicit date
+`create_entries` accepts 1–50 `{ product_id, amount }` items at one explicit date
 and time. Duplicate products create separate entries in input order. Optional
 `group_name` groups all new entries and requires at least two items; omitted
 group names leave the entries ungrouped. Creation, optional grouping, receipt,
@@ -232,14 +235,21 @@ use a one-item array for a single food.
 Entry creation requires an actual calendar date (`YYYY-MM-DD`), a valid local
 `HH:MM` time, and a finite amount of at least **1 g/ml**, no greater than `Number.MAX_SAFE_INTEGER`
 (9,007,199,254,740,991), keeping nutrition arithmetic within finite bounds.
-The existing `grams` field represents
+The `amount` field represents
 the amount in the product's `g` or `ml` unit.
 Decimals such as `1.5` are allowed. The same minimum applies to amount edits in
 REST and MCP. Existing smaller entries are not rewritten and can still be read,
 grouped, or deleted without changing their amount. Their checkmarks remain editable
 through the app and REST without changing their amount.
-MCP entry edits accept only `entry_id` and `grams`, both required; unsupported fields
-such as `tagged` are rejected without changes. Product edits
+`update_entry` requires `entry_id` and at least one replacement: `amount`,
+`product_id`, or `local_time`. Omitted fields are preserved. Replacement foods
+must be owned saved foods; changing from a g product to an ml product, or vice
+versa, also requires an explicit amount. No unit conversion is inferred.
+Corrections preserve entry ID, date, creation timestamp, checkmark and group.
+Time-only changes do not affect totals. Invalid changes roll back together.
+Unsupported fields such as `tagged`, `local_date`, and `group_id` are rejected.
+The app offers the same corrections through Edit entry, with Change food and a
+time input; editing the library product is a separate action. Product edits
 preserve omitted fields and macros exactly, including legacy metadata; explicit
 `null` clears brand or barcode. Supplied names/brands use idempotent Unicode
 normalization, and both raw and normalized length limits are enforced. Empty
@@ -259,8 +269,10 @@ its date is derived from those children. Names are trimmed, internal whitespace
 is collapsed, casing is preserved, and the normalized name must be 1–64 characters.
 Entries may reference saved or temporary foods.
 
-`update_entry_group` changes only the name. Use `update_entry` to edit an
-individual child's amount. Groups cannot be nested or silently regrouped,
+`update_entry_group` changes only the name. Use `update_entry` to correct an
+individual child's amount, food, or clock time. Each child keeps its own time:
+250 ml of milk in the morning and 250 ml in the evening can stay grouped as
+"Two glasses of milk". Groups cannot be nested or silently regrouped,
 and their membership, date, portions, and nutrition cannot be edited as group fields.
 Totals always derive from the children.
 
@@ -306,7 +318,32 @@ action or stored value. Explicit creation dates/times, partial edits, read
 summaries and pagination, and single-call deletion remain available; UI gestures
 and confirmation steps are not protocol requirements.
 
-### Version 4.0.0 compatibility and rollout
+### Version 5.0.0 compatibility and rollout
+
+Version `5.0.0` replaces `grams` with `amount` in entry inputs and outputs,
+including nested entries in group and creation results. The numeric value is
+unchanged and uses `product.unit` (`g` or `ml`). Old `grams` inputs are rejected;
+refresh the connection's tool definitions before using the updated tools.
+`update_entry` adds food and clock-time corrections, and searches match words
+across name and brand. Tool names, search sorting and response shapes otherwise
+remain unchanged.
+
+The app and REST use the same amount naming. Recent portions now use
+`GET /entries/recent-amounts?product_id=...` with `{ amounts: number[] }`.
+The forward migration renames the stored quantity column without altering values.
+New creation receipts use schema version 5. Existing v4 receipts remain stored
+unchanged: retry with the same key and equivalent `amount` arguments to receive
+the original snapshot with its quantity field renamed. Original timestamps and
+macro values remain intact, even after resources are edited or deleted.
+
+Migration 009 seeds reminder version 5 for eligible existing connections,
+including users who dismissed version 4. It appears only at the top of the main
+app. Dismissal persists across devices, and a stale version-4 dismissal cannot
+clear version 5. Deploy app and server together; existing app tabs must reload
+to use the new entry contract. Never run an older server against the renamed
+database column.
+
+### Earlier v4 changes
 
 Version `4.0.0` requires fresh tool definitions: `create_entries` replaces
 `create_entry`; all creates require keys and return receipts; date reads use

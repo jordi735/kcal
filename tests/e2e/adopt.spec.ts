@@ -78,7 +78,7 @@ test('[J-034] barcoded product adopts silently on tap from global search', async
   await page.getByPlaceholder('Search products...').fill(name);
 
   // The result carries is_mine=false; App.tsx auto-POSTs to
-  // /products/adopt/:id behind the scenes before opening GramsPicker with
+  // /products/adopt/:id behind the scenes before opening AmountPicker with
   // user B's newly-minted copy.
   const picker = page
     .locator('.sheet')

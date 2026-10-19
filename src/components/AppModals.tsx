@@ -4,7 +4,7 @@ import { Settings } from '../screens/Settings';
 import { AddPicker } from '../modals/AddPicker';
 import { BarcodeScanner } from '../modals/BarcodeScanner';
 import { NewProductForm, type ProductDraft } from '../modals/NewProductForm';
-import { GramsPicker } from '../modals/GramsPicker';
+import { AmountPicker, type AmountSelection, type EntryEditorDraft } from '../modals/AmountPicker';
 import { EntryGroupForm } from '../modals/EntryGroupForm';
 import { WeightTracker } from '../modals/WeightTracker';
 import { SheetCloseRegisterProvider } from './Sheet';
@@ -18,9 +18,9 @@ type AppModalHandlers = {
   onScanBarcode: () => void;
   onProductSave: (draft: ProductDraft) => Promise<void>;
   onScanBarcodeFromForm: (draft: Partial<ProductDraft>) => void;
-  onGramsDelete: () => void;
-  onGramsConfirm: (grams: number) => void;
-  onEditProduct: () => void;
+  onAmountDelete: () => void;
+  onAmountConfirm: (selection: AmountSelection) => void;
+  onEditProduct: (product: Product, draft: EntryEditorDraft) => void;
   onProductEditSave: (draft: ProductDraft) => Promise<void>;
   onProductDelete: () => Promise<void>;
   onEditProductClose: () => void;
@@ -98,8 +98,8 @@ export function AppModals({
           />
         )}
 
-        {modal.kind === 'grams-picker' && (
-          <GramsPicker
+        {modal.kind === 'amount-picker' && (
+          <AmountPicker
             product={entriesForSelected.find((entry) => entry.product.id === modal.product.id)?.product ?? modal.product}
             goals={dayGoals}
             existingTotals={sumMacros(
@@ -109,14 +109,19 @@ export function AppModals({
             )}
             {...(modal.entry !== undefined
               ? {
-                  initialGrams: modal.entry.grams,
+                  initialAmount: modal.entry.amount,
+                  initialUnit: modal.entry.product.unit,
+                  initialTime: modal.entry.local_time,
                   mode: 'edit' as const,
-                  onDelete: handlers.onGramsDelete,
+                  onDelete: handlers.onAmountDelete,
                 }
               : { mode: 'add' as const })}
-            onConfirm={handlers.onGramsConfirm}
+            {...(modal.entryDraft !== undefined ? { initialDraft: modal.entryDraft } : {})}
+            onConfirm={handlers.onAmountConfirm}
             onClose={handlers.closeModal}
             onEditProduct={handlers.onEditProduct}
+            refreshVersion={refreshVersion}
+            onRefreshError={onRefreshError}
           />
         )}
 

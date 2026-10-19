@@ -3,7 +3,7 @@ import { longPress, seedProductAndLog } from './helpers';
 
 // Delete flows. Three independent delete UIs in the app:
 //   1. SelectionBar — multi-select, frictionless single-tap (no confirm step)
-//   2. GramsPicker  — single entry, frictionless single-tap (covered by J-017
+//   2. AmountPicker  — single entry, frictionless single-tap (covered by J-017
 //                     in edit.spec.ts; not duplicated here)
 //   3. NewProductForm in edit mode — two-tap "armed" pattern. First tap flips
 //                     aria-label "Delete product" → "Confirm delete"; second
@@ -64,9 +64,9 @@ test('[J-058] product delete: first tap arms; second tap deletes', async ({
 
   const row = page.locator('.food-row').filter({ hasText: name });
 
-  // Open edit-product: row → GramsPicker (edit) → pencil → NewProductForm.
+  // Open edit-product: row → AmountPicker (edit) → pencil → NewProductForm.
   await row.locator('button').nth(1).tap();
-  await page.getByText('Edit amount').waitFor({ state: 'visible' });
+  await page.getByText('Edit entry').waitFor({ state: 'visible' });
   await page.getByRole('button', { name: 'Edit product', exact: true }).tap();
   await page.getByRole('button', { name: 'Save changes' }).waitFor({ state: 'visible' });
 
@@ -102,18 +102,18 @@ test('[J-059] product delete arm state does not persist across close-and-reopen'
 
   const row = page.locator('.food-row').filter({ hasText: name });
   await row.locator('button').nth(1).tap();
-  await page.getByText('Edit amount').waitFor({ state: 'visible' });
+  await page.getByText('Edit entry').waitFor({ state: 'visible' });
   await page.getByRole('button', { name: 'Edit product', exact: true }).tap();
   await page.getByRole('button', { name: 'Save changes' }).waitFor({ state: 'visible' });
 
   // Arm it, then bail without confirming. The Cancel button on
-  // NewProductForm.tsx routes us back to GramsPicker via App.tsx onEditProductClose.
+  // NewProductForm.tsx routes us back to AmountPicker via App.tsx onEditProductClose.
   await page.getByRole('button', { name: 'Delete product', exact: true }).tap();
   await expect(
     page.getByRole('button', { name: 'Confirm delete', exact: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).tap();
-  await page.getByText('Edit amount').waitFor({ state: 'visible' });
+  await page.getByText('Edit entry').waitFor({ state: 'visible' });
 
   // Reopen edit-product. The button MUST be back to "Delete product".
   await page.getByRole('button', { name: 'Edit product', exact: true }).tap();
@@ -144,7 +144,7 @@ test('[J-060] product delete cascades every entry the user logged for it', async
   await page.goto('/');
   await seedProductAndLog(page, name, MACROS, '100');
 
-  // Re-log the same product via AddPicker → existing-product tap → grams.
+  // Re-log the same product via AddPicker → existing-product tap → amount.
   // Don't go through Add New again or we'd hit a uniqueness conflict on
   // (created_by, name) and the spec would be testing the wrong thing.
   await page.getByRole('button', { name: 'ADD FOOD' }).tap();
@@ -163,7 +163,7 @@ test('[J-060] product delete cascades every entry the user logged for it', async
   // Delete the product via either entry's edit-product flow — the route is
   // scoped by created_by + product_id, both rows resolve to the same product.
   await rows.first().locator('button').nth(1).tap();
-  await page.getByText('Edit amount').waitFor({ state: 'visible' });
+  await page.getByText('Edit entry').waitFor({ state: 'visible' });
   await page.getByRole('button', { name: 'Edit product', exact: true }).tap();
   await page.getByRole('button', { name: 'Save changes' }).waitFor({ state: 'visible' });
   await page.getByRole('button', { name: 'Delete product', exact: true }).tap();

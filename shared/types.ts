@@ -59,7 +59,7 @@ export type EntryGroup = EntryGroupRef & {
 export type EntryWithMacros = {
   id: number;
   product: Product;
-  grams: number;
+  amount: number;
   local_date: string;
   local_time: string;
   macros: Macros;
@@ -94,6 +94,15 @@ export type OAuthDecision = { redirect_url: string };
 // Recorded totals use current product nutrition, as the app does.
 // Food checkmarks are an app-only aid, not a record of actual consumption.
 export type McpEntry = Omit<EntryWithMacros, 'tagged'>;
+
+// Corrections preserve the original date, identity, and group membership.
+// Checkmarks remain available only through the app/REST interface.
+export type EntryUpdate = {
+  amount?: number;
+  product_id?: number;
+  local_time?: string;
+  tagged?: boolean;
+};
 
 export type McpDayResult = {
   user_id: number;

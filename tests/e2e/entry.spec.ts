@@ -22,9 +22,9 @@ test('[J-010] create new product, save & continue, log to day', async ({ page })
   await fillNutField(page, 'Fat', '8');
   await page.getByRole('button', { name: /Save & Continue/ }).tap();
 
-  // GramsPicker opens (Save & Continue flows into it). Fill 150g and log.
+  // AmountPicker opens (Save & Continue flows into it). Fill 150g and log.
   // We fill the input directly rather than tapping the quick-value button,
-  // because once a recent-grams history exists, the quick list shrinks and
+  // because once a recent-amounts history exists, the quick list shrinks and
   // the 50/100/150/200/250 DEFAULT buttons get replaced — causing detach flake.
   await expect(page.getByText('How much?')).toBeVisible();
   await page.getByRole('spinbutton').fill('150');
@@ -36,8 +36,8 @@ test('[J-010] create new product, save & continue, log to day', async ({ page })
   // since 60 is a substring of 600 in the row's serialized text).
   const row = page.locator('.food-row').filter({ hasText: 'E2E Oats' });
   await expect(row.getByText('600', { exact: true })).toBeVisible();
-  // Grams string also rendered — proves the entry's `grams` field round-tripped
-  // through the POST /entries response (FoodRow.tsx renders {grams}{unit}).
+  // Amount string also rendered — proves the entry's `amount` field round-tripped
+  // through the POST /entries response (FoodRow.tsx renders {amount}{unit}).
   await expect(row).toContainText('150g');
 });
 
@@ -59,7 +59,7 @@ test('[J-015] pick existing product from AddPicker, log to day', async ({ page }
   await picker.getByText(name).first().tap();
 
   await expect(page.getByText('How much?')).toBeVisible();
-  // Override the recent-grams pre-fill (100g) so this log is distinguishable
+  // Override the recent-amounts pre-fill (100g) so this log is distinguishable
   // from the seeded one — strict counts below would tolerate a bug that
   // accidentally double-inserted the seed entry.
   await page.getByRole('spinbutton').fill('200');
@@ -68,7 +68,7 @@ test('[J-015] pick existing product from AddPicker, log to day', async ({ page }
   // Two distinct rows now: the seeded 100g and this fresh 200g log.
   const rows = page.locator('.food-row').filter({ hasText: name });
   await expect(rows).toHaveCount(2);
-  // Each row carries its own grams — proves the second log inserted a new
+  // Each row carries its own amount — proves the second log inserted a new
   // entry (not overwrote the first). A mutation that PUT-style replaced the
   // entry instead of POST-style appending would leave only one row at 200g.
   await expect(rows.filter({ hasText: '100g' })).toHaveCount(1);
@@ -97,7 +97,7 @@ test('[J-168] future-day entries stay in insertion order across reload', async (
     '160',
   );
 
-  const logExisting = async (grams: string) => {
+  const logExisting = async (amount: string) => {
     await page.getByRole('button', { name: 'ADD FOOD' }).tap();
     const picker = page
       .locator('.sheet')
@@ -106,7 +106,7 @@ test('[J-168] future-day entries stay in insertion order across reload', async (
     // string matcher is case-insensitive while exact matching is not.
     await picker.getByText(name).first().tap();
     await page.getByText('How much?', { exact: true }).waitFor({ state: 'visible' });
-    await page.getByRole('spinbutton').fill(grams);
+    await page.getByRole('spinbutton').fill(amount);
     await page.getByRole('button', { name: /Add to day/ }).tap();
   };
 
@@ -136,19 +136,19 @@ test('[J-168] future-day entries stay in insertion order across reload', async (
   await expectInsertionOrder();
 });
 
-test('[J-085] re-logging an existing product pre-fills grams from recent history', async ({
+test('[J-085] re-logging an existing product pre-fills amount from recent history', async ({
   page,
 }) => {
-  // GramsPicker.tsx — when mode is 'add' and the user hasn't typed,
+  // AmountPicker.tsx — when mode is 'add' and the user hasn't typed,
   // the spinbutton resets from the default 100 to history[0] (the most
-  // recently logged grams) once /entries/recent-grams returns. This is the
+  // recently logged amount) once /entries/recent-amounts returns. This is the
   // "log it the way I did last time" UX shortcut.
   //
-  // Mutation: dropping `setGrams(history[0]!)` would leave the input at 100
+  // Mutation: dropping `setAmount(history[0]!)` would leave the input at 100
   // forever, regardless of past logs. Use 175g — distinct from the default
   // (100) and the legacy DEFAULT_QUICK_VALUES so a coincidence can't paper
   // over the regression.
-  const name = 'E2E Recent Grams';
+  const name = 'E2E Recent Amount';
   const macros = { kcal: '120', protein: '8', carbs: '12', fat: '3' };
   await page.goto('/');
   await seedProductAndLog(page, name, macros, '175');
@@ -160,7 +160,7 @@ test('[J-085] re-logging an existing product pre-fills grams from recent history
   await picker.getByText(name).first().tap();
   await page.getByText('How much?').waitFor({ state: 'visible' });
 
-  // toHaveValue auto-retries until GramsPicker's recent-grams effect
+  // toHaveValue auto-retries until AmountPicker's recent-amounts effect
   // overwrites the 100 default with 175. A bug that left the default in
   // place would time out here.
   await expect(page.getByRole('spinbutton')).toHaveValue('175');
@@ -207,24 +207,24 @@ test('[J-079] POST /entries with malformed body returns 400 invalid_entry', asyn
   request,
 }) => {
   // entries.ts → isNewEntryBody chains four guards: product_id positive
-  // int, grams accepted by isEntryAmount, local_date matches DATE_RE, local_time matches
+  // int, amount accepted by isEntryAmount, local_date matches DATE_RE, local_time matches
   // TIME_RE. Each malformed body below fails exactly one branch, so all four
   // guard mutations are caught.
   const token = tokenFrom('tests/e2e/.auth/user.json');
   const today = new Date().toISOString().slice(0, 10);
   const cases: Array<{ label: string; body: unknown }> = [
     // Missing product_id — isPositiveInt(undefined) → false.
-    { label: 'product_id missing', body: { grams: 100, local_date: today, local_time: '12:00' } },
+    { label: 'product_id missing', body: { amount: 100, local_date: today, local_time: '12:00' } },
     // product_id zero — isPositiveInt rejects 0 (must be > 0).
-    { label: 'product_id=0', body: { product_id: 0, grams: 100, local_date: today, local_time: '12:00' } },
-    // grams zero — isEntryAmount rejects 0.
-    { label: 'grams=0', body: { product_id: 1, grams: 0, local_date: today, local_time: '12:00' } },
-    // grams negative — isEntryAmount rejects negatives.
-    { label: 'grams=-5', body: { product_id: 1, grams: -5, local_date: today, local_time: '12:00' } },
+    { label: 'product_id=0', body: { product_id: 0, amount: 100, local_date: today, local_time: '12:00' } },
+    // amount zero — isEntryAmount rejects 0.
+    { label: 'amount=0', body: { product_id: 1, amount: 0, local_date: today, local_time: '12:00' } },
+    // amount negative — isEntryAmount rejects negatives.
+    { label: 'amount=-5', body: { product_id: 1, amount: -5, local_date: today, local_time: '12:00' } },
     // Bad date format — DATE_RE requires \d{4}-\d{2}-\d{2}.
-    { label: 'local_date=2026/01/01', body: { product_id: 1, grams: 100, local_date: '2026/01/01', local_time: '12:00' } },
+    { label: 'local_date=2026/01/01', body: { product_id: 1, amount: 100, local_date: '2026/01/01', local_time: '12:00' } },
     // Bad time format — TIME_RE requires \d{2}:\d{2}.
-    { label: 'local_time=25-00', body: { product_id: 1, grams: 100, local_date: today, local_time: '25-00' } },
+    { label: 'local_time=25-00', body: { product_id: 1, amount: 100, local_date: today, local_time: '25-00' } },
     // Empty body — isObject({}) is true, but every field guard fails.
     { label: 'empty body', body: {} },
   ];
@@ -250,7 +250,7 @@ test('[J-080] POST /entries with non-existent product_id returns 404 product_not
     headers: { Authorization: `Bearer ${token}` },
     data: {
       product_id: 9_999_999,
-      grams: 100,
+      amount: 100,
       local_date: today,
       local_time: '12:00',
     },
@@ -296,7 +296,7 @@ test('[J-081] user B cannot log an entry against user A’s product (per-user is
     headers: { Authorization: `Bearer ${tokenB}` },
     data: {
       product_id: product.id,
-      grams: 100,
+      amount: 100,
       local_date: today,
       local_time: '12:00',
     },
@@ -345,20 +345,20 @@ test('[J-083] GET /entries/week with malformed or missing start returns 400 inva
   }
 });
 
-test('[J-084] GET /entries/recent-grams with malformed product_id returns 400 invalid_product_id', async ({
+test('[J-084] GET /entries/recent-amounts with malformed product_id returns 400 invalid_product_id', async ({
   request,
 }) => {
   // entries.ts — parsePositiveInt rejects 0, negatives, non-numerics,
   // AND missing param (typeof !== 'string'). Every branch funnels to 400
-  // invalid_product_id. This exercises the GET /entries/recent-grams handler
+  // invalid_product_id. This exercises the GET /entries/recent-amounts handler
   // in server/routes/entries.ts directly.
   const token = tokenFrom('tests/e2e/.auth/user.json');
   for (const path of [
-    '/entries/recent-grams',
-    '/entries/recent-grams?product_id=',
-    '/entries/recent-grams?product_id=0',
-    '/entries/recent-grams?product_id=-1',
-    '/entries/recent-grams?product_id=abc',
+    '/entries/recent-amounts',
+    '/entries/recent-amounts?product_id=',
+    '/entries/recent-amounts?product_id=0',
+    '/entries/recent-amounts?product_id=-1',
+    '/entries/recent-amounts?product_id=abc',
   ]) {
     const res = await request.get(path, {
       headers: { Authorization: `Bearer ${token}` },

@@ -39,7 +39,7 @@ settingsRouter.put('/', (req, res) => {
 });
 
 settingsRouter.post('/mcp-notice/dismiss', (req, res) => {
-  if (!isObject(req.body) || req.body.version !== 4) {
+  if (!isObject(req.body) || (req.body.version !== 4 && req.body.version !== 5)) {
     res.status(400).json({ error: 'invalid_notice_version' });
     return;
   }

@@ -9,6 +9,7 @@ export type {
   EntryGroupRef,
   EntryGroup,
   EntryWithMacros,
+  EntryUpdate,
   McpEntry,
   WeightInput,
   WeightEntry,

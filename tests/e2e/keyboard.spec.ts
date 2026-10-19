@@ -67,7 +67,7 @@ test.describe('keyboard Enter submits', () => {
     });
   });
 
-  test('[J-043] Enter on GramsPicker add-mode input logs the entry', async ({ page }) => {
+  test('[J-043] Enter on AmountPicker add-mode input logs the entry', async ({ page }) => {
     // Seed the product (100g), then re-add at 200g via Enter instead of the
     // 'Add to day' button. After, there should be one row on the day with 200g.
     const name = 'E2E Kbd Add';
@@ -85,7 +85,7 @@ test.describe('keyboard Enter submits', () => {
     await page.getByText('How much?').waitFor({ state: 'visible' });
 
     await page.getByRole('spinbutton').fill('200');
-    // GramsPicker.tsx — Enter preventDefaults, blurs, then calls onConfirm.
+    // AmountPicker.tsx — Enter preventDefaults, blurs, then calls onConfirm.
     await page.getByRole('spinbutton').press('Enter');
 
     // Sheet dismissed — proves the Enter path drove onConfirm → onClose, not
@@ -98,21 +98,21 @@ test.describe('keyboard Enter submits', () => {
     ).toHaveCount(1);
   });
 
-  test('[J-044] Enter on GramsPicker edit-mode input saves the change', async ({ page }) => {
+  test('[J-044] Enter on AmountPicker edit-mode input saves the change', async ({ page }) => {
     const name = 'E2E Kbd Edit';
     await page.goto('/');
     await seedProductAndLog(page, name, MACROS, '100');
 
-    // Tap the row to open GramsPicker in edit mode (title 'Edit amount').
+    // Tap the row to open AmountPicker in edit mode (title 'Edit entry').
     await page.locator('.food-row').filter({ hasText: name }).locator('button').nth(1).tap();
-    await page.getByText('Edit amount').waitFor({ state: 'visible' });
+    await page.getByText('Edit entry').waitFor({ state: 'visible' });
 
     await page.getByRole('spinbutton').fill('250');
     await page.getByRole('spinbutton').press('Enter');
 
     // Sheet closed — proves Enter committed via onConfirm, not just blurred.
-    await expect(page.getByText('Edit amount')).toHaveCount(0);
-    // Same row, grams updated from 100g → 250g. Original 100g must be gone.
+    await expect(page.getByText('Edit entry')).toHaveCount(0);
+    // Same row, amount updated from 100g → 250g. Original 100g must be gone.
     await expect(
       page.locator('.food-row').filter({ hasText: name }).filter({ hasText: '250g' }),
     ).toHaveCount(1);
@@ -121,14 +121,14 @@ test.describe('keyboard Enter submits', () => {
     ).toHaveCount(0);
   });
 
-  test('[J-095] Enter on empty GramsPicker input is a no-op', async ({ page }) => {
+  test('[J-095] Enter on empty AmountPicker input is a no-op', async ({ page }) => {
     // Pre-fix: clearing the input then pressing Enter would silently log a
     // 1g entry — Number('') === 0, Math.max(1, 0) === 1, onConfirm(1) fires.
-    // Post-fix (GramsPicker.tsx): the Enter handler returns early when
+    // Post-fix (AmountPicker.tsx): the Enter handler returns early when
     // text is empty. The sheet stays open and no entry is mutated.
     //
     // Mutation resistance: dropping the early-return would close the sheet
-    // (commit grams=1 fires onConfirm → onClose). The follow-up `fill('150')`
+    // (commit amount=1 fires onConfirm → onClose). The follow-up `fill('150')`
     // would then operate on a dismounted input and the spec breaks loudly.
     // Strictly stronger than a timed sleep — anchors on element state, not
     // wall-clock.
@@ -137,13 +137,13 @@ test.describe('keyboard Enter submits', () => {
     await seedProductAndLog(page, name, MACROS, '200');
 
     await page.locator('.food-row').filter({ hasText: name }).locator('button').nth(1).tap();
-    await page.getByText('Edit amount').waitFor({ state: 'visible' });
+    await page.getByText('Edit entry').waitFor({ state: 'visible' });
 
     await page.getByRole('spinbutton').fill('');
     await page.getByRole('spinbutton').press('Enter');
 
     // Sheet still open — Enter was a no-op (would have closed via onConfirm).
-    await expect(page.getByText('Edit amount')).toBeVisible();
+    await expect(page.getByText('Edit entry')).toBeVisible();
 
     // Bonus: the input is still alive and continues to accept input. Typing
     // a real value and pressing Enter must commit it — proves the no-op
@@ -151,7 +151,7 @@ test.describe('keyboard Enter submits', () => {
     await page.getByRole('spinbutton').fill('150');
     await page.getByRole('spinbutton').press('Enter');
 
-    // Final state: 200g → 150g. A regression that committed grams=1 first
+    // Final state: 200g → 150g. A regression that committed amount=1 first
     // would either dismount the sheet (the visibility assertion above would
     // already have failed) or surface a 1g row instead of 150g here.
     await expect(

@@ -440,3 +440,74 @@ The full Playwright suite passed all 345 tests in 7.2 minutes, recorded in
 `git diff --check` passed. Tests exercised fresh and upgraded disposable databases;
 production data was untouched. MCP remains 4.0.0 and the reminder remains version
 4. No migration, deployment, or public REST/MCP contract change was included.
+
+## MCP v5: amounts, literal word search and entry corrections
+
+The v5 work starts at `381128f`. Unlike the preceding consistency cleanup, this
+is an intentional coordinated REST/MCP contract update. Quantities use `amount`
+in the product's g/ml unit, with a forward-only column rename. Nutrition's real
+gram units and unrounded multiply-then-divide arithmetic are unchanged.
+
+Before changing production code, `v4-receipt-capture.ts` exercised the real v4
+MCP handlers in a disposable database and captured product, batch and existing-
+entry-group receipts in `v4-creation-receipts.json`. The capture verified that
+morning/evening child times and IDs survive grouping. The original stored JSON,
+hashes and schema versions are frozen. J-440 replays them in v5 before and after
+resource edits/deletion and across a process restart; it also retains the older
+`14.499999999999998` arithmetic fixture. Replay projects only the quantity field
+name and never rewrites receipt storage. New receipts use version 5.
+
+The liquid-picker label regression J-460 failed against unchanged production
+code: the product row lacked `per 100ml` while the shared section header assumed
+grams. The baseline is recorded in `/tmp/kcal-v5-label-baseline.log`. Picker rows
+now show their own units. The first focused run passed the amount/editor,
+receipt, and existing picker-preservation scenarios; its sole failure was a
+search fixture expectation that omitted a second valid literal match.
+
+Search remains deliberately small: every distinct whitespace-delimited term
+must occur in name or brand, using the existing Unicode folding and literal
+`instr` checks. A bound JSON array lets all three static SQL queries apply the
+same predicate before sorting/pagination. Null brands use an empty string;
+otherwise SQL's null comparison could accidentally accept a missing term.
+There is no fuzzy matching, relevance score, alias metadata, or new dependency.
+
+Entry corrections atomically change supplied amount/product/time fields while
+preserving identity, date, checkmarks, and groups. Different-unit food
+replacement requires an explicit quantity. The editor keeps its draft through
+the saved-food picker and library editor; product changes participate in the
+existing cache reconciliation and mutation queue. No new queue or generic cache
+abstraction is introduced. Migration 009 seeds reminder version 5 for eligible
+connections; the reminder remains only on the main screen.
+
+Final editor review added J-468/J-469 for untouched legacy values. Against the
+intermediate implementation, a time-only change on a 0.5-unit entry sent an
+unwanted amount of 1; an amount-only change on an entry with a legacy `99:99`
+time sent no request. Both expected failures are recorded in
+`/tmp/kcal-v5-legacy-edit-baseline.log`. The editor now preserves untouched
+values and validates only actual replacements, including across library-editor
+round trips. The corrected amount/editor/keyboard suites passed 28 tests in
+`/tmp/kcal-v5-entry-ui-final.log`.
+
+A final review reproduced one race introduced by returning to the entry editor
+after a library save. J-470 held the committed save response, started Sheet
+dismissal, and released the response inside its controlled 300 ms fade. The
+entry editor reopened and cancelled the dismissal timer. The expected failure
+is recorded in `/tmp/kcal-v5-sheet-fade-baseline.log`. Modal navigation is now
+invalidated synchronously when Sheet exit begins. The first full run was
+intentionally stopped after 63 passing tests to include this fix in the final
+run; no test had failed before interruption.
+
+The first complete v5 run passed 370 tests and exposed one obsolete search
+fixture: J-121 used a trailing `A` to select one product, but that term also
+matches the shared word `Plural` under the new matching rules. Distinct `Mango`
+and `Kiwi` terms preserve the singular/plural UI assertion without assuming
+contiguous-phrase matching. No production search behavior changed for this fix.
+
+Final verification completed on 2026-10-19: all three TypeScript checks and the
+production build passed (with the existing bundle-size warning). All 18 focused
+search tests passed, followed by the full Playwright suite: **371 passed in
+7.9 minutes**, recorded in `/tmp/kcal-v5-full-final.log`. Journey duplicate and
+bidirectional-link checks, maintenance-script syntax, and `git diff --check`
+passed. Historical migrations and existing frozen receipt fixtures remain
+unchanged. Fresh and upgraded disposable databases were exercised; production
+data was untouched and no deployment was performed.

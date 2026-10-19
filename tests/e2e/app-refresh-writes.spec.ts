@@ -45,7 +45,7 @@ async function holdTwoReads(page: Page, url: string) {
   return { first, second, count: () => reads };
 }
 
-test('[J-248] a local grams edit survives older day and week reads until fresh retries settle', async ({ page, request }) => {
+test('[J-248] a local amount edit survives older day and week reads until fresh retries settle', async ({ page, request }) => {
   await seedEntry(page, request, 'refresh-write-overlap');
   const day = await holdTwoReads(page, DAY_URL);
   const week = await holdTwoReads(page, WEEK_URL);
@@ -55,7 +55,7 @@ test('[J-248] a local grams edit survives older day and week reads until fresh r
 
     await page.locator('.food-row').getByRole('button').filter({ hasText: 'Refresh writes' }).tap();
     const sheet = page.locator('.sheet');
-    await expect(sheet.getByText('Edit amount', { exact: true })).toBeVisible();
+    await expect(sheet.getByText('Edit entry', { exact: true })).toBeVisible();
     await sheet.getByRole('spinbutton').fill('450');
     await sheet.getByRole('button', { name: /Save/ }).tap();
     await expect(sheet).toHaveCount(0);
@@ -99,7 +99,7 @@ test('[J-249] deleting an entry during refresh cannot resurrect its row or week 
 
     await page.locator('.food-row').getByRole('button').filter({ hasText: 'Refresh writes' }).tap();
     const sheet = page.locator('.sheet');
-    await expect(sheet.getByText('Edit amount', { exact: true })).toBeVisible();
+    await expect(sheet.getByText('Edit entry', { exact: true })).toBeVisible();
     await sheet.getByRole('button', { name: 'Delete entry', exact: true }).tap();
     await expect(sheet).toHaveCount(0);
     await expect(page.locator('.food-row')).toHaveCount(0);

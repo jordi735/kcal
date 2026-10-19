@@ -39,6 +39,13 @@ export function foldProductSearchText(value: string): string {
   return value.normalize('NFC').toLowerCase().normalize('NFC');
 }
 
+// Every distinct whitespace-delimited term must occur literally in the name or
+// brand. Keep punctuation and accents intact; an empty list means browse.
+export function productSearchTerms(value: string): string[] {
+  const folded = foldProductSearchText(value.trim());
+  return folded === '' ? [] : [...new Set(folded.split(/\s+/u))];
+}
+
 // Entry-group labels are user-authored display text. Preserve their casing,
 // while applying the same predictable whitespace cleanup as product metadata.
 export function normalizeEntryGroupName(raw: string): string {

@@ -7,9 +7,9 @@ const today = '2026-10-22';
 const goals: Goals = { kcal: 3000, protein: 150, carbs: 300, fat: 80 };
 const user = (id: number): User => ({ id, email: `account-${id}@test.local`, goal_kcal: goals.kcal, goal_protein: goals.protein, goal_carbs: goals.carbs, goal_fat: goals.fat });
 const snapshot = (): SettingsSnapshot => ({ ...goals, goal_history: [{ effective_date: '2026-10-20', goals: { ...goals, kcal: 2000 } }, { effective_date: today, goals }], mcp_notice_version: null });
-const food = (name = 'Account A food', grams = 100): EntryWithMacros => ({
+const food = (name = 'Account A food', amount = 100): EntryWithMacros => ({
   id: 1, product: { id: 1, name, brand: null, barcode: null, unit: 'g', is_temp: false, per100: { kcal: 100, protein: 10, carbs: 10, fat: 2 } },
-  grams, local_date: today, local_time: '12:00', macros: { kcal: grams, protein: grams / 10, carbs: grams / 10, fat: grams / 50 }, tagged: false, group: null,
+  amount, local_date: today, local_time: '12:00', macros: { kcal: amount, protein: amount / 10, carbs: amount / 10, fat: amount / 50 }, tagged: false, group: null,
 });
 
 async function mockApp(page: Page, settings = snapshot(), beforeInitialize?: () => Promise<void>) {
@@ -38,8 +38,8 @@ async function mockApp(page: Page, settings = snapshot(), beforeInitialize?: () 
       await route.fulfill({ json: accountB ? [food('Account B food', 250)] : state.rows });
     } else if (url.pathname === '/entries/week') {
       await route.fulfill({ json: { [today]: accountB ? food('', 250).macros : state.rows[0]?.macros ?? { kcal: 0, protein: 0, carbs: 0, fat: 0 } } });
-    } else if (url.pathname === '/entries/recent-grams') {
-      await route.fulfill({ json: { grams: [] } });
+    } else if (url.pathname === '/entries/recent-amounts') {
+      await route.fulfill({ json: { amounts: [] } });
     } else if (url.pathname === '/auth/logout') {
       await route.fulfill({ json: { ok: true } });
     } else {
@@ -148,11 +148,11 @@ test('[J-303] tag and amount writes are serialized and leave row and totals cons
   const release = deferred();
   const writes: unknown[] = [];
   await page.route('**/entries/1', async (route) => {
-    const patch = route.request().postDataJSON() as { tagged?: boolean; grams?: number };
+    const patch = route.request().postDataJSON() as { tagged?: boolean; amount?: number };
     writes.push(patch);
     if (patch.tagged !== undefined) { held.resolve(); await release.promise; }
     const current = state.rows[0]!;
-    state.rows = [{ ...food(current.product.name, patch.grams ?? current.grams), tagged: patch.tagged ?? current.tagged }];
+    state.rows = [{ ...food(current.product.name, patch.amount ?? current.amount), tagged: patch.tagged ?? current.tagged }];
     await route.fulfill({ json: state.rows[0] });
   });
   try {
@@ -167,7 +167,7 @@ test('[J-303] tag and amount writes are serialized and leave row and totals cons
     await expect(page.locator('.food-row')).toContainText('200g');
     await expect(page.getByRole('button', { name: 'Mark as not eaten', exact: true })).toBeVisible();
     await expect(page.locator('[class*="consumedValue"]')).toContainText('200');
-    expect(writes).toEqual([{ tagged: true }, { grams: 200 }]);
+    expect(writes).toEqual([{ tagged: true }, { amount: 200 }]);
   } finally { release.resolve(); }
 });
 
@@ -193,9 +193,9 @@ test('[J-304] a delayed write reconciles instead of replacing a newer refreshed 
 });
 
 test('[J-305] the ChatGPT reminder dismisses persistently and goal cache updates do not loop reads', async ({ page }) => {
-  const state = await mockApp(page, { ...snapshot(), mcp_notice_version: 4 });
+  const state = await mockApp(page, { ...snapshot(), mcp_notice_version: 5 });
   await page.route('**/settings/mcp-notice/dismiss', async (route) => {
-    expect(route.request().postDataJSON()).toEqual({ version: 4 });
+    expect(route.request().postDataJSON()).toEqual({ version: 5 });
     state.settings.mcp_notice_version = null;
     await route.fulfill({ json: { mcp_notice_version: null } });
   });
@@ -341,20 +341,28 @@ test('[J-312] a recorded zero target remains a known goal', async ({ page }) => 
 test('[J-313] a committed product save stays successful when its follow-up refresh fails', async ({ page }) => {
   await mockApp(page);
   let committed = false;
+  let productWrites = 0;
   await page.route('**/entries**', async (route) => {
     if (!committed || !['/entries', '/entries/week'].includes(new URL(route.request().url()).pathname)) return route.fallback();
     await route.fulfill({ status: 503, json: { error: 'temporarily_unavailable' } });
   });
   await page.route('**/products/1', async (route) => {
+    productWrites++;
     committed = true;
     await route.fulfill({ json: food('Saved product').product });
   });
   await page.locator('.food-row').getByRole('button').last().tap();
+  await page.locator('.sheet').getByRole('spinbutton').fill('175.5');
   await page.getByRole('button', { name: 'Edit product', exact: true }).tap();
   await page.locator('.sheet').getByRole('button', { name: 'Save changes' }).tap();
-  await expect(page.locator('.sheet')).toHaveCount(0);
+  // Successful library edits return to the preserved entry draft. A failed
+  // refresh must not leave the product form open for a duplicate submission.
+  await expect(page.locator('.sheet').getByRole('button', { name: 'Save changes' })).toHaveCount(0);
+  await expect(page.locator('.sheet').getByText('Edit entry', { exact: true })).toBeVisible();
+  await expect(page.locator('.sheet').getByRole('spinbutton')).toHaveValue('175.5');
   await expect(page.getByText("Couldn't refresh data. Check your connection.", { exact: true })).toBeVisible();
   await expect(page.getByText("Couldn't save product", { exact: true })).toHaveCount(0);
+  expect(productWrites).toBe(1);
 });
 
 test('[J-314] a delayed normal refresh cannot undo a completed settings reconciliation', async ({ page }) => {

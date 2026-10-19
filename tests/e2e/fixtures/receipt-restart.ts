@@ -45,7 +45,7 @@ try {
     messages.length = 0;
     const failed = await client.callTool({ name: 'create_entries', arguments: {
       idempotency_key: 'failed-batch',
-      entries: [{ product_id: created.product.id, grams: 1000 }, { product_id: created.product.id, grams: 1000 }],
+      entries: [{ product_id: created.product.id, amount: 1000 }, { product_id: created.product.id, amount: 1000 }],
       local_date: '2024-02-29', local_time: '12:00', group_name: 'Failed group',
     } });
     assert.equal(failed.isError, true);
@@ -57,7 +57,7 @@ try {
     db.exec("CREATE TRIGGER reject_test_receipt BEFORE INSERT ON mcp_creation_receipts WHEN NEW.idempotency_key = 'receipt-insert-failure' BEGIN SELECT RAISE(ABORT, 'forced receipt failure'); END");
     const batch = {
       idempotency_key: 'receipt-insert-failure',
-      entries: [{ product_id: created.product.id, grams: 25 }, { product_id: created.product.id, grams: 75 }],
+      entries: [{ product_id: created.product.id, amount: 25 }, { product_id: created.product.id, amount: 75 }],
       local_date: '2024-02-29', local_time: '12:00', group_name: 'Receipt transaction',
     };
     const rejected = await client.callTool({ name: 'create_entries', arguments: batch });

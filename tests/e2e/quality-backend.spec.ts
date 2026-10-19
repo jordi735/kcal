@@ -54,7 +54,7 @@ test('[J-430] ordinary half-calorie portions agree across REST MCP and the displ
     name: 'Half-calorie boundary', unit: 'g', per100: NUTRITION,
   })).product;
   await rest<EntryWithMacros>(request, account.token, 'post', '/entries', {
-    product_id: product.id, grams: 29, local_date: date, local_time: '12:00',
+    product_id: product.id, amount: 29, local_date: date, local_time: '12:00',
   });
   const rows = await rest<EntryWithMacros[]>(request, account.token, 'get', `/entries?date=${date}`);
   const day = await call<McpDayResult>(mcp, 'get_day', { date });
@@ -80,7 +80,7 @@ test('[J-431] multiple fractional portions are summed before rounding for displa
     name: 'Fractional calorie portions', unit: 'g', per100: NUTRITION,
   })).product;
   const batch = await call<McpEntriesCreateResult>(mcp, 'create_entries', {
-    entries: Array.from({ length: 3 }, () => ({ product_id: product.id, grams: 1 })),
+    entries: Array.from({ length: 3 }, () => ({ product_id: product.id, amount: 1 })),
     local_date: date, local_time: '12:00',
   });
   expect(batch.entries.map((entry) => entry.macros.kcal)).toEqual([0.5, 0.5, 0.5]);
@@ -142,12 +142,12 @@ test('[J-435] summary characterization covers unknown and zero goals missing log
   const water = (await call<McpProductCreateResult>(mcp, 'create_product', {
     name: 'Summary water', unit: 'ml', per100: ZERO,
   })).product;
-  for (const [date, productId, grams] of [
+  for (const [date, productId, amount] of [
     ['2024-02-28', food.id, 100], ['2024-02-29', water.id, 100],
     ['2024-03-02', food.id, 150], ['2024-03-03', food.id, 50],
   ] as const) {
     await rest(request, account.token, 'post', '/entries', {
-      product_id: productId, grams, local_date: date, local_time: '12:00',
+      product_id: productId, amount, local_date: date, local_time: '12:00',
     });
   }
   for (const [local_date, weight_kg] of [['2024-02-28', 80], ['2024-03-03', 79.5]] as const) {
@@ -164,7 +164,7 @@ test('[J-435] summary characterization covers unknown and zero goals missing log
     }
     // Existing impossible dates remain readable elsewhere but must not count
     // toward a valid calendar summary. New writes cannot create these rows.
-    db.prepare(`INSERT INTO entries (user_id, product_id, grams, local_date, local_time, created_at)
+    db.prepare(`INSERT INTO entries (user_id, product_id, amount, local_date, local_time, created_at)
       VALUES (?, ?, 100, '2024-02-30', '12:00', 0)`).run(account.user.id, food.id);
     db.prepare(`INSERT INTO weights (user_id, local_date, weight_kg, note, created_at)
       VALUES (?, '2024-02-30', 95, NULL, 0)`).run(account.user.id);
@@ -198,8 +198,13 @@ test('[J-436] pre-cleanup entry receipts retain their original arithmetic after 
     VALUES (?, ?, 'create_entries', ?, ?, ?, ?)`)
     .run(account.user.id, legacyEntry.input.idempotency_key, legacyEntry.receipt.request_hash,
       JSON.stringify(original), legacyEntry.receipt.applied_at, legacyEntry.receipt.schema_version));
-  expect(await call<McpEntriesCreateResult>(mcp, 'create_entries', legacyEntry.input)).toEqual({
-    ...original, receipt: { ...original.receipt, replayed: true },
+  expect(await call<McpEntriesCreateResult>(mcp, 'create_entries', {
+    ...legacyEntry.input,
+    entries: legacyEntry.input.entries.map(({ grams, ...entry }) => ({ ...entry, amount: grams })),
+  })).toEqual({
+    ...original,
+    entries: original.entries.map(({ grams, ...entry }) => ({ ...entry, amount: grams })),
+    receipt: { ...original.receipt, replayed: true },
   });
   expect(original.totals.kcal).toBe(14.499999999999998);
   expect(withFixtureDb((db) => db.prepare('SELECT COUNT(*) AS count FROM entries WHERE user_id = ?')
