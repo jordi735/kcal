@@ -43,8 +43,6 @@ type AppModalsProps = {
   onRetrySettings: () => void;
   dayGoals: Goals | null | undefined;
   goalHistory: GoalHistoryItem[] | undefined;
-  noticeVersion: number | null;
-  onDismissNotice: (version: number) => Promise<void>;
   entriesForSelected: EntryWithMacros[];
   addedProductIds: ReadonlySet<number>;
   refreshVersion: number;
@@ -65,8 +63,6 @@ export function AppModals({
   onRetrySettings,
   dayGoals,
   goalHistory,
-  noticeVersion,
-  onDismissNotice,
   entriesForSelected,
   addedProductIds,
   refreshVersion,
@@ -144,8 +140,6 @@ export function AppModals({
             loadError={settingsLoadError}
             onRetry={onRetrySettings}
             goalHistory={goalHistory}
-            noticeVersion={noticeVersion}
-            onDismissNotice={onDismissNotice}
             onSave={handlers.onSaveGoals}
             onClose={handlers.closeModal}
             onLogout={handlers.onLogout}

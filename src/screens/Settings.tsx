@@ -6,7 +6,6 @@ import { cssVars } from '../styles';
 import { Sheet, useSheetClose } from '../components/Sheet';
 import { ChatGPTConnectCard, ChatGPTGuide } from '../components/ChatGPTGuide';
 import { useSheetSubview } from '../hooks/useSheetSubview';
-import { McpNotice } from '../components/McpNotice';
 import { MinusIcon, PlusIcon } from '../components/Icon';
 import { useFocusClearableNumber } from '../hooks/useFocusClearableNumber';
 import styles from './Settings.module.css';
@@ -18,8 +17,6 @@ type SettingsProps = {
   loadError: boolean;
   onRetry: () => void;
   goalHistory: GoalHistoryItem[] | undefined;
-  noticeVersion: number | null;
-  onDismissNotice: (version: number) => Promise<void>;
   onSave: (goals: Goals) => Promise<void>;
   onClose: () => void;
   onLogout: () => void;
@@ -139,7 +136,7 @@ function LegendDot({ macroKey, label }: LegendDotProps) {
   );
 }
 
-function SettingsInner({ goals, ready, loadError, onRetry, noticeVersion, onDismissNotice, onSave, onLogout, userEmail, active, onOpenGuide, onOpenHistory }: InnerProps) {
+function SettingsInner({ goals, ready, loadError, onRetry, onSave, onLogout, userEmail, active, onOpenGuide, onOpenHistory }: InnerProps) {
   const close = useSheetClose();
   const [kcal, setKcal] = useState(goals.kcal);
   const [p, setP] = useState(goals.protein);
@@ -279,7 +276,6 @@ function SettingsInner({ goals, ready, loadError, onRetry, noticeVersion, onDism
           <button type="button" className="mono tiny caps" onClick={(event) => onOpenHistory(event.currentTarget)}>Goal history</button>
         </div>
 
-        <McpNotice version={noticeVersion} onDismiss={onDismissNotice} onOpenGuide={onOpenGuide} />
         <div className={styles.connectionSection}>
           <ChatGPTConnectCard onOpen={onOpenGuide} />
         </div>

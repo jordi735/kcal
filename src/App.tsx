@@ -441,8 +441,6 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
         settingsLoadError={settingsLoadError}
         onRetrySettings={retrySettings}
         goalHistory={snapshot?.goal_history}
-        noticeVersion={snapshot?.mcp_notice_version ?? null}
-        onDismissNotice={dismissNotice}
         entriesForSelected={entriesForSelected}
         addedProductIds={addedProductIds}
         userEmail={user.email}
