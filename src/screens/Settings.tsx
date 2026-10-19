@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { isGoalAmount, MAX_GOAL_KCAL, MAX_GOAL_MACRO_GRAMS } from '../../shared/constraints';
 import type { Goals, GoalHistoryItem } from '../types';
 import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
 import { cssVars } from '../styles';
@@ -12,6 +13,9 @@ import styles from './Settings.module.css';
 type SettingsProps = {
   initialGuide?: boolean;
   goals: Goals;
+  ready: boolean;
+  loadError: boolean;
+  onRetry: () => void;
   goalHistory: GoalHistoryItem[] | undefined;
   noticeVersion: number | null;
   onDismissNotice: (version: number) => Promise<void>;
@@ -49,17 +53,22 @@ type GoalFieldProps = {
   suffix?: string;
   step?: number;
   isLast?: boolean;
+  disabled: boolean;
+  max?: number;
 };
 
-function GoalField({ label, value, onChange, macroKey, suffix = 'g', step = 5, isLast = false }: GoalFieldProps) {
+function GoalField({ label, value, onChange, macroKey, suffix = 'g', step = 5, isLast = false,
+  disabled, max = MAX_GOAL_MACRO_GRAMS }: GoalFieldProps) {
   const { text, setText, onFocus, onBlur } = useFocusClearableNumber(value);
   const color = macroKey !== undefined ? MACRO_META[macroKey].color : undefined;
 
   // iOS Safari keeps focus on the input when a sibling button is tapped, so
   // the hook's useEffect won't fire. Force-sync text alongside onChange.
   const bump = (next: number) => {
-    onChange(next);
-    setText(String(next));
+    if (disabled) return;
+    const bounded = Math.max(0, Math.min(max, next));
+    onChange(bounded);
+    setText(String(bounded));
   };
 
   return (
@@ -70,10 +79,14 @@ function GoalField({ label, value, onChange, macroKey, suffix = 'g', step = 5, i
       <div className={styles.fieldInfo}>
         <span className={styles.fieldLabel}>{label}</span>
         <span className={`mono tiny caps ${styles.fieldSub}`}>per day</span>
+          {!isGoalAmount(value, max) && <span className={`mono tiny ${styles.errorText}`}>
+            Use a whole number from 0 to {max}.
+          </span>}
       </div>
       <div className={styles.fieldRight}>
         <button
           onClick={() => bump(Math.max(0, value - step))}
+          disabled={disabled}
           className={styles.bumpBtn}
         >
           <MinusIcon size={14} />
@@ -82,13 +95,18 @@ function GoalField({ label, value, onChange, macroKey, suffix = 'g', step = 5, i
           <input
             type="number"
             inputMode="numeric"
+            aria-label={label}
+            min={0}
+            max={max}
+            step={1}
+            disabled={disabled}
             value={text}
             onFocus={onFocus}
             onBlur={onBlur}
             onInput={(e) => {
               const raw = e.currentTarget.value;
               setText(raw);
-              onChange(Math.max(0, Number(raw) || 0));
+              onChange(Number(raw));
             }}
             className={`mono ${styles.valueInput}`}
             style={cssVars({ '--ch': text.length })}
@@ -99,6 +117,7 @@ function GoalField({ label, value, onChange, macroKey, suffix = 'g', step = 5, i
         </div>
         <button
           onClick={() => bump(value + step)}
+          disabled={disabled}
           className={styles.bumpBtn}
         >
           <PlusIcon size={14} />
@@ -119,7 +138,7 @@ function LegendDot({ macroKey, label }: LegendDotProps) {
   );
 }
 
-function SettingsInner({ goals, noticeVersion, onDismissNotice, onSave, onLogout, userEmail, active, onOpenGuide, onOpenHistory }: InnerProps) {
+function SettingsInner({ goals, ready, loadError, onRetry, noticeVersion, onDismissNotice, onSave, onLogout, userEmail, active, onOpenGuide, onOpenHistory }: InnerProps) {
   const close = useSheetClose();
   const [kcal, setKcal] = useState(goals.kcal);
   const [p, setP] = useState(goals.protein);
@@ -127,6 +146,23 @@ function SettingsInner({ goals, noticeVersion, onDismissNotice, onSave, onLogout
   const [f, setF] = useState(goals.fat);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dirty = useRef(false);
+
+  // A pristine form follows the authoritative snapshot. Once the user changes
+  // any field, the complete draft belongs to them until this Sheet is closed.
+  useLayoutEffect(() => {
+    if (dirty.current) return;
+    setKcal(goals.kcal);
+    setP(goals.protein);
+    setC(goals.carbs);
+    setF(goals.fat);
+  }, [goals.kcal, goals.protein, goals.carbs, goals.fat]);
+  const edit = (setter: (value: number) => void) => (value: number) => {
+    dirty.current = true;
+    setter(value);
+  };
+  const valid = isGoalAmount(kcal, MAX_GOAL_KCAL)
+    && [p, c, f].every((value) => isGoalAmount(value, MAX_GOAL_MACRO_GRAMS));
 
   // No cross-field auto-derive: bumping a macro never overwrites kcal. The
   // mismatch banner below surfaces drift between the typed kcal and the
@@ -140,12 +176,13 @@ function SettingsInner({ goals, noticeVersion, onDismissNotice, onSave, onLogout
   const pctByKey: Record<MacroKey, number> = { protein: pPct, carbs: cPct, fat: fPct };
   const valueByKey: Record<MacroKey, number> = { protein: p, carbs: c, fat: f };
   const setterByKey: Record<MacroKey, (v: number) => void> = {
-    protein: setP,
-    carbs: setC,
-    fat: setF,
+    protein: edit(setP),
+    carbs: edit(setC),
+    fat: edit(setF),
   };
 
   const save = async () => {
+    if (!ready || !valid || saving) return;
     setSaving(true);
     setError(null);
     try {
@@ -169,7 +206,7 @@ function SettingsInner({ goals, noticeVersion, onDismissNotice, onSave, onLogout
         </button>
         <button
           onClick={save}
-          disabled={saving}
+          disabled={!ready || !valid || saving}
           className={`mono tiny caps ${styles.saveBtn}${saving ? ` ${styles.saveBtnSaving}` : ''}`}
         >
           {saving ? 'Saving…' : 'Save'}
@@ -180,6 +217,10 @@ function SettingsInner({ goals, noticeVersion, onDismissNotice, onSave, onLogout
         <div className={styles.section}>
           <div className={`mono tiny caps ${styles.sectionLabel}`}>Daily goals</div>
           <p className="mono tiny">Changes apply from today. Earlier days keep their recorded goals.</p>
+          {!ready && (loadError ? <div className="mono tiny">
+            <p>Couldn’t load goals. Try again.</p>
+            <button type="button" onClick={onRetry}>Retry</button>
+          </div> : <p className="mono tiny">Loading goals…</p>)}
           {MACRO_KEYS.map((k) => (
             <GoalField
               key={k}
@@ -187,9 +228,11 @@ function SettingsInner({ goals, noticeVersion, onDismissNotice, onSave, onLogout
               value={valueByKey[k]}
               onChange={setterByKey[k]}
               macroKey={k}
+              disabled={!ready || saving}
             />
           ))}
-          <GoalField label="Kcal" value={kcal} onChange={setKcal} suffix="" step={50} isLast />
+          <GoalField label="Kcal" value={kcal} onChange={edit(setKcal)} suffix="" step={50}
+            max={MAX_GOAL_KCAL} disabled={!ready || saving} isLast />
 
           <div className={styles.macroCard}>
             <div className={styles.macroHeader}>

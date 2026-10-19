@@ -7,7 +7,7 @@ import { cssVars } from '../styles';
 import { api } from '../api';
 import { Sheet } from '../components/Sheet';
 import { useFocusClearableNumber } from '../hooks/useFocusClearableNumber';
-import { MIN_ENTRY_AMOUNT } from '../../shared/constraints';
+import { isEntryAmount, MAX_ENTRY_AMOUNT, MIN_ENTRY_AMOUNT } from '../../shared/constraints';
 import { ArrowRightIcon, MinusIcon, PencilIcon, PlusIcon, TrashIcon } from '../components/Icon';
 import styles from './GramsPicker.module.css';
 
@@ -155,7 +155,10 @@ function GramsPickerInner({
     setText(String(next));
   };
 
-  const bump = (delta: number) => selectGrams(Math.max(MIN_ENTRY_AMOUNT, grams + delta));
+  const bump = (delta: number) => selectGrams(
+    Math.min(MAX_ENTRY_AMOUNT, Math.max(MIN_ENTRY_AMOUNT, grams + delta)),
+  );
+  const amountError = !isEntryAmount(grams);
 
   // Read from the input at the submit boundary. A blur/click can arrive before
   // Preact has rendered the latest onInput state, while the DOM already holds
@@ -163,7 +166,13 @@ function GramsPickerInner({
   const confirmCurrentValue = (raw = inputRef.current?.value ?? text) => {
     if (raw.trim() === '') return;
     const n = Number(raw);
-    onConfirm(Math.max(MIN_ENTRY_AMOUNT, Number.isFinite(n) ? n : 0));
+    const amount = Math.max(MIN_ENTRY_AMOUNT, Number.isFinite(n) ? n : 0);
+    if (!isEntryAmount(amount)) {
+      setGrams(amount);
+      setText(raw);
+      return;
+    }
+    onConfirm(amount);
   };
 
   const title = mode === 'edit' ? 'Edit amount' : 'How much?';
@@ -231,6 +240,8 @@ function GramsPickerInner({
                 ref={inputRef}
                 type="number"
                 inputMode="numeric"
+                aria-invalid={amountError}
+                aria-describedby={amountError ? 'amount-error' : undefined}
                 value={text}
                 onFocus={onFocus}
                 onBlur={onBlur}
@@ -262,6 +273,10 @@ function GramsPickerInner({
               <PlusIcon size={18} />
             </button>
           </div>
+
+          {amountError && <p id="amount-error" role="alert" className={styles.amountError}>
+            Amount must be between {MIN_ENTRY_AMOUNT} and {MAX_ENTRY_AMOUNT} {unit}.
+          </p>}
 
           <section className={styles.portion} aria-label="This portion">
             <dl className={styles.portionMacros}>

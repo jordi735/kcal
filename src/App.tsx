@@ -121,7 +121,7 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     return () => { cancelled = true; };
   }, [user.id, weekStart, loadWeek, refreshVersion, onRefreshError]);
 
-  const { snapshot, save: onSaveGoals, dismissNotice } = useSettings(scope, user, refreshVersion, onRefreshError);
+  const { snapshot, loadError: settingsLoadError, retry: retrySettings, save: onSaveGoals, dismissNotice } = useSettings(scope, user, refreshVersion, onRefreshError);
   const goals = snapshot === undefined ? undefined : resolveGoals(snapshot.goal_history, selectedKey);
   const currentGoals = snapshot ?? userToGoals(user);
 
@@ -242,6 +242,11 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
   };
 
   // BarcodeScanner handler
+  const onScannerCloseStart = () => {
+    // Cancellation owns navigation immediately, including the closing fade.
+    flowGenRef.current += 1;
+  };
+
   const onBarcodeDetect = async (code: string) => {
     const myGen = flowGenRef.current;
     try {
@@ -432,6 +437,9 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
         onRefreshError={onRefreshError}
         dayGoals={goals}
         currentGoals={currentGoals}
+        settingsReady={snapshot !== undefined}
+        settingsLoadError={settingsLoadError}
+        onRetrySettings={retrySettings}
         goalHistory={snapshot?.goal_history}
         noticeVersion={snapshot?.mcp_notice_version ?? null}
         onDismissNotice={dismissNotice}
@@ -461,6 +469,7 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
           onRenameEntryGroup,
           onUngroupEntries,
           onBarcodeDetect,
+          onScannerCloseStart,
           onBarcodeFillDetect,
           onBarcodeFillClose,
         }}

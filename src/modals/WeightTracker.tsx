@@ -1,10 +1,10 @@
 // Weight history and its small add/edit flow, kept inside one dismissible Sheet.
 
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import {
   isWeightAmount, MAX_WEIGHT_KG, MAX_WEIGHT_NOTE_LENGTH, MIN_WEIGHT_KG, WEIGHT_STEP_KG,
 } from '../../shared/constraints';
-import { api, ApiError } from '../api';
+import { api, ApiError, captureSession, isSessionCurrent } from '../api';
 import { Sheet, useSheetClose } from '../components/Sheet';
 import { ArrowRightIcon, PlusIcon, TrashIcon, WeightIcon } from '../components/Icon';
 import { toLocalDateString } from '../dates';
@@ -60,47 +60,60 @@ function WeightTrackerInner({
   const hasLoaded = useRef(false);
   const previousRefreshVersion = useRef(refreshVersion);
   const readGeneration = useRef(0);
+  const appliedReadVersion = useRef(0);
   const pendingRead = useRef<number | null>(null);
+  const session = useRef(captureSession()).current;
+  const mounted = useRef(true);
   const refreshError = useRef(onRefreshError);
   refreshError.current = onRefreshError;
 
-  useEffect(() => {
-    let cancelled = false;
+  useLayoutEffect(() => () => {
+    mounted.current = false;
+    readGeneration.current++;
+    pendingRead.current = null;
+  }, []);
+
+  const loadWeights = useCallback(async (isRefresh: boolean): Promise<void> => {
     const generation = ++readGeneration.current;
     pendingRead.current = generation;
-    const isRefresh = hasLoaded.current || previousRefreshVersion.current !== refreshVersion;
-    previousRefreshVersion.current = refreshVersion;
     const reportRefreshError = refreshError.current;
     setLoadError(false);
-    void api<WeightEntry[]>('/weights')
-      .then((list) => {
-        if (!cancelled && generation === readGeneration.current) {
-          hasLoaded.current = true;
-          setEntries(sortEntries(list));
-        }
-      })
-      .catch(() => {
-        if (!cancelled && generation === readGeneration.current) {
-          if (!hasLoaded.current) setLoadError(true);
-          if (isRefresh) reportRefreshError();
-        }
-      })
-      .finally(() => {
-        if (pendingRead.current === generation) pendingRead.current = null;
-      });
-    return () => {
-      cancelled = true;
+    try {
+      const list = await api<WeightEntry[]>('/weights', { session });
+      if (mounted.current && generation === readGeneration.current) {
+        appliedReadVersion.current++;
+        hasLoaded.current = true;
+        setEntries(sortEntries(list));
+      }
+    } catch {
+      if (mounted.current && isSessionCurrent(session) && generation === readGeneration.current) {
+        if (!hasLoaded.current) setLoadError(true);
+        if (isRefresh) reportRefreshError();
+      }
+    } finally {
       if (pendingRead.current === generation) pendingRead.current = null;
-    };
-  }, [reloadVersion, refreshVersion]);
+    }
+  }, [session]);
 
-  // Invalidate immediately when a write succeeds, before the next effect runs.
-  // The repeated read then includes the saved/deleted record on the server.
-  const retryOverlappingRead = () => {
-    if (pendingRead.current === null) return;
+  useEffect(() => {
+    const isRefresh = hasLoaded.current || previousRefreshVersion.current !== refreshVersion;
+    previousRefreshVersion.current = refreshVersion;
+    void loadWeights(isRefresh);
+  }, [reloadVersion, refreshVersion, loadWeights]);
+
+  const finishMutation = async (readVersion: number, apply: () => void): Promise<void> => {
+    if (!mounted.current || !isSessionCurrent(session)) return;
+    const hadPendingRead = pendingRead.current !== null;
+    const newerReadApplied = readVersion !== appliedReadVersion.current;
+    // Fence older reads immediately. A completed refresh can be newer than
+    // this write's delayed response, so keep it and reconcile after commit.
     ++readGeneration.current;
     pendingRead.current = null;
-    setReloadVersion((version) => version + 1);
+    if (!newerReadApplied) apply();
+    hasLoaded.current = true;
+    if (hadPendingRead || newerReadApplied) await loadWeights(true);
+    // A failed read is a refresh failure; the mutation still succeeded.
+    if (mounted.current && isSessionCurrent(session)) setView({ kind: 'history' });
   };
 
   const openAdd = () => {
@@ -116,26 +129,25 @@ function WeightTrackerInner({
     );
     if (collision !== undefined) throw new ApiError('weight_exists', 409);
 
+    const readVersion = appliedReadVersion.current;
     const saved = await api<WeightEntry>(
       existingId === null ? '/weights' : `/weights/${existingId}`,
       {
         method: existingId === null ? 'POST' : 'PUT',
         body: input,
+        session,
       },
     );
-    retryOverlappingRead();
-    hasLoaded.current = true;
-    setEntries((current) =>
+    await finishMutation(readVersion, () => setEntries((current) =>
       sortEntries([...(current ?? []).filter((entry) => entry.id !== saved.id), saved]),
-    );
-    setView({ kind: 'history' });
+    ));
   };
 
   const remove = async (entry: WeightEntry): Promise<void> => {
-    await api<{ ok: true }>(`/weights/${entry.id}`, { method: 'DELETE' });
-    retryOverlappingRead();
-    setEntries((current) => (current ?? []).filter((item) => item.id !== entry.id));
-    setView({ kind: 'history' });
+    const readVersion = appliedReadVersion.current;
+    await api<{ ok: true }>(`/weights/${entry.id}`, { method: 'DELETE', session });
+    await finishMutation(readVersion, () =>
+      setEntries((current) => (current ?? []).filter((item) => item.id !== entry.id)));
   };
 
   if (view.kind !== 'history') {

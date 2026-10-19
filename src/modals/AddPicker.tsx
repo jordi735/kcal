@@ -30,6 +30,12 @@ export function AddPicker(props: AddPickerProps) {
 
 type InnerProps = Omit<AddPickerProps, 'onClose'>;
 
+type ProductLoad = {
+  status: 'loading' | 'success' | 'error';
+  products: Product[] | null;
+};
+const initialLoad: ProductLoad = { status: 'loading', products: null };
+
 function AddPickerInner({
   onPick,
   onCreateNew,
@@ -42,9 +48,13 @@ function AddPickerInner({
   const close = useSheetClose();
   const [q, setQ] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
-  const [recents, setRecents] = useState<Product[] | null>(null);
-  const [allProducts, setAllProducts] = useState<Product[] | null>(null);
-  const [results, setResults] = useState<Product[] | null>(null);
+  const [recents, setRecents] = useState<ProductLoad>(initialLoad);
+  const [allProducts, setAllProducts] = useState<ProductLoad>(initialLoad);
+  const [results, setResults] = useState<ProductLoad & { query: string; global: boolean }>({
+    ...initialLoad, query: '', global: false,
+  });
+  const [libraryRetry, setLibraryRetry] = useState(0);
+  const [searchRetry, setSearchRetry] = useState(0);
   // false = own library only (default). true = blended with the cross-user
   // barcoded catalog. Toggling retriggers the debounced-search effect.
   const [global, setGlobal] = useState(false);
@@ -62,13 +72,15 @@ function AddPickerInner({
     const isRefresh = libraryVersion.current !== refreshVersion;
     libraryVersion.current = refreshVersion;
     const reportRefreshError = refreshError.current;
+    setRecents((current) => ({ ...current, status: 'loading' }));
+    setAllProducts((current) => ({ ...current, status: 'loading' }));
     (async () => {
       try {
         const data = await api<Product[]>('/products/recent');
-        if (!cancelled) setRecents(data);
+        if (!cancelled) setRecents({ products: data, status: 'success' });
       } catch {
         if (!cancelled) {
-          setRecents((current) => current ?? []);
+          setRecents((current) => ({ ...current, status: 'error' }));
           if (isRefresh) reportRefreshError();
         }
       }
@@ -76,10 +88,10 @@ function AddPickerInner({
     (async () => {
       try {
         const data = await api<Product[]>('/products/all');
-        if (!cancelled) setAllProducts(data);
+        if (!cancelled) setAllProducts({ products: data, status: 'success' });
       } catch {
         if (!cancelled) {
-          setAllProducts((current) => current ?? []);
+          setAllProducts((current) => ({ ...current, status: 'error' }));
           if (isRefresh) reportRefreshError();
         }
       }
@@ -87,7 +99,7 @@ function AddPickerInner({
     return () => {
       cancelled = true;
     };
-  }, [refreshVersion]);
+  }, [refreshVersion, libraryRetry]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q), 250);
@@ -97,25 +109,27 @@ function AddPickerInner({
   useEffect(() => {
     const trimmed = debouncedQ.trim();
     const previous = searchRequest.current;
-    const keepResults = previous?.query === trimmed && previous.global === global;
     const isRefresh = previous !== null && previous.refreshVersion !== refreshVersion;
     const reportRefreshError = refreshError.current;
     searchRequest.current = { query: trimmed, global, refreshVersion };
     if (trimmed === '') {
-      setResults(null);
+      setResults({ ...initialLoad, query: trimmed, global });
       return;
     }
     let cancelled = false;
-    if (!keepResults) setResults(null);
+    setResults((current) => ({
+      query: trimmed, global, status: 'loading',
+      products: current.query === trimmed && current.global === global ? current.products : null,
+    }));
     (async () => {
       try {
         const data = await api<Product[]>(
           `/products/search?q=${encodeURIComponent(trimmed)}${global ? '&global=1' : ''}`,
         );
-        if (!cancelled) setResults(data);
+        if (!cancelled) setResults({ query: trimmed, global, products: data, status: 'success' });
       } catch {
         if (!cancelled) {
-          setResults((current) => keepResults ? current ?? [] : []);
+          setResults((current) => ({ ...current, status: 'error' }));
           if (isRefresh) reportRefreshError();
         }
       }
@@ -123,21 +137,21 @@ function AddPickerInner({
     return () => {
       cancelled = true;
     };
-  }, [debouncedQ, global, refreshVersion]);
+  }, [debouncedQ, global, refreshVersion, searchRetry]);
 
   const trimmed = q.trim();
   const showingSearch = trimmed.length > 0;
-  const idleLoading = !showingSearch && (recents === null || allProducts === null);
-  const searchLoading = showingSearch && results === null;
-  const emptySearch = showingSearch && results !== null && results.length === 0;
-  const recentIds = new Set((recents ?? []).map((p) => p.id));
-  const allMinusRecents = (allProducts ?? []).filter((p) => !recentIds.has(p.id));
+  // Query identity also protects the debounce window: an earlier result must
+  // never be presented as a match for the newly typed query or selected scope.
+  const search = results.query === trimmed && results.global === global ? results : initialLoad;
+  const recentProducts = recents.products ?? [];
+  const recentIds = new Set(recentProducts.map((p) => p.id));
+  const allMinusRecents = (allProducts.products ?? []).filter((p) => !recentIds.has(p.id));
+  const libraryError = recents.status === 'error' || allProducts.status === 'error';
   const idleEmpty =
     !showingSearch &&
-    recents !== null &&
-    allProducts !== null &&
-    recents.length === 0 &&
-    allProducts.length === 0;
+    recents.status === 'success' && allProducts.status === 'success' &&
+    recentProducts.length === 0 && allMinusRecents.length === 0;
 
   const renderRow = (p: Product) => {
     const added = addedProductIds.has(p.id);
@@ -220,33 +234,42 @@ function AddPickerInner({
 
       <div data-sheet-scroll className={`no-scroll ${styles.list}`}>
         {showingSearch ? (
-          searchLoading ? (
-            <div className={`mono tiny caps ${styles.loadingMsg}`}>Searching...</div>
-          ) : emptySearch ? (
-            <div className={styles.emptyMsg}>
-              <div className={`mono ${styles.emptyQuery}`}>"{q}"</div>
-              not in your library yet.
-            </div>
-          ) : (
-            <>
+          <>
+            {search.status === 'error' && <div className={styles.errorMsg} role="alert">
+              <span>Couldn't search foods.</span>
+              <button className="btn-secondary" onClick={() => setSearchRetry((v) => v + 1)}>Retry</button>
+            </div>}
+            {search.status === 'loading' && search.products === null &&
+              <div className={`mono tiny caps ${styles.loadingMsg}`}>Searching...</div>}
+            {search.status === 'success' && search.products?.length === 0 &&
+              <div className={styles.emptyMsg}>
+                <div className={`mono ${styles.emptyQuery}`}>"{q}"</div>
+                not in your library yet.
+              </div>}
+            {search.products !== null && search.products.length > 0 && <>
               {sectionHeader(
-                `${results!.length} result${results!.length === 1 ? '' : 's'}`,
+                `${search.products.length} result${search.products.length === 1 ? '' : 's'}`,
               )}
-              {results!.map(renderRow)}
-            </>
-          )
-        ) : idleLoading ? (
-          <div className={`mono tiny caps ${styles.loadingMsg}`}>Loading...</div>
-        ) : idleEmpty ? (
-          <div className={styles.emptyMsg}>
-            Your library is empty. Tap + Add New to create your first product.
-          </div>
+              {search.products.map(renderRow)}
+            </>}
+          </>
         ) : (
           <>
-            {recents!.length > 0 && (
+            {libraryError && <div className={styles.errorMsg} role="alert">
+              <span>Couldn't load {recents.status === 'error' && allProducts.status === 'error'
+                ? '' : recents.status === 'error' ? 'recent ' : 'all '}foods.</span>
+              <button className="btn-secondary" onClick={() => setLibraryRetry((v) => v + 1)}>Retry</button>
+            </div>}
+            {(recents.status === 'loading' && recents.products === null ||
+              allProducts.status === 'loading' && allProducts.products === null) &&
+              <div className={`mono tiny caps ${styles.loadingMsg}`}>Loading...</div>}
+            {idleEmpty && <div className={styles.emptyMsg}>
+              Your library is empty. Tap + Add New to create your first product.
+            </div>}
+            {recentProducts.length > 0 && (
               <>
                 {sectionHeader('Recent')}
-                {recents!.map(renderRow)}
+                {recentProducts.map(renderRow)}
               </>
             )}
             {allMinusRecents.length > 0 && (

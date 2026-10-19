@@ -109,6 +109,13 @@
   color: var(--fg-dimmer);
 }
 
+.amountError {
+  margin-top: 12px;
+  color: var(--danger);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
 .portion {
   margin-top: 20px;
   padding-top: 16px;

@@ -340,3 +340,44 @@ delayed settings reconciliation and the distinction between latest editable
 defaults and dated targets. Mobile previews verified the reminder, history
 subview, and connection guide without horizontal overflow. Fresh and upgraded
 test databases were exercised; production data was untouched.
+
+## Verified consistency fixes after MCP v4
+
+Work began at `20defe4` on the existing v4 branch. Application code stayed
+unchanged until the new regressions demonstrated the planned failures:
+
+- Settings retained stale values or allowed saving before its authoritative read;
+  fractional and oversized goals remained submittable (J-400/401/403/407/408).
+- A real REST save committed 80 kg, another client saved 81, and a completed
+  foreground read returned 81; releasing the held save response reverted the UI
+  to 80. Failed reconciliation had the same stale-response problem (J-404/405).
+- A real canvas-camera decoder's lookup replaced a closing scanner during its
+  controlled fade (J-410). Real child opacity transitions prematurely committed
+  a paused week swipe or completed its snap-back (J-412/413).
+- Product loading failures looked empty or lacked failure feedback (J-420–423).
+  Oversized portions reached POST /entries through button and Enter, and the
+  increment button exceeded MAX_ENTRY_AMOUNT (J-424–426).
+- Shared arithmetic returned 14.499999999999998 for 29 g at 50 kcal/100 g,
+  producing a displayed 14 while SQLite returned 14.5 (J-430).
+
+Proof runs: `/tmp/kcal-quality-picker-baseline.log`,
+`/tmp/kcal-quality-baseline.log`, and
+`/tmp/kcal-quality-bounds-baseline.log`. The latter uses rendered-frame
+synchronization to assert the increment itself rather than racing its rerender.
+An initial combined run stopped at a JSON fixture import error before tests;
+that harness error was corrected before collecting behavioral evidence.
+
+The same regressions now pass. Focused runs are recorded in
+`/tmp/kcal-quality-picker-arithmetic-fixed.log` and
+`/tmp/kcal-quality-ordering-fixed.log`. Additional checks cover drafts, session
+replacement, stale pending reads, late camera initialization, and exact replay of
+receipts captured before the fixes. These are preservation checks, not additional
+claims of discovered defects. Settings and weight reconciliation failures retain
+valid state; successful writes remain successful. Shared arithmetic now multiplies
+before dividing, matching SQL without rounding intermediate values.
+
+The query-count characterization measured three aggregate reads and two history
+reads through the public MCP summary before structural consolidation (J-437).
+Frozen baseline fixtures pin product request hashes, old receipt results, tool
+names, and affected public schemas. MCP remains 4.0.0, reminder version remains 4,
+and no database migration or production data change is part of this follow-up.

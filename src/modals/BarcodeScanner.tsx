@@ -17,12 +17,14 @@ const FORMATS: readonly BarcodeFormat[] = [
 
 type BarcodeScannerProps = {
   onDetect: (barcode: string) => void;
+  onCloseStart: () => void;
   onClose: () => void;
 };
 
-export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
+export function BarcodeScanner({ onDetect, onCloseStart, onClose }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const firedRef = useRef(false);
+  const closingRef = useRef(false);
   const onDetectRef = useRef(onDetect);
   onDetectRef.current = onDetect;
   const controlsRef = useRef<IScannerControls | null>(null);
@@ -30,6 +32,10 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
   const { closing, requestClose } = useFadeClose(onClose);
 
   const closeNow = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    // Cancel the caller's pending lookup before the visual exit completes.
+    onCloseStart();
     if (controlsRef.current !== null) {
       controlsRef.current.stop();
       controlsRef.current = null;
@@ -56,7 +62,7 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
         { video: { facingMode: 'environment' } },
         video,
         (result, _err, controls) => {
-          if (result === undefined) return;
+          if (cancelled || closingRef.current || result === undefined) return;
           if (firedRef.current) return;
           firedRef.current = true;
           controls.stop();
@@ -65,14 +71,14 @@ export function BarcodeScanner({ onDetect, onClose }: BarcodeScannerProps) {
         },
       )
       .then((controls) => {
-        if (cancelled) {
+        if (cancelled || closingRef.current || firedRef.current) {
           controls.stop();
           return;
         }
         controlsRef.current = controls;
       })
       .catch((err: unknown) => {
-        if (cancelled) return;
+        if (cancelled || closingRef.current) return;
         const name = err instanceof Error ? err.name : '';
         if (name === 'NotAllowedError' || name === 'SecurityError') {
           setError('Camera access denied.');

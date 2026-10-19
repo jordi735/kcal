@@ -134,7 +134,7 @@ export function WeekStrip({
   const trackRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const animatingRef = useRef(false);
-  const commitEndRef = useRef<(() => void) | null>(null);
+  const transitionEndRef = useRef<((event: TransitionEvent) => void) | null>(null);
   const dragRef = useRef({
     startX: 0,
     startY: 0,
@@ -144,6 +144,12 @@ export function WeekStrip({
     active: false,
   });
 
+  const clearTransitionEnd = (track: HTMLDivElement) => {
+    if (transitionEndRef.current === null) return;
+    track.removeEventListener('transitionend', transitionEndRef.current);
+    transitionEndRef.current = null;
+  };
+
   // After weekStart changes (from an arrow click OR a committed swipe),
   // snap the track back to center synchronously — before paint — so the
   // newly-rendered middle grid lands in the viewport without a one-frame
@@ -151,13 +157,11 @@ export function WeekStrip({
   useLayoutEffect(() => {
     const track = trackRef.current;
     if (track === null) return;
-    if (commitEndRef.current !== null) {
-      track.removeEventListener('transitionend', commitEndRef.current);
-      commitEndRef.current = null;
-    }
+    clearTransitionEnd(track);
     track.classList.remove('week-strip--snap');
     track.style.transform = TRACK_CENTER;
     animatingRef.current = false;
+    return () => clearTransitionEnd(track);
   }, [weekStart]);
 
   const today = new Date();
@@ -190,10 +194,13 @@ export function WeekStrip({
   const snapTrackBack = () => {
     const track = trackRef.current;
     if (track === null) return;
-    const onEnd = () => {
-      track.removeEventListener('transitionend', onEnd);
+    clearTransitionEnd(track);
+    const onEnd = (event: TransitionEvent) => {
+      if (event.target !== track || event.propertyName !== 'transform') return;
+      clearTransitionEnd(track);
       track.classList.remove('week-strip--snap');
     };
+    transitionEndRef.current = onEnd;
     track.addEventListener('transitionend', onEnd);
     track.classList.add('week-strip--snap');
     track.style.transform = TRACK_CENTER;
@@ -202,20 +209,16 @@ export function WeekStrip({
   const commitTrack = (direction: 1 | -1) => {
     const track = trackRef.current;
     if (track === null) return;
-    // Remove any previous pending commit listener so it can't double-fire
-    // if a transitionend from a prior (non-interrupted) animation lands late.
-    if (commitEndRef.current !== null) {
-      track.removeEventListener('transitionend', commitEndRef.current);
-    }
+    clearTransitionEnd(track);
     animatingRef.current = true;
-    const onEnd = () => {
-      track.removeEventListener('transitionend', onEnd);
-      if (commitEndRef.current === onEnd) commitEndRef.current = null;
+    const onEnd = (event: TransitionEvent) => {
+      if (event.target !== track || event.propertyName !== 'transform') return;
+      clearTransitionEnd(track);
       // useLayoutEffect clears the snap class, resets transform to
       // TRACK_CENTER, and flips animatingRef off in the same render.
       shiftWeek(direction);
     };
-    commitEndRef.current = onEnd;
+    transitionEndRef.current = onEnd;
     track.addEventListener('transitionend', onEnd);
     track.classList.add('week-strip--snap');
     track.style.transform = direction === 1 ? TRACK_NEXT : TRACK_PREV;
@@ -234,7 +237,10 @@ export function WeekStrip({
       active: true,
     };
     // Cancel any in-flight snap so the next translate is 1:1 with the finger.
-    trackRef.current?.classList.remove('week-strip--snap');
+    if (trackRef.current !== null) {
+      clearTransitionEnd(trackRef.current);
+      trackRef.current.classList.remove('week-strip--snap');
+    }
   };
 
   const onPointerMove = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {

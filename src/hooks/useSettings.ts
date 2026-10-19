@@ -12,6 +12,8 @@ export function useSettings(
   session: SessionScope, user: User, refreshVersion: number, onRefreshError: () => void,
 ) {
   const [snapshot, setSnapshot] = useState<SettingsSnapshot>();
+  const [loadError, setLoadError] = useState(false);
+  const [retryVersion, setRetryVersion] = useState(0);
   const queue = useRef(createMutationQueue(session)).current;
   const mutationVersion = useRef(0);
   const readVersion = useRef(0);
@@ -22,6 +24,7 @@ export function useSettings(
   const apply = useCallback((fresh: SettingsSnapshot) => {
     assertSessionCurrent(session);
     setSnapshot(fresh);
+    setLoadError(false);
     const cached = readStoredUser();
     if (cached?.id === user.id) {
       localStorage.setItem(USER_KEY, JSON.stringify(userWithGoals(cached, fresh)));
@@ -54,6 +57,7 @@ export function useSettings(
 
   useEffect(() => {
     let cancelled = false;
+    setLoadError(false);
     const read = ++readVersion.current;
     const mutation = mutationVersion.current;
     void api<SettingsSnapshot>('/settings', { session }).then(async (fresh) => {
@@ -75,10 +79,15 @@ export function useSettings(
         apply(fresh);
       }
     }).catch(() => {
-      if (!cancelled && isSessionCurrent(session) && read === readVersion.current) reportRefreshError.current();
+      if (!cancelled && isSessionCurrent(session) && read === readVersion.current) {
+        setLoadError(true);
+        reportRefreshError.current();
+      }
     });
     return () => { cancelled = true; };
-  }, [session, refreshVersion, queue, apply, acceptWriteSnapshot]);
+  }, [session, refreshVersion, retryVersion, queue, apply, acceptWriteSnapshot]);
+
+  const retry = useCallback(() => setRetryVersion((version) => version + 1), []);
 
   const save = useCallback((goals: Goals): Promise<void> => {
     mutationVersion.current++;
@@ -104,5 +113,5 @@ export function useSettings(
     });
   }, [session, queue]);
 
-  return { snapshot, save, dismissNotice };
+  return { snapshot, loadError, retry, save, dismissNotice };
 }

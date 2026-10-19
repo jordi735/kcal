@@ -30,6 +30,7 @@ type AppModalHandlers = {
   onRenameEntryGroup: (name: string) => Promise<void>;
   onUngroupEntries: () => Promise<void>;
   onBarcodeDetect: (code: string) => Promise<void>;
+  onScannerCloseStart: () => void;
   onBarcodeFillDetect: (code: string) => void;
   onBarcodeFillClose: () => void;
 };
@@ -37,6 +38,9 @@ type AppModalHandlers = {
 type AppModalsProps = {
   modal: ModalState;
   currentGoals: Goals;
+  settingsReady: boolean;
+  settingsLoadError: boolean;
+  onRetrySettings: () => void;
   dayGoals: Goals | null | undefined;
   goalHistory: GoalHistoryItem[] | undefined;
   noticeVersion: number | null;
@@ -56,6 +60,9 @@ type AppModalsProps = {
 export function AppModals({
   modal,
   currentGoals,
+  settingsReady,
+  settingsLoadError,
+  onRetrySettings,
   dayGoals,
   goalHistory,
   noticeVersion,
@@ -133,6 +140,9 @@ export function AppModals({
           <Settings
             initialGuide={modal.initialGuide ?? false}
             goals={currentGoals}
+            ready={settingsReady}
+            loadError={settingsLoadError}
+            onRetry={onRetrySettings}
             goalHistory={goalHistory}
             noticeVersion={noticeVersion}
             onDismissNotice={onDismissNotice}
@@ -173,6 +183,7 @@ export function AppModals({
       {modal.kind === 'barcode-scanner' && (
         <BarcodeScanner
           onDetect={handlers.onBarcodeDetect}
+          onCloseStart={handlers.onScannerCloseStart}
           onClose={handlers.onAddEntry}
         />
       )}
@@ -180,6 +191,7 @@ export function AppModals({
       {modal.kind === 'barcode-scanner-fill' && (
         <BarcodeScanner
           onDetect={handlers.onBarcodeFillDetect}
+          onCloseStart={handlers.onScannerCloseStart}
           onClose={handlers.onBarcodeFillClose}
         />
       )}

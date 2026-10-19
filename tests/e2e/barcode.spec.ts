@@ -7,6 +7,7 @@ type CameraFixture = {
   pattern: string | null;
   requests: number;
   tracks: MediaStreamTrack[];
+  releaseAcquisition: (() => void) | null;
 };
 
 declare global {
@@ -36,15 +37,18 @@ function ean13Pattern(code: string): string {
   return `101${left}01010${right}101`;
 }
 
-async function installCamera(page: Page, errorName: 'NotAllowedError' | 'NotFoundError' | null = null) {
-  await page.addInitScript(({ errorName }) => {
-    const camera: CameraFixture = { pattern: null, requests: 0, tracks: [] };
+async function installCamera(page: Page, errorName: 'NotAllowedError' | 'NotFoundError' | null = null, holdAcquisition = false) {
+  await page.addInitScript(({ errorName, holdAcquisition }) => {
+    const camera: CameraFixture = { pattern: null, requests: 0, tracks: [], releaseAcquisition: null };
     window.__barcodeCamera = camera;
     Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
       configurable: true,
       value: async () => {
         camera.requests++;
         if (errorName !== null) throw new DOMException('Camera fixture error', errorName);
+        if (holdAcquisition) {
+          await new Promise<void>((resolve) => { camera.releaseAcquisition = resolve; });
+        }
 
         const canvas = document.createElement('canvas');
         canvas.width = 640;
@@ -78,7 +82,7 @@ async function installCamera(page: Page, errorName: 'NotAllowedError' | 'NotFoun
         return stream;
       },
     });
-  }, { errorName });
+  }, { errorName, holdAcquisition });
 }
 
 async function openScanner(page: Page) {
@@ -189,6 +193,94 @@ test('[J-369] failed barcode lookup returns to Add Food with an error and permit
   await openScanner(page);
   await expect.poll(() => trackStates(page)).toEqual(['ended', 'live']);
 });
+
+for (const [id, status, description] of [
+  ['J-410', 404, 'lookup response'],
+  ['J-414', 500, 'lookup error'],
+] as const) {
+  test(`[${id}] cancelling a detected barcode ignores its ${description} during the closing fade`, async ({ page, request }) => {
+    await page.clock.install();
+    await installCamera(page);
+    await signInFresh(page, request, 'barcode-cancel-lookup');
+    let releaseResponse = () => {};
+    const responseReady = new Promise<void>((resolve) => { releaseResponse = resolve; });
+    let lookupStarted = () => {};
+    const lookupReady = new Promise<void>((resolve) => { lookupStarted = resolve; });
+    await page.route('**/products/barcode/*', async (route) => {
+      lookupStarted();
+      await responseReady;
+      await route.fulfill({ status, json: { error: status === 404 ? 'not_found' : 'cancelled_lookup_failed' } });
+    });
+
+    try {
+      await page.getByRole('button', { name: 'ADD FOOD', exact: true }).tap();
+      await openScanner(page);
+      await showBarcode(page, '5901234123457');
+      await lookupReady;
+      await expect.poll(() => trackStates(page)).toEqual(['ended']);
+      // Freeze timers only after the real decoder has finished. The lookup can
+      // then resolve at a known point inside the scanner's 300 ms exit window.
+      await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 60_000));
+      await page.getByRole('button', { name: '×', exact: true }).tap({ force: true });
+      await expect(page.locator('.fullscreen-exit')).toHaveCount(1);
+      const finished = page.waitForEvent('requestfinished', {
+        predicate: (request) => new URL(request.url()).pathname.startsWith('/products/barcode/'),
+      });
+      releaseResponse();
+      await finished;
+      await page.clock.runFor(100);
+
+      // Cancellation wins immediately, rather than briefly opening New Product
+      // and allowing an abandoned close callback to replace it afterward.
+      await expect(page.getByText('SCAN BARCODE', { exact: true })).toHaveCount(1);
+      await expect(page.locator('.sheet').getByText('New Product', { exact: true })).toHaveCount(0);
+      await page.clock.runFor(250);
+      await expect(page.getByText('SCAN BARCODE', { exact: true })).toHaveCount(0);
+      await expect(page.locator('.sheet').getByText('Add Food', { exact: true })).toBeVisible();
+      await expect(page.getByText('cancelled_lookup_failed', { exact: true })).toHaveCount(0);
+      expect(await trackStates(page)).toEqual(['ended']);
+    } finally {
+      releaseResponse();
+      await page.clock.resume();
+    }
+  });
+}
+
+for (const [id, delay, description] of [
+  ['J-415', 100, 'during the closing fade'],
+  ['J-416', 350, 'after the scanner unmounts'],
+] as const) {
+  test(`[${id}] late camera initialization stops its stream and ignores decoding ${description}`, async ({ page, request }) => {
+    await page.clock.install();
+    await installCamera(page, null, true);
+    await signInFresh(page, request, `barcode-late-camera-${id}`);
+    const lookups: string[] = [];
+    await page.route('**/products/barcode/*', async (route) => {
+      lookups.push(route.request().url());
+      await route.fulfill({ status: 404, json: { error: 'not_found' } });
+    });
+    try {
+      await showBarcode(page, '5901234123457');
+      await page.getByRole('button', { name: 'ADD FOOD', exact: true }).tap();
+      await openScanner(page);
+      await expect.poll(() => page.evaluate(() => window.__barcodeCamera.releaseAcquisition !== null)).toBe(true);
+      await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 60_000));
+      await page.getByRole('button', { name: '×', exact: true }).tap({ force: true });
+      await page.clock.runFor(delay);
+      await expect(page.getByText('SCAN BARCODE', { exact: true })).toHaveCount(delay < 300 ? 1 : 0);
+      await page.evaluate(() => window.__barcodeCamera.releaseAcquisition?.());
+      await page.clock.runFor(100);
+      await expect.poll(() => trackStates(page)).toEqual(['ended']);
+      await page.clock.runFor(350);
+      expect(lookups).toEqual([]);
+      await expect(page.getByText('SCAN BARCODE', { exact: true })).toHaveCount(0);
+      await expect(page.locator('.sheet').getByText('Add Food', { exact: true })).toBeVisible();
+    } finally {
+      await page.evaluate(() => window.__barcodeCamera.releaseAcquisition?.());
+      await page.clock.resume();
+    }
+  });
+}
 
 for (const [id, errorName, message] of [
   ['J-259', 'NotAllowedError', 'Camera access denied.'],

@@ -5,20 +5,16 @@ import { isObject } from '../guards.js';
 import { log } from '../log.js';
 import { handleWriteError } from '../middleware/write-error.js';
 import { dismissMcpNotice, initializeGoalHistory, readSettings, saveGoals } from '../goals.js';
-import { MAX_GOAL_KCAL, MAX_GOAL_MACRO_GRAMS } from '../../shared/constraints.js';
+import { isGoalAmount, MAX_GOAL_KCAL, MAX_GOAL_MACRO_GRAMS } from '../../shared/constraints.js';
 import type { GoalsBody } from '../types.js';
 
 export const settingsRouter: Router = Router();
 settingsRouter.use(authMiddleware);
 
-function goalInt(value: unknown, max: number): boolean {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max;
-}
-
 function isGoalsBody(value: unknown): value is GoalsBody & { time_zone: string } {
   return isObject(value) && typeof value.time_zone === 'string'
-    && goalInt(value.kcal, MAX_GOAL_KCAL) && goalInt(value.protein, MAX_GOAL_MACRO_GRAMS)
-    && goalInt(value.carbs, MAX_GOAL_MACRO_GRAMS) && goalInt(value.fat, MAX_GOAL_MACRO_GRAMS);
+    && isGoalAmount(value.kcal, MAX_GOAL_KCAL) && isGoalAmount(value.protein, MAX_GOAL_MACRO_GRAMS)
+    && isGoalAmount(value.carbs, MAX_GOAL_MACRO_GRAMS) && isGoalAmount(value.fat, MAX_GOAL_MACRO_GRAMS);
 }
 
 settingsRouter.get('/', (req, res) => res.json(readSettings(req.userId!)));

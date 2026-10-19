@@ -52,6 +52,25 @@ const captionLocator = (page: Page) => page.getByText(/W\d{2}/).first();
 const trackLocator = (page: Page) => page.locator('[class*="track"]').first();
 const snapClassRe = /week-strip--snap/;
 
+async function pauseNextTrackTransition(page: Page) {
+  return trackLocator(page).evaluateHandle((element) => {
+    const state = { animation: null as Animation | null };
+    const onRun = (event: Event) => {
+      if (!(event instanceof TransitionEvent) || event.target !== element || event.propertyName !== 'transform') return;
+      const animation = element.getAnimations().find(
+        (candidate) => candidate instanceof CSSTransition && candidate.transitionProperty === 'transform',
+      );
+      if (animation === undefined) return;
+      element.removeEventListener('transitionrun', onRun);
+      animation.pause();
+      animation.currentTime = 100;
+      state.animation = animation;
+    };
+    element.addEventListener('transitionrun', onRun);
+    return state;
+  });
+}
+
 test('[J-040] swipe left past threshold commits to next week', async ({ page }) => {
   await page.goto('/');
   const caption = captionLocator(page);
@@ -212,6 +231,59 @@ test('[J-165] caption shows zero-padded W## week number after the month label', 
 
 test.describe('animation lock', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
+
+  for (const [id, gesture, deltaX] of [
+    ['J-412', 'committed swipe', -60],
+    ['J-413', 'snap-back', -30],
+  ] as const) {
+    test(`[${id}] a child progress transition cannot finish a pending ${gesture}`, async ({ page, request }) => {
+      await signInFresh(page, request, `week-child-${id}`);
+      await expect(page.getByText('No food logged', { exact: true })).toBeVisible();
+      const caption = captionLocator(page);
+      const before = await caption.textContent();
+      const track = trackLocator(page);
+      const snap = await pauseNextTrackTransition(page);
+      try {
+        await swipeTrack(page, deltaX);
+        await expect.poll(() => snap.evaluate(({ animation }) => animation?.playState)).toBe('paused');
+        await expect(track).toHaveClass(snapClassRe);
+
+        // Change a real descendant's progress opacity while the track remains
+        // paused. Its native transitionend bubbles through the track.
+        await track.locator('[class*="dot"]').first().evaluate(async (dot) => {
+          void getComputedStyle(dot).opacity;
+          await new Promise<void>((resolve) => {
+            dot.addEventListener('transitionrun', (event) => {
+              if (!(event instanceof TransitionEvent) || event.target !== dot || event.propertyName !== 'opacity') return;
+              const animation = dot.getAnimations().find(
+                (candidate) => candidate instanceof CSSTransition && candidate.transitionProperty === 'opacity',
+              );
+              if (animation === undefined) throw new Error('Missing progress opacity transition');
+              dot.addEventListener('transitionend', (ended) => {
+                if (ended instanceof TransitionEvent && ended.target === dot && ended.propertyName === 'opacity') resolve();
+              });
+              animation.finish();
+            });
+            (dot as HTMLElement).style.setProperty('--dot-opacity', '1');
+          });
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        });
+
+        await expect(caption).toHaveText(before ?? '');
+        await expect(track).toHaveClass(snapClassRe);
+        expect(await snap.evaluate(({ animation }) => animation?.playState)).toBe('paused');
+        await snap.evaluate(({ animation }) => animation!.finish());
+        await expect(track).not.toHaveClass(snapClassRe);
+        if (deltaX === -60) {
+          await expect(caption).not.toHaveText(before ?? '');
+          await page.locator('[class*="prevBtn"]').tap();
+        }
+        await expect(caption).toHaveText(before ?? '');
+      } finally {
+        await snap.dispose();
+      }
+    });
+  }
 
   test('[J-166] second swipe during snap animation is suppressed by animatingRef', async ({ page, request }) => {
     // Keep delayed progress-dot transitions from unrelated shared history out

@@ -17,6 +17,10 @@ export const MAX_WEIGHT_KG = 1000;
 export const WEIGHT_STEP_KG = 0.1;
 export const MAX_WEIGHT_NOTE_LENGTH = 500;
 
+export function isGoalAmount(value: unknown, max: number): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max;
+}
+
 export function isEntryAmount(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
     && value >= MIN_ENTRY_AMOUNT && value <= MAX_ENTRY_AMOUNT;

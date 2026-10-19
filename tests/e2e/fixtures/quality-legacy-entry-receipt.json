@@ -1,0 +1,63 @@
+{
+  "source_commit": "20defe4",
+  "input": {
+    "idempotency_key": "quality-legacy-entry",
+    "local_date": "2024-02-29",
+    "local_time": "12:00",
+    "entries": [
+      {
+        "product_id": 1,
+        "grams": 29
+      }
+    ]
+  },
+  "result": {
+    "user_id": 1,
+    "entries": [
+      {
+        "id": 1,
+        "product": {
+          "id": 1,
+          "name": "Original arithmetic food",
+          "brand": null,
+          "unit": "g",
+          "barcode": null,
+          "per100": {
+            "kcal": 50,
+            "protein": 10,
+            "carbs": 20,
+            "fat": 5
+          },
+          "is_temp": false
+        },
+        "grams": 29,
+        "local_date": "2024-02-29",
+        "local_time": "12:00",
+        "macros": {
+          "kcal": 14.499999999999998,
+          "protein": 2.9,
+          "carbs": 5.8,
+          "fat": 1.45
+        },
+        "group": null
+      }
+    ],
+    "group": null,
+    "totals": {
+      "kcal": 14.499999999999998,
+      "protein": 2.9,
+      "carbs": 5.8,
+      "fat": 1.45
+    },
+    "receipt": {
+      "idempotency_key": "quality-legacy-entry",
+      "applied_at": "2024-02-29T12:00:00.000Z",
+      "replayed": false
+    }
+  },
+  "receipt": {
+    "request_hash": "7e908d0deeb63b216b4023e97c3a84038bb6facbc0ec9ec3638390cdc99443a5",
+    "applied_at": 1709208000000,
+    "schema_version": 4
+  }
+}

@@ -375,6 +375,41 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-387 · Initialization racing a save preserves new goals, ignores client effective dates, and login compatibility reads current history
 - J-388 · Server-clock goal dates honor timezone boundaries and DST, unchanged saves stay sparse, zero goals remain valid, and backward travel is rejected
 
+# 20. Verified consistency fixes
+
+- J-400 · Pristine Settings forms follow authoritative refreshes without saving stale goals
+- J-401 · Settings waits for its first authoritative snapshot and submits those goals
+- J-402 · Editing one goal preserves the entire draft across refresh and both subviews
+- J-403 · Initial settings failures offer Retry; later failures retain valid editable goals
+- J-404 · A delayed committed weight save cannot replace another device's newer weight
+- J-405 · Failed weight reconciliation retains newer data and does not invite another write
+- J-406 · A delayed weight save cannot update a replacement session's history
+- J-407 · Fractional goals show field feedback and never submit
+- J-408 · Goal inputs reject oversized values and increment buttons stop at shared bounds
+- J-409 · Zero goals save without division errors
+- J-410 · Scanner cancellation ignores a pending lookup result throughout the closing fade
+- J-412 · Child transitions cannot commit a pending week swipe
+- J-413 · Child transitions cannot finish the track's snap-back animation
+- J-414 · A cancelled barcode lookup cannot surface its late failure
+- J-415 · Camera controls initialized during scanner cancellation stop without decoding
+- J-416 · Camera controls initialized after scanner unmount stop without decoding
+- J-417 · A committed weight save invalidates still-pending older history reads
+- J-420 · Failed initial library requests show Retry instead of an empty library
+- J-421 · Search failures preserve query and scope without showing unrelated results
+- J-422 · Partial library failures retain usable sections and recover on Retry
+- J-423 · Failed foreground searches retain only matching cached results
+- J-424 · Oversized portions cannot submit by button; corrected decimals remain valid
+- J-425 · Oversized portions cannot submit with Enter; the exact maximum remains valid
+- J-426 · Portion increments stop at the maximum and blank Enter never logs food
+- J-430 · REST, MCP and the UI agree on half-calorie portion arithmetic
+- J-431 · Multiple fractional portions are summed before display rounding
+- J-432 · Product creation preserves baseline fingerprints and normalized-equivalent retries
+- J-433 · Pre-cleanup product receipts replay without recreating deleted foods
+- J-434 · Product and summary cleanup preserves published MCP schemas and discovery
+- J-435 · Summary output preserves unknown/zero goals, missing logs, legacy filtering and weights
+- J-436 · Old entry receipts retain their original floating-point snapshots after resource deletion
+- J-437 · Instrumented MCP summary reads enforce the aggregate and history query budget
+
 # Verification
 
 Run from the repo root:

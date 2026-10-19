@@ -1,0 +1,730 @@
+{
+  "source_commit": "20defe4",
+  "tool_names": [
+    "create_entries",
+    "create_entry_group",
+    "create_product",
+    "delete_entry",
+    "delete_entry_group",
+    "delete_product",
+    "get_day",
+    "get_meals",
+    "get_summary",
+    "get_week",
+    "get_weighins",
+    "search_products",
+    "ungroup_entries",
+    "update_entry",
+    "update_entry_group",
+    "update_product"
+  ],
+  "contracts": [
+    {
+      "name": "create_product",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "idempotency_key": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+            "description": "Unique operation key for this account; a UUID is recommended. Reuse the same key and arguments only when retrying this operation."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "brand": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "g",
+              "ml"
+            ]
+          },
+          "barcode": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "per100": {
+            "type": "object",
+            "properties": {
+              "kcal": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2000
+              },
+              "protein": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 200
+              },
+              "carbs": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 200
+              },
+              "fat": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 200
+              }
+            },
+            "required": [
+              "kcal",
+              "protein",
+              "carbs",
+              "fat"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "name",
+          "unit",
+          "per100"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "product": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "name": {
+                "type": "string"
+              },
+              "brand": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "unit": {
+                "type": "string",
+                "enum": [
+                  "g",
+                  "ml"
+                ]
+              },
+              "barcode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "per100": {
+                "type": "object",
+                "properties": {
+                  "kcal": {
+                    "type": "number"
+                  },
+                  "protein": {
+                    "type": "number"
+                  },
+                  "carbs": {
+                    "type": "number"
+                  },
+                  "fat": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kcal",
+                  "protein",
+                  "carbs",
+                  "fat"
+                ],
+                "additionalProperties": false
+              },
+              "is_temp": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "brand",
+              "unit",
+              "barcode",
+              "per100",
+              "is_temp"
+            ],
+            "additionalProperties": false
+          },
+          "receipt": {
+            "type": "object",
+            "properties": {
+              "idempotency_key": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+                "description": "Unique operation key for this account; a UUID is recommended. Reuse the same key and arguments only when retrying this operation."
+              },
+              "applied_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "replayed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "idempotency_key",
+              "applied_at",
+              "replayed"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "user_id",
+          "product",
+          "receipt"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_summary",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "First local date, inclusive, YYYY-MM-DD"
+          },
+          "end_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Last local date, inclusive, YYYY-MM-DD; at most 366 days including both bounds"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "start_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "end_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "days_total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "days_logged": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "days_without_entries": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "kcal": {
+                "type": "number"
+              },
+              "protein": {
+                "type": "number"
+              },
+              "carbs": {
+                "type": "number"
+              },
+              "fat": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kcal",
+              "protein",
+              "carbs",
+              "fat"
+            ],
+            "additionalProperties": false
+          },
+          "average_on_logged_days": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kcal": {
+                    "type": "number"
+                  },
+                  "protein": {
+                    "type": "number"
+                  },
+                  "carbs": {
+                    "type": "number"
+                  },
+                  "fat": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kcal",
+                  "protein",
+                  "carbs",
+                  "fat"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "goal_periods": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start_date": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "end_date": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "daily_goals": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kcal": {
+                          "type": "number"
+                        },
+                        "protein": {
+                          "type": "number"
+                        },
+                        "carbs": {
+                          "type": "number"
+                        },
+                        "fat": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "kcal",
+                        "protein",
+                        "carbs",
+                        "fat"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "start_date",
+                "end_date",
+                "daily_goals"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "goal_comparison": {
+            "type": "object",
+            "properties": {
+              "days_compared": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "logged_totals": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kcal": {
+                        "type": "number"
+                      },
+                      "protein": {
+                        "type": "number"
+                      },
+                      "carbs": {
+                        "type": "number"
+                      },
+                      "fat": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "kcal",
+                      "protein",
+                      "carbs",
+                      "fat"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "goal_totals": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kcal": {
+                        "type": "number"
+                      },
+                      "protein": {
+                        "type": "number"
+                      },
+                      "carbs": {
+                        "type": "number"
+                      },
+                      "fat": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "kcal",
+                      "protein",
+                      "carbs",
+                      "fat"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "days_compared",
+              "logged_totals",
+              "goal_totals"
+            ],
+            "additionalProperties": false
+          },
+          "weight": {
+            "type": "object",
+            "properties": {
+              "weighin_count": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "first": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "local_date": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      "weight_kg": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "local_date",
+                      "weight_kg"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "last": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "local_date": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      "weight_kg": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "local_date",
+                      "weight_kg"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "change_kg": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "weighin_count",
+              "first",
+              "last",
+              "change_kg"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "user_id",
+          "start_date",
+          "end_date",
+          "days_total",
+          "days_logged",
+          "days_without_entries",
+          "totals",
+          "average_on_logged_days",
+          "goal_periods",
+          "goal_comparison",
+          "weight"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "update_product",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "brand": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "g",
+              "ml"
+            ]
+          },
+          "barcode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "per100": {
+            "type": "object",
+            "properties": {
+              "kcal": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2000
+              },
+              "protein": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 200
+              },
+              "carbs": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 200
+              },
+              "fat": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 200
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "product_id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "product": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "name": {
+                "type": "string"
+              },
+              "brand": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "unit": {
+                "type": "string",
+                "enum": [
+                  "g",
+                  "ml"
+                ]
+              },
+              "barcode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "per100": {
+                "type": "object",
+                "properties": {
+                  "kcal": {
+                    "type": "number"
+                  },
+                  "protein": {
+                    "type": "number"
+                  },
+                  "carbs": {
+                    "type": "number"
+                  },
+                  "fat": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kcal",
+                  "protein",
+                  "carbs",
+                  "fat"
+                ],
+                "additionalProperties": false
+              },
+              "is_temp": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "brand",
+              "unit",
+              "barcode",
+              "per100",
+              "is_temp"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "user_id",
+          "product"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}
