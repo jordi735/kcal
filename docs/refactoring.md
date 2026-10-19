@@ -381,3 +381,62 @@ reads through the public MCP summary before structural consolidation (J-437).
 Frozen baseline fixtures pin product request hashes, old receipt results, tool
 names, and affected public schemas. MCP remains 4.0.0, reminder version remains 4,
 and no database migration or production data change is part of this follow-up.
+
+Structural passes are separate from the behavior commit:
+
+- The session file now matches `useSessionState`; unused defaults/token reading
+  and the public exposure of internal read invalidation are removed.
+  `useSheetSubview` gives the existing mounted-form/focus-restoration behavior
+  neutral names. Guide, settings, and draft characterizations pass unchanged.
+- `shared/productText.ts` is the pure product text policy used by REST guards,
+  MCP validation/fingerprints, and shared writes. Shape parsing remains local;
+  omitted fields bypass normalization and adoption keeps its exact-copy path.
+  Frozen baseline receipt fixtures replay after this change, with unchanged
+  hashes and MCP schemas. Existing Unicode, ownership, and omission checks pass.
+- Receipt restart and goal-clock scenarios now live in typed fixture modules.
+  The shared subprocess helper handles only process/environment setup. The
+  receipt scenario still uses two processes and one unique temporary database;
+  assertions, journey IDs, sentinels, diagnostics, and 20-second timeouts remain.
+- Summary reads reuse one daily-aggregate query, one weight query, and one goal
+  history query. The same aggregate rows drive logging coverage and comparisons,
+  including zero-calorie days; invalid legacy dates stay filtered. J-437 measured
+  the reduction from three aggregate/two history reads to one each, and separately
+  pins one weight read. Current-goal resolution now lives in the goal service;
+  `WriteError` lives in a dependency-neutral module, eliminating the forwarding
+  wrapper without a reads/goals import cycle. Exact summary and MCP-schema
+  characterizations pass in `/tmp/kcal-quality-summary-fixed.log`.
+
+Passing before/after runs include `/tmp/kcal-quality-preservation.log`,
+`/tmp/kcal-quality-cleanup-characterization.log`, and
+`/tmp/kcal-quality-product-fixtures.log`. No adoption-service extraction, broad
+module split, generic async/cache abstraction, public contract, schema, or version
+change was introduced.
+
+Cancellation coverage also includes a held successful owned-product lookup
+(J-418), alongside the 404/500 and late-camera paths. Its focused run passed in
+`/tmp/kcal-quality-cancel-success.log`. Mobile previews with mocked API failures
+confirmed readable picker Retry feedback and oversized-amount feedback without
+page-width overflow. These previews did not access any database.
+
+Final review caught a diagnostic-only drift introduced by text-policy extraction:
+raw-oversized text whose normalized form fits acquired an extra normalized-length
+error. The new J-438 assertion failed on that intermediate refactor; the original
+`20defe4` schemas passed. Shared normalized-form parsers now let MCP's existing
+raw bounds and normalized refinements retain their separate diagnostics,
+including both errors when both limits fail. Baseline and corrected complete
+Zod issues match. The first full run was deliberately interrupted after 110
+passing tests to include this correction in the final full run.
+
+The corrected compatibility suite passed in
+`/tmp/kcal-quality-diagnostics-verified.log`. Its preceding attempt had one
+harness failure: a concurrent production build briefly removed `dist/index.html`
+while the browser was loading it. Re-running after the build completed passed;
+the final full suite runs without concurrent builds or Playwright invocations.
+
+Final verification completed on 2026-10-19: frontend, server and test TypeScript
+checks passed; the production build passed with its existing bundle-size warning.
+The full Playwright suite passed all 345 tests in 7.2 minutes, recorded in
+`/tmp/kcal-quality-full-final.log`. Journey duplicate/backlink checks and
+`git diff --check` passed. Tests exercised fresh and upgraded disposable databases;
+production data was untouched. MCP remains 4.0.0 and the reminder remains version
+4. No migration, deployment, or public REST/MCP contract change was included.

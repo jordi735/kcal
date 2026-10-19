@@ -6,13 +6,16 @@ These instructions apply to the entire repository.
 
 - `src/` is the Preact SPA. `App.tsx` owns cross-screen auth, date, and modal
   transitions; `components/AppModals.tsx` renders its modal slots and `modalState.ts` defines
-  modal context and draft-return helpers. Session/goal and notification lifecycles
+  modal context and draft-return helpers. `useSessionState` owns session state;
+  settings and notification lifecycles
   live in hooks; components, screens, and modals own local interaction state.
 - `server/` is the Express 5 and SQLite backend. Routes live in `server/routes/`,
   SQL migrations in `server/migrations/`, and normal application statements in
   `server/statements.ts`. `server/reads.ts` shares read functions and serializers
   between REST routes and MCP tools; `server/products.ts` shares product discovery,
-  and `server/goals.ts` owns settings/history services. `server/writes.ts` shares
+  and `server/goals.ts` owns settings/history and current-goal resolution.
+  `server/errors.ts` defines dependency-neutral domain errors; goals must not
+  import the reads or writes modules. `server/writes.ts` shares
   transactional entry, entry-group, and product mutations; `server/idempotency.ts`
   wraps MCP creates in durable receipt transactions. `server/mcp/` owns MCP schemas, registration,
   and result handling; its HTTP route owns auth and transport lifetime. Setup is
@@ -81,6 +84,10 @@ required-key inventory and never commit real credentials.
   editable defaults, never historical targets. Boot/foreground revalidation,
   initialization, saves and reminder dismissal must protect against stale
   responses and update the live snapshot and cached current user goals together.
+  Disable goal editing until the first authoritative snapshot arrives; initial
+  failures offer Retry. A pristine form follows snapshots, but actual input or
+  increment actions make the whole goal vector a draft. Focus alone does not.
+  Preserve that complete draft across refreshes and mounted Sheet subviews.
 - Keep navigation client-state-driven through `App.tsx`; do not add a router for
   the current addressless flow. Add Sheet-backed modal kinds to `SHEET_KINDS` and
   preserve the distinction between explicit `onClose` and gesture `onDismiss`.
@@ -91,8 +98,10 @@ required-key inventory and never commit real credentials.
 - Keep `local_date` and `local_time` as timezone-free `YYYY-MM-DD` and `HH:MM`
   strings. Generate them with `src/dates.ts`; weeks are Monday-first.
 - Normalize supplied product names/brands and entry-group names with the helpers
-  in `shared/normalize.ts`. Product normalization must be Unicode-idempotent and
-  satisfy both raw and final stored length limits. Partial product edits preserve
+  in `shared/normalize.ts`. `shared/productText.ts` owns pure stored-product field
+  parsing, raw and normalized length limits, and barcode trimming; REST and MCP
+  keep their input-shape parsing local. Product normalization must be
+  Unicode-idempotent. Partial product edits preserve
   omitted metadata exactly; adoption deliberately preserves source values.
 - Use `shared/constraints.ts` for the UI/REST/MCP entry minimum and group-name
   validation, weight numeric rules, and product/weight limits. Keep interface
@@ -100,12 +109,27 @@ required-key inventory and never commit real credentials.
   rules, and the weight UI counts raw note length while REST counts trimmed text.
   New or changed entry amounts must be within the shared 1–MAX_ENTRY_AMOUNT g/ml
   bounds; decimals are allowed.
+  Check shared integer/range predicates before goal saves and amount submissions,
+  including keyboard submissions. Invalid input stays editable with feedback;
+  increment buttons clamp to the applicable bounds.
   Do not rewrite legacy smaller entries or reject their tag-only edits or deletion.
 - `useEntries` applies local cache changes only after successful requests. Preserve
   entry insertion order by `id` and recompute week totals only for loaded dates;
   tagged-only updates do not change totals. Its single cache state uses pure
   `entryCache.ts` transformations; mutation callbacks retain their captured
   loaded-date eligibility when a day loads while a request is pending.
+- Weight history uses one local read path for initial load, refresh, Retry and
+  reconciliation. Count successfully applied reads and fence pending reads after
+  a committed write. If a read applied during that write, retain it and reconcile
+  instead of applying the older response. A failed reconciliation is a refresh
+  failure, never a failed write or invitation to duplicate it.
+- Product picker requests distinguish loading, success and failure. Show empty
+  states only after successful empty responses, keep independently usable library
+  sections, and retain cached search results only for the same query and scope.
+- Scanner cancellation invalidates navigation when closing starts, before its
+  fade. Suppress late decoder/lookup callbacks and stop controls that initialize
+  after cancellation. Clear close timers on unmount. Carousel completion accepts
+  only the track's own transform transition and removes superseded listeners.
 - Keep the day-entry wire response flat. `EntryWithMacros.group` annotates real
   child entries; derive collapsed parents, aggregate macros, and mixed/all-tagged
   state in the client without adding a synthetic calorie-bearing entry.
@@ -156,7 +180,8 @@ required-key inventory and never commit real credentials.
   must not be confused.
 - Entries store grams and product references, not macro snapshots. Compute macros
   from current per-100 product values so product edits intentionally update past
-  totals.
+  totals. Scale with `(grams * per100) / 100`, matching SQL, and round only for
+  display. Existing creation receipt snapshots keep their original arithmetic.
 - Entry groups are day-scoped metadata referenced by nullable `entries.group_id`.
   Create groups atomically from at least two unique, ungrouped entries owned by
   the caller on one valid calendar date, derived from the children. Normalize
@@ -228,7 +253,10 @@ required-key inventory and never commit real credentials.
   summary reads exclude impossible stored dates. Day/range/week reads attach
   nullable goals per date; summaries return goal periods and paired comparisons
   only for dates with both logs and known goals. Never attach current goals to
-  historical reads. `search_products` browses without a query, supports name/recent
+  historical reads. Read summary daily aggregates, weights and history once each,
+  then derive coverage, periods and comparisons from those same inputs. Keep
+  zero-calorie logged days distinct from missing rows.
+  `search_products` browses without a query, supports name/recent
   sorting and 1–100-item pages (default 50), or accepts barcode alone. Always return
   `{ user_id, products, template, next_offset }`; library mode is caller-owned and
   saved-only, while barcode mode may return one safe shared template. Every tool
@@ -296,6 +324,15 @@ required-key inventory and never commit real credentials.
   `tests/JOURNEYS.md` whenever journeys change and run the duplicate-ID and
   bidirectional-link checks in its `Verification` section. Never record fixed
   suite counts or PR-numbered coverage snapshots here.
+- For a reproduced bug, first run its regression against the unchanged behavior
+  and record the intended failure, then run it after the fix. Control deferred
+  responses, animation clocks and real camera fixtures rather than adding sleeps.
+  For structural cleanup, use passing before/after characterization, including
+  baseline receipt fixtures when changing normalization or fingerprint inputs.
+  Run Playwright invocations sequentially because they share the test database.
+  Isolated server programs belong in typed `tests/e2e/fixtures/` modules; use
+  `server-fixture.ts` for subprocess/environment setup, with explicit temporary
+  database paths and bounded timeouts. Keep scenario assertions in the programs.
 
 ## Commit & Pull Request Guidelines
 
