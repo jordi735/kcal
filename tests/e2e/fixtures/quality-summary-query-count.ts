@@ -19,7 +19,7 @@ const product = createProduct(1, {
 createEntry(1, { product_id: product.id, grams: 100, local_date: '2024-02-29', local_time: '12:00' });
 db.prepare('INSERT INTO goal_history VALUES (1, ?, 2000, 100, 200, 60, 0)').run('2024-02-29');
 
-const counts = { aggregate: 0, history: 0 };
+const counts = { aggregate: 0, history: 0, weights: 0 };
 const aggregateAll = statements.entries.weekSum.all.bind(statements.entries.weekSum);
 statements.entries.weekSum.all = (...args: unknown[]) => {
   counts.aggregate += 1;
@@ -29,6 +29,11 @@ const historyAll = statements.goalHistory.all.all.bind(statements.goalHistory.al
 statements.goalHistory.all.all = (...args: unknown[]) => {
   counts.history += 1;
   return historyAll(...args);
+};
+const weightsAll = statements.weights.summaryRange.all.bind(statements.weights.summaryRange);
+statements.weights.summaryRange.all = (...args: unknown[]) => {
+  counts.weights += 1;
+  return weightsAll(...args);
 };
 
 const server = createServer(1, ['kcal:read']);

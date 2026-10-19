@@ -1,7 +1,5 @@
 import { expect } from '@playwright/test';
 import Database from 'better-sqlite3';
-import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import type {
   EntryWithMacros, McpDayResult, McpEntriesCreateResult, McpMealsResult,
   McpProductCreateResult, McpSummaryResult, McpWeekResult, Product,
@@ -9,6 +7,7 @@ import type {
 import contracts from './fixtures/quality-backend-contracts.json' with { type: 'json' };
 import legacyEntry from './fixtures/quality-legacy-entry-receipt.json' with { type: 'json' };
 import { call, createMcpTest, rest } from './mcp-helpers';
+import { runServerFixture } from './server-fixture';
 
 const test = createMcpTest({ emailPrefix: 'quality-backend', scope: 'kcal:read kcal:write' });
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -208,19 +207,12 @@ test('[J-436] pre-cleanup entry receipts retain their original arithmetic after 
     .get(account.user.id))).toEqual({ count: 0 });
 });
 
-test('[J-437] summary query instrumentation measures repeated aggregate and history reads', () => {
-  const result = spawnSync(process.execPath, [
-    '--import', 'tsx', fileURLToPath(new URL('./fixtures/quality-summary-query-count.ts', import.meta.url)),
-  ], {
-    encoding: 'utf8',
-    env: {
-      ...process.env, DATABASE_PATH: ':memory:', PORT: '3999', TEST_MODE: 'false',
-      POSTMARK_SERVER_TOKEN: 'unused', POSTMARK_FROM: 'test@test.local',
-      SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '10', LOG_LEVEL: 'error',
-      PUBLIC_ORIGIN: 'https://kcal.example.test',
-    },
+test('[J-437] summary reads aggregate totals goal history and weights once each', () => {
+  const result = runServerFixture(new URL('./fixtures/quality-summary-query-count.ts', import.meta.url), ':memory:', {
+    PORT: '3999', TEST_MODE: 'false', PUBLIC_ORIGIN: 'https://kcal.example.test',
   });
   expect(result.status, result.stderr || result.stdout).toBe(0);
-  // Baseline captured before query reuse; the optimization tightens this budget.
-  expect(JSON.parse(result.stdout)).toEqual({ aggregate: 3, history: 2 });
+  // Before query reuse, this same public call executed 3 aggregate + 2 history
+  // queries. The budget ensures comparisons reuse the data behind the summary.
+  expect(JSON.parse(result.stdout)).toEqual({ aggregate: 1, history: 1, weights: 1 });
 });

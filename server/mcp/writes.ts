@@ -4,12 +4,13 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { db } from '../db.js';
+import { WriteError } from '../errors.js';
 import { log } from '../log.js';
 import { createWithReceipt } from '../idempotency.js';
 import { normalizeEntryGroupName } from '../../shared/normalize.js';
 import { parseProductText } from '../../shared/productText.js';
 import {
-  createEntries, updateEntry, deleteEntry, createProduct, updateProduct, deleteProduct, WriteError,
+  createEntries, updateEntry, deleteEntry, createProduct, updateProduct, deleteProduct,
   createEntryGroup, updateEntryGroup, ungroupEntries, deleteEntryGroup,
 } from '../writes.js';
 import type {

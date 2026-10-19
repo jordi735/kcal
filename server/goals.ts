@@ -1,10 +1,10 @@
 import { db } from './db.js';
 import { statements } from './statements.js';
-import { WriteError } from './writes.js';
-import { readDailyTotals, readGoals, sumMacros } from './reads.js';
+import { WriteError } from './errors.js';
+import { sumMacros } from '../shared/macros.js';
 import { resolveGoals, sameGoals } from '../shared/goals.js';
 import { isLocalDate } from '../shared/constraints.js';
-import type { GoalComparison, GoalHistoryItem, GoalHistoryRow, Macros, SettingsSaveResult, SettingsSnapshot } from './types.js';
+import type { GoalComparison, GoalHistoryItem, GoalHistoryRow, GoalsRow, Macros, SettingsSaveResult, SettingsSnapshot } from './types.js';
 
 function rowGoals(row: GoalHistoryRow): Macros {
   return { kcal: row.kcal, protein: row.protein, carbs: row.carbs, fat: row.fat };
@@ -17,7 +17,12 @@ export function readGoalHistory(userId: number): GoalHistoryItem[] {
 
 // Undated values are editable defaults / auth compatibility, never historical goals.
 export function readCurrentGoals(userId: number): Macros | null {
-  return readGoals(userId);
+  const latest = statements.goalHistory.latest.get(userId) as GoalHistoryRow | undefined;
+  if (latest !== undefined) return rowGoals(latest);
+  const row = statements.users.selectGoalsById.get(userId) as GoalsRow | undefined;
+  return row === undefined ? null : {
+    kcal: row.goal_kcal, protein: row.goal_protein, carbs: row.goal_carbs, fat: row.goal_fat,
+  };
 }
 
 export function readSettings(userId: number): SettingsSnapshot {
@@ -78,24 +83,23 @@ export function dismissMcpNotice(userId: number, version: number): { mcp_notice_
   })();
 }
 
-export function readGoalComparison(userId: number, dates: readonly string[]): GoalComparison {
-  const first = dates[0];
-  const last = dates.at(-1);
-  if (first === undefined || last === undefined) return { days_compared: 0, logged_totals: null, goal_totals: null };
-  const logged = new Set((statements.entries.weekSum.all(userId, first, last) as { date: string }[]).map((row) => row.date));
-  const history = readGoalHistory(userId);
+// Pure comparison over the caller's valid logged dates. Missing logs must stay
+// absent; a recorded zero-calorie day is still a comparison candidate.
+export function compareLoggedGoals(
+  history: readonly GoalHistoryItem[], loggedTotals: Readonly<Record<string, Macros>>,
+): GoalComparison {
   const goals: Macros[] = [];
-  const compared: string[] = [];
-  for (const date of dates) {
+  const compared: Macros[] = [];
+  for (const [date, totals] of Object.entries(loggedTotals)) {
     const dailyGoals = resolveGoals(history, date);
-    if (logged.has(date) && dailyGoals !== null) {
-      compared.push(date);
+    if (dailyGoals !== null) {
+      compared.push(totals);
       goals.push(dailyGoals);
     }
   }
   return {
     days_compared: compared.length,
-    logged_totals: compared.length === 0 ? null : sumMacros(Object.values(readDailyTotals(userId, compared))),
+    logged_totals: compared.length === 0 ? null : sumMacros(compared),
     goal_totals: compared.length === 0 ? null : sumMacros(goals),
   };
 }

@@ -2,25 +2,16 @@
 // from verified credentials; every statement keeps its owner binding.
 
 import { statements } from './statements.js';
+import { compareLoggedGoals, readGoalHistory } from './goals.js';
+import { goalPeriods } from '../shared/goals.js';
 import { searchProductPage } from './products.js';
 export { rowToProduct } from './products.js';
 import { scaleMacros, sumMacros } from '../shared/macros.js';
 export { sumMacros } from '../shared/macros.js';
 import type {
-  EntryGroup, EntryGroupRow, EntryJoinRow, EntryWithMacros, GoalsRow, GoalHistoryRow, Macros, SummaryResult, Product,
+  EntryGroup, EntryGroupRow, EntryJoinRow, EntryWithMacros, Macros, SummaryResult, Product,
   WeightEntry, WeightRow, WeightSummaryPoint, WeekSumRow,
 } from './types.js';
-
-export function readGoals(userId: number): Macros | null {
-  const latest = statements.goalHistory.latest.get(userId) as GoalHistoryRow | undefined;
-  if (latest !== undefined) return {
-    kcal: latest.kcal, protein: latest.protein, carbs: latest.carbs, fat: latest.fat,
-  };
-  const row = statements.users.selectGoalsById.get(userId) as GoalsRow | undefined;
-  return row === undefined ? null : {
-    kcal: row.goal_kcal, protein: row.goal_protein, carbs: row.goal_carbs, fat: row.goal_fat,
-  };
-}
 
 export function searchOwnProducts(userId: number, query: string): Product[] {
   const q = query.trim();
@@ -96,8 +87,8 @@ export function readSummary(
   const start = dates[0];
   const end = dates.at(-1);
   const validDates = new Set(dates);
-  // Existing REST writes accept date-shaped strings. Project onto the requested
-  // calendar dates, as readDailyTotals does, so impossible stored dates don't count.
+  // Legacy rows can contain impossible dates. Project onto the requested
+  // calendar dates, as readDailyTotals does, so those rows don't count.
   const rows = start === undefined || end === undefined ? []
     : statements.entries.weekSum.all(userId, start, end) as WeekSumRow[];
   const logged = rows.filter((row) => validDates.has(row.date));
@@ -108,6 +99,7 @@ export function readSummary(
   const weighins = points.filter((point) => validDates.has(point.local_date));
   const first = weighins[0] ?? null;
   const last = weighins.at(-1) ?? null;
+  const history = readGoalHistory(userId);
   return {
     days_total: dates.length,
     days_logged: daysLogged,
@@ -126,6 +118,8 @@ export function readSummary(
       change_kg: weighins.length < 2 || first === null || last === null
         ? null : Number((last.weight_kg - first.weight_kg).toFixed(1)),
     },
+    goal_periods: goalPeriods(history, dates),
+    goal_comparison: compareLoggedGoals(history, Object.fromEntries(logged.map((row) => [row.date, row]))),
   };
 }
 

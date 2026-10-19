@@ -5,6 +5,7 @@
 import { parseProductBarcode, parseProductBrand, parseProductName, parseProductText } from '../shared/productText.js';
 import { isEntryAmount, isLocalDate, isLocalTime, parseEntryGroupName } from '../shared/constraints.js';
 import { db } from './db.js';
+import { WriteError } from './errors.js';
 import { isPositiveInt } from './guards.js';
 import { readGroupEntries, rowToEntry, rowToEntryGroup, rowToProduct, sumMacros } from './reads.js';
 import { statements } from './statements.js';
@@ -13,13 +14,6 @@ import type {
   EntryGroupResult, UngroupResult, EntryGroupDeleteResult, EntryGroup, Macros,
   NewEntryBody, NewProductBody, Product, ProductPatch, ProductRow,
 } from './types.js';
-
-export class WriteError extends Error {
-  constructor(readonly status: number, message: string) {
-    super(message);
-    this.name = 'WriteError';
-  }
-}
 
 export function createEntry(userId: number, body: NewEntryBody, savedOnly = false): EntryWithMacros {
   if (!isEntryAmount(body.grams) || !isLocalDate(body.local_date) || !isLocalTime(body.local_time)) {

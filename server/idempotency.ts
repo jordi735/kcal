@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import type { z } from 'zod';
 import { db } from './db.js';
 import { statements } from './statements.js';
-import { WriteError } from './writes.js';
+import { WriteError } from './errors.js';
 import type { McpCreationReceipt, McpCreationReceiptRow } from './types.js';
 
 const RECEIPT_SCHEMA_VERSION = 4;

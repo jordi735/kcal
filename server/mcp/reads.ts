@@ -4,8 +4,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { MAX_PRODUCT_BARCODE_LENGTH } from '../../shared/constraints.js';
 import { rangeDates, weekDates } from '../../shared/dates.js';
-import { goalPeriods, resolveGoals } from '../../shared/goals.js';
-import { readGoalHistory, readGoalComparison } from '../goals.js';
+import { resolveGoals } from '../../shared/goals.js';
+import { readGoalHistory } from '../goals.js';
 import { lookupBarcode, searchProductPage } from '../products.js';
 import {
   readDailyTotals, readDayEntries, readSummary, readWeightPage, sumMacros,
@@ -148,7 +148,6 @@ export function registerReadTools(server: McpServer, user_id: number): void {
     requireAccount(user_id);
     return {
       user_id, start_date, end_date, ...readSummary(user_id, dates),
-      goal_periods: goalPeriods(readGoalHistory(user_id), dates), goal_comparison: readGoalComparison(user_id, dates),
     };
   }));
 

@@ -1,5 +1,5 @@
 import type { ErrorRequestHandler } from 'express';
-import { WriteError } from '../writes.js';
+import { WriteError } from '../errors.js';
 
 export const handleWriteError: ErrorRequestHandler = (err: unknown, _req, res, next) => {
   if (err instanceof WriteError) {

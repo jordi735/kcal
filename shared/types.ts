@@ -145,14 +145,14 @@ export type SummaryResult = {
     // Latest minus earliest within the range; null with fewer than two points.
     change_kg: number | null;
   };
+  goal_periods: GoalPeriod[];
+  goal_comparison: GoalComparison;
 };
 
 export type McpSummaryResult = SummaryResult & {
   user_id: number;
   start_date: string;
   end_date: string;
-  goal_periods: GoalPeriod[];
-  goal_comparison: GoalComparison;
 };
 
 export type McpProductSearchResult = {
