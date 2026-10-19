@@ -394,6 +394,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-415 · Camera controls initialized during scanner cancellation stop without decoding
 - J-416 · Camera controls initialized after scanner unmount stop without decoding
 - J-417 · A committed weight save invalidates still-pending older history reads
+- J-418 · Scanner cancellation suppresses a successful owned-food lookup during its fade
 - J-420 · Failed initial library requests show Retry instead of an empty library
 - J-421 · Search failures preserve query and scope without showing unrelated results
 - J-422 · Partial library failures retain usable sections and recover on Retry

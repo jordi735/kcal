@@ -197,6 +197,7 @@ test('[J-369] failed barcode lookup returns to Add Food with an error and permit
 for (const [id, status, description] of [
   ['J-410', 404, 'lookup response'],
   ['J-414', 500, 'lookup error'],
+  ['J-418', 200, 'successful owned-food lookup'],
 ] as const) {
   test(`[${id}] cancelling a detected barcode ignores its ${description} during the closing fade`, async ({ page, request }) => {
     await page.clock.install();
@@ -209,7 +210,13 @@ for (const [id, status, description] of [
     await page.route('**/products/barcode/*', async (route) => {
       lookupStarted();
       await responseReady;
-      await route.fulfill({ status, json: { error: status === 404 ? 'not_found' : 'cancelled_lookup_failed' } });
+      await route.fulfill({ status, json: status === 200 ? {
+        kind: 'own',
+        product: {
+          id: 1, name: 'Cancelled scanned food', brand: null, barcode: '5901234123457',
+          unit: 'g', is_temp: false, per100: { kcal: 100, protein: 10, carbs: 10, fat: 2 },
+        },
+      } : { error: status === 404 ? 'not_found' : 'cancelled_lookup_failed' } });
     });
 
     try {
@@ -234,6 +241,7 @@ for (const [id, status, description] of [
       // and allowing an abandoned close callback to replace it afterward.
       await expect(page.getByText('SCAN BARCODE', { exact: true })).toHaveCount(1);
       await expect(page.locator('.sheet').getByText('New Product', { exact: true })).toHaveCount(0);
+      await expect(page.locator('.sheet').getByText('How much?', { exact: true })).toHaveCount(0);
       await page.clock.runFor(250);
       await expect(page.getByText('SCAN BARCODE', { exact: true })).toHaveCount(0);
       await expect(page.locator('.sheet').getByText('Add Food', { exact: true })).toBeVisible();
