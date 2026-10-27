@@ -5,6 +5,7 @@ import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
 import { cssVars } from '../styles';
 import { Sheet, useSheetClose } from '../components/Sheet';
 import { ChatGPTConnectCard, ChatGPTGuide } from '../components/ChatGPTGuide';
+import { MacroBreakdown } from '../components/MacroBreakdown';
 import { useSheetSubview } from '../hooks/useSheetSubview';
 import { MinusIcon, PlusIcon } from '../components/Icon';
 import { useFocusClearableNumber } from '../hooks/useFocusClearableNumber';
@@ -273,7 +274,13 @@ function SettingsInner({ goals, ready, loadError, onRetry, onSave, onLogout, use
         </div>
 
         <div className={styles.section}>
-          <button type="button" className="mono tiny caps" onClick={(event) => onOpenHistory(event.currentTarget)}>Goal history</button>
+          <button
+            type="button"
+            className={`btn-ghost ${styles.historyBtn}`}
+            onClick={(event) => onOpenHistory(event.currentTarget)}
+          >
+            Goal history
+          </button>
         </div>
 
         <div className={styles.connectionSection}>
@@ -303,16 +310,19 @@ function GoalHistory({ history, onBack }: { history: GoalHistoryItem[] | undefin
   const heading = useRef<HTMLHeadingElement | null>(null);
   useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
   return <>
-    <div className={styles.header}>
-      <button type="button" onClick={onBack} className={`mono tiny caps ${styles.closeBtn}`}>Back</button>
+    <div className={`${styles.header} ${styles.historyHeader}`}>
+      <h2 ref={heading} tabIndex={-1} className={`mono caps ${styles.historyTitle}`}>Goal history</h2>
+      <button type="button" onClick={onBack} className={`mono tiny caps ${styles.closeBtn} ${styles.historyBack}`}>Back</button>
     </div>
-    <div data-sheet-scroll className={`no-scroll ${styles.content}`}>
-      <h2 ref={heading} tabIndex={-1}>Goal history</h2>
-      <p className="mono tiny">Goals carry forward until the next change. Dates before the first record have no recorded goal.</p>
-      {history === undefined ? <p className="mono tiny">Loading goals…</p> : [...history].reverse().map((item) => (
+    <div data-sheet-scroll className={`no-scroll ${styles.historyContent}`}>
+      <p className={styles.historyDescription}>Goals carry forward until the next change. Dates before the first record have no recorded goal.</p>
+      {history === undefined ? <p className={`mono tiny ${styles.historyStatus}`}>Loading goals…</p> : [...history].reverse().map((item) => (
         <div key={item.effective_date} className={styles.historyRow}>
-          <time className="mono tiny" dateTime={item.effective_date}>{item.effective_date}</time>
-          <span className="mono tiny">{item.goals.kcal} kcal · P {item.goals.protein}g · C {item.goals.carbs}g · F {item.goals.fat}g</span>
+          <div className={styles.historyRowTop}>
+            <span className={`mono ${styles.historyKcal}`}>{item.goals.kcal} kcal</span>
+            <time className={`mono tiny caps ${styles.historyDate}`} dateTime={item.effective_date}>{item.effective_date}</time>
+          </div>
+          <MacroBreakdown macros={item.goals} />
         </div>
       ))}
     </div>

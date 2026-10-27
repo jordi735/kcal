@@ -225,10 +225,72 @@
   font-family: var(--mono);
 }
 
+.historyBtn:focus-visible,
+.historyBack:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.historyHeader {
+  flex-shrink: 0;
+}
+
+.historyTitle {
+  color: var(--fg-dim);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+}
+
+.historyTitle:focus {
+  outline: none;
+}
+
+.historyContent {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 40px;
+  border-top: 1px solid var(--border);
+}
+
+.historyDescription {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.historyStatus {
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--fg-dimmer);
+}
+
 .historyRow {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 0;
+  gap: 8px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
+}
+
+.historyRowTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.historyKcal {
+  color: var(--kcal);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.historyDate {
+  color: var(--fg-dim);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
 }
