@@ -360,7 +360,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-362 · Recent product pages use log creation time with stable ties and exclude unlogged or temporary foods
 - J-363 · Barcode lookup prefers the newest owned saved copy and returns safe shared templates without writes
 - J-364 · Global search does not merge private IDs with real barcode strings
-- J-365 · Adopting a saved barcode skips owned temporary copies and rejects temporary sources
+- J-365 · Adoption skips owned temporary copies, rejects temporary sources, and preserves exact legacy source values with sequential reuse
 - J-366 · Product normalization is stable for Unicode expansions and enforces final stored length
 - J-367 · Partial MCP product updates preserve omitted legacy metadata and reject expanded oversized text
 - J-368 · Product discovery rejects conflicting barcode modes and invalid pagination

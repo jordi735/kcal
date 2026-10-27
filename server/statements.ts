@@ -6,6 +6,9 @@
 // then the resource id. The WHERE clauses follow the same order.
 
 import { db } from './db.js';
+import type {
+  ProductInsertBindings, ProductRow, ProductRowWithOwner, ProductSearchRow, ProductUpdateBindings,
+} from './types.js';
 
 const PRODUCT_COLS =
   'id, name, brand, unit, barcode, kcal_per100, protein_per100, carbs_per100, fat_per100, is_temp';
@@ -136,7 +139,7 @@ export const statements = {
     // (user_id, folded_terms_json, limit, offset). Empty terms browse.
     // Every term must match name or brand. instr() keeps %, _, and backslashes
     // literal; coalescing a missing brand keeps a missing term from matching.
-    pageByName: db.prepare(`
+    pageByName: db.prepare<[userId: number, termsJson: string, limit: number, offset: number], ProductRow>(`
       SELECT ${PRODUCT_COLS}
       FROM products
       WHERE created_by = ?
@@ -151,7 +154,7 @@ export const statements = {
     `),
     // (user_id, user_id, folded_terms_json, limit, offset).
     // Recency means the creation time of the last surviving log, not its date.
-    pageByRecent: db.prepare(`
+    pageByRecent: db.prepare<[entryUserId: number, productUserId: number, termsJson: string, limit: number, offset: number], ProductRow>(`
       SELECT ${PRODUCT_COLS_P}
       FROM products p
       INNER JOIN (
@@ -175,7 +178,7 @@ export const statements = {
     // barcode such as "self-40". Only the caller's private rows are candidates.
     // Outer ORDER BY sorts the user's own rows first (is_mine DESC), then
     // alphabetic — referenced by alias, no extra binding required.
-    search: db.prepare(`
+    search: db.prepare<[termsJson: string, candidateUserId: number, rankUserId: number, projectionUserId: number], ProductSearchRow>(`
       WITH candidates AS (
         SELECT id, name, brand, unit, barcode,
                kcal_per100, protein_per100, carbs_per100, fat_per100,
@@ -208,14 +211,14 @@ export const statements = {
       LIMIT 50
     `),
     // (user_id)
-    all: db.prepare(`
+    all: db.prepare<[userId: number], ProductRow>(`
       SELECT ${PRODUCT_COLS}
       FROM products
       WHERE created_by = ? AND is_temp = 0
       ORDER BY kcal_search_text(name) ASC, id ASC
     `),
     // (user_id, barcode)
-    byBarcode: db.prepare(`
+    byBarcode: db.prepare<[userId: number, barcode: string], ProductRow>(`
       SELECT ${PRODUCT_COLS}
       FROM products
       WHERE created_by = ? AND barcode = ? AND is_temp = 0
@@ -223,7 +226,7 @@ export const statements = {
       LIMIT 1
     `),
     // (barcode) — cross-user template lookup; most recent non-temp wins.
-    byBarcodeAnyUser: db.prepare(`
+    byBarcodeAnyUser: db.prepare<[barcode: string], ProductRow>(`
       SELECT ${PRODUCT_COLS}
       FROM products
       WHERE barcode = ? AND is_temp = 0
@@ -231,36 +234,36 @@ export const statements = {
       LIMIT 1
     `),
     // (id) — fetch a source row for the adopt endpoint, regardless of owner.
-    byIdAnyUser: db.prepare(`
+    byIdAnyUser: db.prepare<[id: number], ProductRowWithOwner>(`
       SELECT ${PRODUCT_COLS}, created_by
       FROM products
       WHERE id = ?
     `),
     // (name, brand, unit, barcode, kcal, protein, carbs, fat, is_temp, user_id, created_at)
-    insert: db.prepare(`
+    insert: db.prepare<ProductInsertBindings>(`
       INSERT INTO products (name, brand, unit, barcode, kcal_per100, protein_per100, carbs_per100, fat_per100, is_temp, created_by, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     // (user_id, id)
-    selectById: db.prepare(`
+    selectById: db.prepare<[userId: number, id: number], ProductRow>(`
       SELECT ${PRODUCT_COLS}
       FROM products
       WHERE created_by = ? AND id = ?
     `),
     // (name, brand, unit, barcode, kcal, protein, carbs, fat, user_id, id)
-    update: db.prepare(`
+    update: db.prepare<ProductUpdateBindings>(`
       UPDATE products
       SET name = ?, brand = ?, unit = ?, barcode = ?,
           kcal_per100 = ?, protein_per100 = ?, carbs_per100 = ?, fat_per100 = ?
       WHERE created_by = ? AND id = ?
     `),
     // (user_id, id) — lightweight ownership existence check.
-    ownedByUser: db.prepare(
+    ownedByUser: db.prepare<[userId: number, id: number], { hit: number }>(
       'SELECT 1 AS hit FROM products WHERE created_by = ? AND id = ?',
     ),
     // (user_id, id) — user-scoped destructive. Paired with entries.deleteForProduct
     // inside a transaction because entries.product_id has ON DELETE RESTRICT.
-    delete: db.prepare(
+    delete: db.prepare<[userId: number, id: number]>(
       'DELETE FROM products WHERE created_by = ? AND id = ?',
     ),
   },

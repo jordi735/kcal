@@ -10,33 +10,24 @@ import {
   MAX_PRODUCT_BARCODE_LENGTH, MAX_PRODUCT_KCAL_PER100, MAX_PRODUCT_MACRO_GRAMS_PER100,
 } from '../../shared/constraints.js';
 import { authMiddleware } from '../auth.js';
-import { productSearchTerms } from '../../shared/normalize.js';
 import { parseProductText } from '../../shared/productText.js';
 import { isObject } from '../guards.js';
 import { log } from '../log.js';
-import { searchOwnProducts } from '../reads.js';
-import { lookupBarcode, rowToProduct, searchProductPage } from '../products.js';
-import { statements } from '../statements.js';
+import {
+  adoptProduct, listOwnProducts, lookupBarcode, searchGlobalProducts, searchOwnProducts, searchProductPage,
+} from '../products.js';
 import { parsePositiveInt } from '../util.js';
 import { handleWriteError } from '../middleware/write-error.js';
 import { createProduct, deleteProduct, updateProduct } from '../writes.js';
 import type {
   BarcodeLookupResponse,
   NewProductBody,
-  Product,
-  ProductRow,
-  ProductRowWithOwner,
-  ProductSearchRow,
   UpdateProductBody,
 } from '../types.js';
 
 export const productsRouter: Router = Router();
 
 productsRouter.use(authMiddleware);
-
-function searchRowToProduct(r: ProductSearchRow): Product {
-  return { ...rowToProduct(r), is_mine: r.is_mine === 1 };
-}
 
 productsRouter.get('/search', (req, res) => {
   const rawQ = req.query.q;
@@ -50,13 +41,7 @@ productsRouter.get('/search', (req, res) => {
   const rawGlobal = req.query.global;
   const global = typeof rawGlobal === 'string' && rawGlobal === '1';
   if (global) {
-    const rows = statements.products.search.all(
-      JSON.stringify(productSearchTerms(q)),
-      req.userId!,
-      req.userId!,
-      req.userId!,
-    ) as ProductSearchRow[];
-    res.json(rows.map(searchRowToProduct));
+    res.json(searchGlobalProducts(req.userId!, q));
     return;
   }
   res.json(searchOwnProducts(req.userId!, q));
@@ -67,8 +52,7 @@ productsRouter.get('/recent', (req, res) => {
 });
 
 productsRouter.get('/all', (req, res) => {
-  const rows = statements.products.all.all(req.userId!) as ProductRow[];
-  res.json(rows.map(rowToProduct));
+  res.json(listOwnProducts(req.userId!));
 });
 
 productsRouter.get('/barcode/:code', (req, res) => {
@@ -101,56 +85,15 @@ productsRouter.post('/adopt/:id', (req, res) => {
     res.status(400).json({ error: 'invalid_id' });
     return;
   }
-  const source = statements.products.byIdAnyUser.get(id) as ProductRowWithOwner | undefined;
-  if (source === undefined) {
-    res.status(404).json({ error: 'not_found' });
-    return;
+  const result = adoptProduct(req.userId!, id);
+  if (result.created) {
+    log.info('product adopted', {
+      userId: req.userId,
+      sourceId: id,
+      productId: result.product.id,
+    });
   }
-  // Privacy guard: only barcoded products can be adopted. Without this, the
-  // numeric :id would let any user clone any other user's private products.
-  if (source.barcode === null || source.is_temp !== 0) {
-    res.status(400).json({ error: 'not_adoptable' });
-    return;
-  }
-  if (source.created_by === req.userId) {
-    res.json(rowToProduct(source));
-    return;
-  }
-  // Idempotent: if the user already owns a row with this barcode, return it
-  // instead of creating a duplicate.
-  const existing = statements.products.byBarcode.get(req.userId!, source.barcode) as
-    | ProductRow
-    | undefined;
-  if (existing !== undefined) {
-    res.json(rowToProduct(existing));
-    return;
-  }
-  const result = statements.products.insert.run(
-    source.name,
-    source.brand,
-    source.unit,
-    source.barcode,
-    source.kcal_per100,
-    source.protein_per100,
-    source.carbs_per100,
-    source.fat_per100,
-    0,
-    req.userId!,
-    Date.now(),
-  ) as { lastInsertRowid: number | bigint };
-  const row = statements.products.selectById.get(req.userId!, Number(result.lastInsertRowid)) as
-    | ProductRow
-    | undefined;
-  if (row === undefined) {
-    res.status(500).json({ error: 'insert_failed' });
-    return;
-  }
-  log.info('product adopted', {
-    userId: req.userId,
-    sourceId: source.id,
-    productId: row.id,
-  });
-  res.status(201).json(rowToProduct(row));
+  res.status(result.created ? 201 : 200).json(result.product);
 });
 
 // Per-macro caps: kcal ≤ 2000 per 100g (pure fat is 900 kcal/100g, so 2000 is a

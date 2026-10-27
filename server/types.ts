@@ -56,7 +56,7 @@ export type {
   McpEntryGroupCreateResult,
 } from '../shared/types.js';
 
-import type { Macros, UpdateProductBody } from '../shared/types.js';
+import type { Macros, Product, UpdateProductBody } from '../shared/types.js';
 
 export type OAuthRequestRow = {
   id_hash: string;
@@ -147,8 +147,27 @@ export type ProductRow = {
 // Search result rows include the computed is_mine flag (0 or 1 from SQLite).
 export type ProductSearchRow = ProductRow & { is_mine: number };
 
-// Adopt-source rows include the owner so the route can branch on ownership.
+// Adopt-source rows include the owner so the product service can check ownership.
 export type ProductRowWithOwner = ProductRow & { created_by: number };
+
+export type ProductAdoptionResult = {
+  product: Product;
+  created: boolean;
+};
+
+// Database bindings preserve legacy stored units rather than narrowing them to
+// the validated request union. Adoption copies source values without normalizing.
+export type ProductInsertBindings = [
+  name: string, brand: string | null, unit: string, barcode: string | null,
+  kcal: number, protein: number, carbs: number, fat: number,
+  isTemp: number, userId: number, createdAt: number,
+];
+
+export type ProductUpdateBindings = [
+  name: string, brand: string | null, unit: string, barcode: string | null,
+  kcal: number, protein: number, carbs: number, fat: number,
+  userId: number, productId: number,
+];
 
 export type ProductPatch = Partial<Omit<UpdateProductBody, 'per100'>> & {
   per100?: Partial<Macros>;

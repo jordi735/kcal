@@ -14,7 +14,8 @@ These instructions apply to the entire repository.
 - `server/` is the Express 5 and SQLite backend. Routes live in `server/routes/`,
   SQL migrations in `server/migrations/`, and normal application statements in
   `server/statements.ts`. `server/reads.ts` shares read functions and serializers
-  between REST routes and MCP tools; `server/products.ts` shares product discovery,
+  between REST routes and MCP tools; `server/products.ts` owns product discovery,
+  serialization, and sequential adoption with exact source-value preservation,
   and `server/goals.ts` owns settings/history and current-goal resolution.
   `server/errors.ts` defines dependency-neutral domain errors; goals must not
   import the reads or writes modules. `server/writes.ts` shares

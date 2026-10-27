@@ -7,12 +7,13 @@ import { isEntryAmount, isLocalDate, isLocalTime, parseEntryGroupName } from '..
 import { db } from './db.js';
 import { WriteError } from './errors.js';
 import { isPositiveInt } from './guards.js';
-import { readGroupEntries, rowToEntry, rowToEntryGroup, rowToProduct, sumMacros } from './reads.js';
+import { rowToProduct } from './products.js';
+import { readGroupEntries, rowToEntry, rowToEntryGroup, sumMacros } from './reads.js';
 import { statements } from './statements.js';
 import type {
   EntryGroupRow, EntryJoinRow, EntryMembershipRow, EntryUpdate, EntryWithMacros,
   EntryGroupResult, UngroupResult, EntryGroupDeleteResult, EntryGroup, Macros,
-  NewEntryBody, NewProductBody, Product, ProductPatch, ProductRow,
+  NewEntryBody, NewProductBody, Product, ProductPatch,
 } from './types.js';
 
 export function createEntry(userId: number, body: NewEntryBody, savedOnly = false): EntryWithMacros {
@@ -20,7 +21,7 @@ export function createEntry(userId: number, body: NewEntryBody, savedOnly = fals
     throw new WriteError(400, 'invalid_entry');
   }
   const entry = db.transaction(() => {
-    const product = statements.products.selectById.get(userId, body.product_id) as ProductRow | undefined;
+    const product = statements.products.selectById.get(userId, body.product_id);
     if (product === undefined) throw new WriteError(404, 'product_not_found');
     if (savedOnly && product.is_temp !== 0) throw new WriteError(400, 'product_not_loggable');
     const inserted = statements.entries.insert.run(
@@ -79,7 +80,7 @@ export function updateEntry(userId: number, entryId: number, body: EntryUpdate):
     const current = statements.entries.selectById.get(userId, entryId) as EntryJoinRow | undefined;
     if (current === undefined) throw new WriteError(404, 'not_found');
     if (body.product_id !== undefined) {
-      const product = statements.products.selectById.get(userId, body.product_id) as ProductRow | undefined;
+      const product = statements.products.selectById.get(userId, body.product_id);
       if (product === undefined) throw new WriteError(404, 'product_not_found');
       if (product.is_temp !== 0) throw new WriteError(400, 'product_not_loggable');
       if (rowToProduct(product).unit !== rowToEntry(current).product.unit && body.amount === undefined) {
@@ -245,9 +246,7 @@ export function createProduct(userId: number, body: NewProductBody): Product {
       userId,
       Date.now(),
     );
-    const row = statements.products.selectById.get(userId, Number(inserted.lastInsertRowid)) as
-      | ProductRow
-      | undefined;
+    const row = statements.products.selectById.get(userId, Number(inserted.lastInsertRowid));
     if (row === undefined) throw new WriteError(500, 'insert_failed');
     return rowToProduct(row);
   })();
@@ -256,7 +255,7 @@ export function createProduct(userId: number, body: NewProductBody): Product {
 
 export function updateProduct(userId: number, productId: number, body: ProductPatch): Product {
   const product = db.transaction(() => {
-    const current = statements.products.selectById.get(userId, productId) as ProductRow | undefined;
+    const current = statements.products.selectById.get(userId, productId);
     if (current === undefined) throw new WriteError(404, 'not_found');
     // Omitted metadata bypasses normalization so legacy values stay unchanged.
     const name = body.name === undefined ? { value: current.name } : parseProductName(body.name);
@@ -278,7 +277,7 @@ export function updateProduct(userId: number, productId: number, body: ProductPa
       productId,
     );
     if (result.changes === 0) throw new WriteError(404, 'not_found');
-    const row = statements.products.selectById.get(userId, productId) as ProductRow | undefined;
+    const row = statements.products.selectById.get(userId, productId);
     if (row === undefined) throw new WriteError(404, 'not_found');
     return rowToProduct(row);
   })();

@@ -125,7 +125,7 @@ test('[J-364] global search does not merge private IDs with real barcode strings
     .toEqual([{ ...barcoded, is_mine: true }, { ...privateFood, is_mine: true }]);
 });
 
-test('[J-365] adopting a saved barcode skips owned temporary copies and rejects temporary sources', async ({ request, browser, account }) => {
+test('[J-365] adoption skips owned temporary copies, rejects temporary sources, and preserves legacy source values', async ({ request, browser, account }) => {
   const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   try {
     const other = await freshUser(await context.newPage(), request, 'adopt-v4-other');
@@ -144,6 +144,28 @@ test('[J-365] adopting a saved barcode skips owned temporary copies and rejects 
     const rejected = await request.post(`/products/adopt/${temporarySource.id}`, { headers });
     expect(rejected.status()).toBe(400);
     expect(await rejected.json()).toEqual({ error: 'not_adoptable' });
+
+    const legacy = await saveProduct(request, other.token, 'Legacy shared food', { barcode: `${barcode}-legacy`, unit: 'ml' });
+    const raw = { name: 'RAW  legacy NAME', brand: 'OLD  BRAND', barcode: `  ${barcode}-legacy  ` };
+    const db = new Database(E2E_DATABASE_PATH);
+    try {
+      db.prepare('UPDATE products SET name = ?, brand = ?, barcode = ? WHERE created_by = ? AND id = ?')
+        .run(raw.name, raw.brand, raw.barcode, other.user.id, legacy.id);
+    } finally { db.close(); }
+    const legacySource = { ...legacy, ...raw };
+    const copiedResponse = await request.post(`/products/adopt/${legacy.id}`, { headers });
+    expect(copiedResponse.status()).toBe(201);
+    const copied = await copiedResponse.json() as Product;
+    expect(copied.id).not.toBe(legacy.id);
+    expect(copied).toEqual({ ...legacySource, id: copied.id });
+    const repeated = await request.post(`/products/adopt/${legacy.id}`, { headers });
+    expect(repeated.status()).toBe(200);
+    expect(await repeated.json()).toEqual(copied);
+    const ownProducts = await rest<Product[]>(request, account.token, 'get', '/products/all');
+    expect(ownProducts).toHaveLength(2);
+    expect(ownProducts).toEqual(expect.arrayContaining([adopted, copied]));
+    const sourceProducts = await rest<Product[]>(request, other.token, 'get', '/products/all');
+    expect(sourceProducts.find((product) => product.id === legacy.id)).toEqual(legacySource);
   } finally { await context.close(); }
 });
 

@@ -4,20 +4,12 @@
 import { statements } from './statements.js';
 import { compareLoggedGoals, readGoalHistory } from './goals.js';
 import { goalPeriods } from '../shared/goals.js';
-import { searchProductPage } from './products.js';
-export { rowToProduct } from './products.js';
 import { scaleMacros, sumMacros } from '../shared/macros.js';
 export { sumMacros } from '../shared/macros.js';
 import type {
-  EntryGroup, EntryGroupRow, EntryJoinRow, EntryWithMacros, Macros, SummaryResult, Product,
+  EntryGroup, EntryGroupRow, EntryJoinRow, EntryWithMacros, Macros, SummaryResult,
   WeightEntry, WeightRow, WeightSummaryPoint, WeekSumRow,
 } from './types.js';
-
-export function searchOwnProducts(userId: number, query: string): Product[] {
-  const q = query.trim();
-  if (q === '') return [];
-  return searchProductPage(userId, { query: q, sort: 'name', limit: 50, offset: 0 }).products;
-}
 
 export function rowToEntry(r: EntryJoinRow): EntryWithMacros {
   return {
