@@ -188,6 +188,12 @@ dependency scripts or silently discard the lockfile.
   and isolated test fixtures select their mode explicitly.
 - Migrations are forward-only and keyed by filename. Add a new lexically ordered
   `server/migrations/*.sql` file; never revise an applied migration.
+  Migration 010 stores application-session SHA-256 digests in `token_hash`.
+  `server/session-token.ts` owns hashing for both migrations and runtime bearer
+  lookups/writes. Register its deterministic SQLite function before migrations.
+  Browser tokens and session timestamps remain unchanged; never add a plaintext
+  fallback or use stored digests as credentials. Old binaries require the matching
+  pre-migration database backup; see `docs/security-deployment.md`.
 - Put normal application SQL in `server/statements.ts`. Bootstrap/migration SQL
   stays in `server/db.ts`; deliberately unscoped debug reads stay isolated in
   `server/routes/debug.ts`. OAuth statements resolve users from credentials.
@@ -347,6 +353,12 @@ dependency scripts or silently discard the lockfile.
   responses. Mount headers and request logging before source limits and parsers;
   sensitive responses, including rejected requests, are `no-store`. Static assets
   override this with existing immutable caching; HTML and the worker revalidate.
+  `server/csp.ts` snapshots the built HTML and hashes its exact single inline
+  theme bootstrap. Serve that buffer for direct/encoded index paths and SPA
+  fallbacks under the matching policy. `CSP_MODE` defaults to enforcement outside
+  development; production cannot disable it. Preserve font origins, first paint,
+  and CSSOM dynamic styles without unsafe-inline/eval, COOP, or COEP. Build clean
+  map-free production assets and follow the old-map removal/purge checklist.
 
 ## PWA and Generated Assets
 

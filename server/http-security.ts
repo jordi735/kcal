@@ -14,6 +14,16 @@ export const commonSecurityHeaders: RequestHandler = (req, res, next) => {
   next();
 };
 
+export function contentSecurityPolicyHeaders(
+  policy: string, mode: 'enforce' | 'report-only',
+): RequestHandler {
+  const header = mode === 'enforce' ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only';
+  return (_req, res, next) => {
+    res.setHeader(header, policy);
+    next();
+  };
+}
+
 const parserErrors: Readonly<Record<string, { status: number; message: string }>> = {
   'entity.parse.failed': { status: 400, message: 'invalid_json' },
   'entity.too.large': { status: 413, message: 'request_too_large' },

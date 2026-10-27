@@ -95,6 +95,10 @@ export type LoginCodeEntry = { code: string; expiresAt: number; attempts: number
 
 export type SessionInfo = { token: string; expiresAt: number };
 
+export type SessionInsertBindings = [
+  tokenHash: string, userId: number, createdAt: number, lastUsedAt: number, expiresAt: number,
+];
+
 export type SessionRow = {
   user_id: number;
   expires_at: number;

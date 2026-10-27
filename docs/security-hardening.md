@@ -44,8 +44,9 @@ continues to work.
 
 The two login POST endpoints reserve source quota once, before body parsing.
 Malformed input, an account-level rejection and failed delivery all spend that
-source reservation; reservations are never refunded. Only Express's validated
-`req.ip` is used, with IPv4-mapped addresses canonicalized and IPv6 addresses
+source reservation; reservations are never refunded. Only Express's proxy-resolved
+`req.ip` is used and validated before canonicalization, with IPv4-mapped addresses
+canonicalized and IPv6 addresses
 grouped by /56. Missing or invalid addresses share an `unknown` bucket. Trusted
 proxy configuration is therefore part of deployment security.
 
@@ -76,6 +77,36 @@ It cannot restore an older code, remove a newer one or refund quota. Login codes
 and budgets remain process-local; multiple instances require shared state or
 affinity as a separately reviewed deployment change.
 
+## Browser containment and session credentials
+
+`CSP_MODE` accepts `off`, `report-only` or `enforce`. Unset/blank selects `off` in
+development and `enforce` elsewhere; production rejects explicit `off` before
+database initialization. Stage the same policy in report-only mode before
+enforcement. Its script hash is computed from the complete, untrimmed inline
+theme bootstrap in the built HTML. The process retains that HTML buffer and
+policy together for direct index paths, encoded aliases and SPA fallbacks.
+Do not replace a running release's assets in place.
+
+The policy retains Google font origins and the existing first-paint theme
+bootstrap. It permits same-origin app resources, data images and blob media,
+denies inline style attributes, objects, framing and external form submission,
+and adds neither unsafe-inline/eval nor COOP/COEP. Dynamic Preact CSSOM styles
+remain part of the existing UI. Production builds contain no source maps; old
+deployed and edge-cached maps need the explicit cleanup in the hosting checklist.
+
+Migration `010_hash_app_sessions.sql` atomically renames `sessions.token` to
+`token_hash` and hashes each existing bearer with SHA-256 using a deterministic
+SQLite function registered by `server/db.ts`. Schema, values and the migration
+marker commit together. Runtime creation, lookup, renewal and logout use the
+same hash helper. There is no plaintext fallback or shadow credential table.
+Existing browser bearers, ownership, creation/activity timestamps and sliding
+expiry remain valid, and a stored digest cannot authenticate as a bearer.
+
+The old application binary cannot use the migrated database. Take a consistent,
+protected backup and pair code/database rollback before restoring traffic.
+Hashes do not revoke tokens already stolen, and old backups/WAL files can still
+contain plaintext credentials. See [deployment and rollback](security-deployment.md).
+
 ## Verification
 
 The server defaults to production mode. `APP_ENV=development|test|production`
@@ -87,8 +118,9 @@ can log live sign-in codes at debug level.
 Security and privacy headers are installed before login source limits and body
 parsers. Credential/private responses and their errors use `no-store`; versioned
 assets remain immutable, while HTML and the service worker revalidate. Parser
-failures use fixed response codes, and unexpected failures return
-`{ "error": "internal_error" }`. Logs use fixed diagnostic categories and API
+failures use fixed response codes, and unhandled Express/REST failures return
+`{ "error": "internal_error" }`. OAuth and MCP retain their protocol error
+envelopes. Logs use fixed diagnostic categories and API
 families instead of arbitrary exception details or supplied path segments.
 
 Operational deployment, staged CSP enforcement, transport, backups and rollback

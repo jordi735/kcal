@@ -92,7 +92,7 @@ export function storedRecords(options: { ignoreSessionActivity?: boolean } = {})
     return ['users', 'sessions', 'products', 'entries', 'entry_groups', 'weights', 'goal_history', 'mcp_creation_receipts']
       .map((table) => {
         const columns = table === 'sessions' && options.ignoreSessionActivity
-          ? 'token, user_id, created_at'
+          ? 'token_hash, user_id, created_at'
           : '*';
         return db.prepare(`SELECT ${columns} FROM ${table} ORDER BY rowid`).all();
       });

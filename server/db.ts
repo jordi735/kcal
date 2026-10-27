@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { foldProductSearchText } from '../shared/normalize.js';
 import { env } from './env.js';
 import { log } from './log.js';
+import { hashSessionToken } from './session-token.js';
 import type { MigrationRow } from './types.js';
 
 const dbPath = env.DATABASE_PATH;
@@ -21,6 +22,12 @@ db.pragma('foreign_keys = ON');
 db.function('kcal_search_text', { deterministic: true }, (value: unknown) =>
   typeof value === 'string' ? foldProductSearchText(value) : null,
 );
+// Migration 010 needs SHA-256 during the same SQLite transaction as its schema
+// change. Keep this registered for fresh installations applying all migrations.
+db.function('kcal_session_token_hash', { deterministic: true }, (value: unknown) => {
+  if (typeof value !== 'string') throw new TypeError('Session token must be text');
+  return hashSessionToken(value);
+});
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS schema_migrations (

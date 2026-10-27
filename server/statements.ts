@@ -8,6 +8,7 @@
 import { db } from './db.js';
 import type {
   ProductInsertBindings, ProductRow, ProductRowWithOwner, ProductSearchRow, ProductUpdateBindings,
+  SessionInsertBindings, SessionRow,
 } from './types.js';
 
 const PRODUCT_COLS =
@@ -74,16 +75,20 @@ export const statements = {
     cleanAccess: db.prepare("DELETE FROM oauth_tokens WHERE kind = 'access' AND expires_at <= ?"), // (now)
   },
   sessions: {
-    insert: db.prepare(
-      'INSERT INTO sessions (token, user_id, created_at, last_used_at, expires_at) VALUES (?, ?, ?, ?, ?)',
+    // (token_hash, user_id, created_at, last_used_at, expires_at)
+    insert: db.prepare<SessionInsertBindings>(
+      'INSERT INTO sessions (token_hash, user_id, created_at, last_used_at, expires_at) VALUES (?, ?, ?, ?, ?)',
     ),
-    selectByToken: db.prepare(
-      'SELECT user_id, expires_at FROM sessions WHERE token = ?',
+    // (token_hash) — the presented credential resolves its own owner.
+    selectByHash: db.prepare<[tokenHash: string], SessionRow>(
+      'SELECT user_id, expires_at FROM sessions WHERE token_hash = ?',
     ),
-    slide: db.prepare(
-      'UPDATE sessions SET last_used_at = ?, expires_at = ? WHERE token = ?',
+    // (last_used_at, expires_at, token_hash)
+    slide: db.prepare<[lastUsedAt: number, expiresAt: number, tokenHash: string]>(
+      'UPDATE sessions SET last_used_at = ?, expires_at = ? WHERE token_hash = ?',
     ),
-    delete: db.prepare('DELETE FROM sessions WHERE token = ?'),
+    // (token_hash)
+    delete: db.prepare<[tokenHash: string]>('DELETE FROM sessions WHERE token_hash = ?'),
   },
 
   users: {

@@ -22,7 +22,8 @@ import { log } from './log.js';
 import { statements } from './statements.js';
 import { db } from './db.js';
 import { readCurrentGoals } from './goals.js';
-import type { LoginCodeEntry, SessionInfo, SessionRow, UserRow, VerifyCodeResponse } from './types.js';
+import { hashSessionToken } from './session-token.js';
+import type { LoginCodeEntry, SessionInfo, UserRow, VerifyCodeResponse } from './types.js';
 
 const loginCodes = new Map<string, LoginCodeEntry>();
 
@@ -111,7 +112,7 @@ function insertSession(userId: number): SessionInfo {
   const token = randomBytes(32).toString('base64url');
   const now = Date.now();
   const expiresAt = now + SESSION_EXPIRY_MS;
-  statements.sessions.insert.run(token, userId, now, now, expiresAt);
+  statements.sessions.insert.run(hashSessionToken(token), userId, now, now, expiresAt);
   return { token, expiresAt };
 }
 
@@ -145,16 +146,17 @@ export function createVerifiedSession(email: string): VerifyCodeResponse {
 }
 
 export function verifySession(token: string): number | null {
-  const row = statements.sessions.selectByToken.get(token) as SessionRow | undefined;
+  const tokenHash = hashSessionToken(token);
+  const row = statements.sessions.selectByHash.get(tokenHash);
   if (row === undefined) return null;
   const now = Date.now();
   if (row.expires_at < now) return null;
-  statements.sessions.slide.run(now, now + SESSION_EXPIRY_MS, token);
+  statements.sessions.slide.run(now, now + SESSION_EXPIRY_MS, tokenHash);
   return row.user_id;
 }
 
 export function deleteSession(token: string): void {
-  statements.sessions.delete.run(token);
+  statements.sessions.delete.run(hashSessionToken(token));
   log.info('session revoked');
 }
 

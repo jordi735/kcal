@@ -514,3 +514,14 @@ this catalog check with all three TypeScript checks.
 - J-529 · Unexpected failures return a generic error, omit sensitive diagnostics, and preserve later requests
 
 - J-530 · Replacing the session releases a live camera before passive cleanup and suppresses later decoding
+
+- J-540 · Existing app bearers survive hashing migration and repeated process restarts
+- J-541 · New app sessions persist only hashes and stored credentials cannot authenticate
+- J-542 · Logout revokes only the presented bearer after migration regardless of body-selected tokens
+- J-543 · Hashing preserves active session metadata and accounts while retaining expired-session cleanup
+- J-544 · A partially failing session-hash migration rolls back schema data and its marker before recovery
+
+- J-531 · Production CSP hashes the served bootstrap and preserves every palette before app execution
+- J-532 · CSP mode defaults enforce outside development and production cannot disable protection
+- J-533 · Enforced CSP blocks unauthorized inline scripts, event handlers and eval
+- J-534 · The clean production build contains no source maps or source-map references

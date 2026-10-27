@@ -18,6 +18,20 @@ if (APP_ENV !== 'test' && TEST_MODE) {
   process.exit(1);
 }
 
+const CSP_MODES = ['off', 'report-only', 'enforce'] as const;
+type CspMode = typeof CSP_MODES[number];
+const rawCspMode = process.env.CSP_MODE?.trim().toLowerCase()
+  || (APP_ENV === 'development' ? 'off' : 'enforce');
+if (!CSP_MODES.includes(rawCspMode as CspMode)) {
+  console.error(`[kcal] CSP_MODE must be one of: ${CSP_MODES.join(', ')}`);
+  process.exit(1);
+}
+const CSP_MODE = rawCspMode as CspMode;
+if (APP_ENV === 'production' && CSP_MODE === 'off') {
+  console.error('[kcal] CSP_MODE cannot be off when APP_ENV is production');
+  process.exit(1);
+}
+
 const REQUIRED = [
   'PORT',
   'DATABASE_PATH',
@@ -96,6 +110,7 @@ if (TEST_MODE) {
 
 export const env = {
   APP_ENV,
+  CSP_MODE,
   PORT: toPositiveInt('PORT'),
   DATABASE_PATH: process.env.DATABASE_PATH!,
   POSTMARK_SERVER_TOKEN: process.env.POSTMARK_SERVER_TOKEN!,

@@ -14,14 +14,22 @@ import { debugRouter } from './routes/debug.js';
 import { mcpRouter } from './routes/mcp.js';
 import { oauthRouter } from './routes/oauth.js';
 import { log } from './log.js';
-import { commonSecurityHeaders, errorHandler } from './http-security.js';
+import { commonSecurityHeaders, contentSecurityPolicyHeaders, errorHandler } from './http-security.js';
+import { loadReleaseDocument } from './csp.js';
 import { isApiPath } from '../shared/apiPrefixes.js';
 
 const app = express();
+const distDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+// The policy and HTML come from one immutable release snapshot. Development's
+// API-only launcher remains usable before a frontend build exists.
+const releaseDocument = env.CSP_MODE === 'off' ? undefined : loadReleaseDocument(distDir);
 
 app.set('trust proxy', env.TRUST_PROXY);
 
 app.use(commonSecurityHeaders);
+if (releaseDocument !== undefined && env.CSP_MODE !== 'off') {
+  app.use(contentSecurityPolicyHeaders(releaseDocument.policy, env.CSP_MODE));
+}
 app.use(log.requestLogger);
 
 // Reserve once before parsing: invalid bodies and downstream account/delivery
@@ -55,7 +63,18 @@ app.use('/debug', (req, res, next) => {
   next();
 }, debugRouter);
 
-const distDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+// Direct index requests must use the same snapshot as the SPA fallback, rather
+// than letting static serving read a possibly replaced file beneath the process.
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  let pathname: string;
+  try { pathname = path.posix.normalize(decodeURIComponent(req.path)).toLowerCase(); }
+  catch { return next(); }
+  if (pathname !== '/index.html') return next();
+  res.setHeader('Cache-Control', 'no-cache');
+  if (releaseDocument !== undefined) res.type('html').send(releaseDocument.html);
+  else res.sendFile(path.join(distDir, 'index.html'));
+});
 
 app.use(
   express.static(distDir, {
@@ -83,7 +102,8 @@ app.use((req, res, next) => {
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
   res.setHeader('Cache-Control', 'no-cache');
-  res.sendFile(path.join(distDir, 'index.html'));
+  if (releaseDocument !== undefined) res.type('html').send(releaseDocument.html);
+  else res.sendFile(path.join(distDir, 'index.html'));
 });
 
 app.use(errorHandler);
