@@ -2,7 +2,7 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { MAX_PRODUCT_BARCODE_LENGTH } from '../../shared/constraints.js';
+import { MAX_PRODUCT_BARCODE_LENGTH, MAX_PRODUCT_SEARCH_QUERY_LENGTH } from '../../shared/constraints.js';
 import { rangeDates, weekDates } from '../../shared/dates.js';
 import { resolveGoals } from '../../shared/goals.js';
 import { readGoalHistory } from '../goals.js';
@@ -154,7 +154,8 @@ export function registerReadTools(server: McpServer, user_id: number): void {
   server.registerTool('search_products', {
     description: 'Browse or search owned saved foods by literal name/brand terms, sorted by name or most recent logging. Every whitespace-separated query term must occur in the name or brand, in any order; punctuation and accents remain literal. Omit query to browse; recent includes only previously logged saved foods. Follow next_offset for more. Alternatively supply only barcode for exact lookup: returns an owned saved food, a safe shared template without an ID, or no match. Barcode lookup never creates or adopts a food. Temporary foods are excluded. Nutrition is per 100 g/ml.',
     inputSchema: z.strictObject({
-      query: z.string().trim().min(1).optional().describe('Literal food name or brand; omit to browse the library'),
+      query: z.string().max(MAX_PRODUCT_SEARCH_QUERY_LENGTH).trim().min(1).optional()
+        .describe('Literal food name or brand, at most 512 characters before trimming; omit to browse the library'),
       sort: z.enum(['name', 'recent']).optional().describe('Library sort: name (default), or most recently logged saved foods'),
       limit: z.number().int().min(1).max(100).optional().describe('Library page size, 1–100; defaults to 50'),
       offset: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER - 100).optional().describe('Library offset; starts at 0, then use next_offset'),

@@ -25,7 +25,8 @@ These instructions apply to the entire repository.
   in `docs/mcp.md`.
 - `shared/` contains code compiled by both TypeScript projects, especially wire
   types, unrounded macro arithmetic, stored-text normalization, and API-prefix
-  detection. Frontend display metadata and entry adapters live in `src/macros.ts`.
+  detection. Shared email validation bounds raw and normalized UTF-8 bytes before
+  regex work. Frontend display metadata and entry adapters live in `src/macros.ts`.
 - `public/` contains PWA and site assets copied into the Vite build. `tests/e2e/`
   contains the Playwright suite; `tests/JOURNEYS.md` indexes covered user flows.
   `docs/refactoring.md` records the structural passes and behavior-parity checks.
@@ -70,6 +71,10 @@ Run commands from the repository root.
 There is no configured lint, formatter, or unit-test command. Do not invent one
 in validation reports. The backend loads root `.env`; use `.env.example` as the
 required-key inventory and never commit real credentials.
+The committed lockfile owns the release dependency tree. Use `npm ci`, including
+development dependencies for the current build/start workflow. Review pinned
+install-script approvals when updating SQLite or esbuild; do not broadly allow
+dependency scripts or silently discard the lockfile.
 
 ## Coding Style & Naming Conventions
 

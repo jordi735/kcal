@@ -8,6 +8,7 @@ import { WriteError } from '../errors.js';
 import { log } from '../log.js';
 import { createWithReceipt } from '../idempotency.js';
 import { normalizeEntryGroupName } from '../../shared/normalize.js';
+import { MAX_ENTRY_GROUP_MEMBERS } from '../../shared/constraints.js';
 import { parseProductText } from '../../shared/productText.js';
 import {
   createEntries, updateEntry, deleteEntry, createProduct, updateProduct, deleteProduct,
@@ -154,11 +155,12 @@ export function registerWriteTools(server: McpServer, user_id: number, canWrite:
     }, ({ product_id }) => writeResult('delete_product', productDeleteSchema, () => ({ user_id, ...deleteProduct(user_id, product_id) })));
 
     server.registerTool('create_entry_group', {
-      description: 'Combine at least two existing food logs into one named group, matching Group items in the app. Supply unique, owned, currently ungrouped entry IDs from one valid local date; the date is derived from the entries. Saved and temporary food logs can be grouped. Nesting and silent regrouping are rejected. Entries, amounts, and day/week totals are preserved; group nutrition derives from its children. Reuse idempotency_key and the same membership/name to retry.',
+      description: 'Combine two to 1,000 existing food logs into one named group, matching Group items in the app. Supply unique, owned, currently ungrouped entry IDs from one valid local date; the date is derived from the entries. Saved and temporary food logs can be grouped. Nesting and silent regrouping are rejected. Entries, amounts, and day/week totals are preserved; group nutrition derives from its children. Reuse idempotency_key and the same membership/name to retry.',
       inputSchema: z.strictObject({
         idempotency_key: idempotencyKey,
         name: entryGroupName,
-        entry_ids: z.array(positiveId).min(2).refine((ids) => new Set(ids).size === ids.length, 'Entry IDs must be unique'),
+        entry_ids: z.array(positiveId).min(2).max(MAX_ENTRY_GROUP_MEMBERS)
+          .refine((ids) => new Set(ids).size === ids.length, 'Entry IDs must be unique'),
       }),
       outputSchema: entryGroupCreateSchema,
       annotations: createAnnotations,

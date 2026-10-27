@@ -12,7 +12,8 @@ import {
 } from '../auth.js';
 import { sendLoginCode } from '../email.js';
 import { env } from '../env.js';
-import { EMAIL_RE, isObject, LOGIN_CODE_RE } from '../guards.js';
+import { isObject, LOGIN_CODE_RE } from '../guards.js';
+import { isEmail } from '../../shared/email.js';
 import { statements } from '../statements.js';
 import { readCurrentGoals } from '../goals.js';
 import { AuthThrottle } from '../auth-limits.js';
@@ -22,14 +23,13 @@ export const authRouter: Router = Router();
 const throttle = new AuthThrottle({ testMode: env.TEST_MODE });
 
 function isEmailBody(v: unknown): v is { email: string } {
-  return isObject(v) && typeof v.email === 'string' && EMAIL_RE.test(v.email);
+  return isObject(v) && isEmail(v.email);
 }
 
 function isVerifyCodeBody(v: unknown): v is { email: string; code: string } {
   return (
     isObject(v) &&
-    typeof v.email === 'string' &&
-    EMAIL_RE.test(v.email) &&
+    isEmail(v.email) &&
     typeof v.code === 'string' &&
     LOGIN_CODE_RE.test(v.code)
   );
@@ -110,11 +110,11 @@ if (env.TEST_MODE) {
       res.status(404).json({ error: 'not_found' });
       return;
     }
-    const email = req.params.email.trim().toLowerCase();
-    if (!EMAIL_RE.test(email)) {
+    if (!isEmail(req.params.email)) {
       res.status(400).json({ error: 'invalid_email' });
       return;
     }
+    const email = req.params.email.trim().toLowerCase();
     const code = peekLoginCode(email);
     if (code === null) {
       res.status(404).json({ error: 'no_code' });

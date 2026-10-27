@@ -15,7 +15,7 @@ import {
   createEntry, deleteEntry, updateEntry,
   createEntryGroup, updateEntryGroup, setEntryGroupTagged, ungroupEntries,
 } from '../writes.js';
-import { isEntryAmount, isLocalDate, isLocalTime, parseEntryGroupName } from '../../shared/constraints.js';
+import { isEntryAmount, isLocalDate, isLocalTime, MAX_ENTRY_GROUP_MEMBERS, parseEntryGroupName } from '../../shared/constraints.js';
 import type { EntryUpdate, NewEntryBody } from '../types.js';
 
 export const entriesRouter: Router = Router();
@@ -46,7 +46,8 @@ function isUpdateEntryBody(v: unknown): v is EntryUpdate {
 function parseNewEntryGroupBody(v: unknown): { name: string; entryIds: number[] } | null {
   if (!isObject(v)) return null;
   const name = parseEntryGroupName(v.name);
-  if (name === null || !Array.isArray(v.entry_ids) || v.entry_ids.length < 2) return null;
+  if (name === null || !Array.isArray(v.entry_ids)
+    || v.entry_ids.length < 2 || v.entry_ids.length > MAX_ENTRY_GROUP_MEMBERS) return null;
   if (!v.entry_ids.every(isPositiveInt)) return null;
   const entryIds = v.entry_ids as number[];
   if (new Set(entryIds).size !== entryIds.length) return null;

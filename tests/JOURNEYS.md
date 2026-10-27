@@ -484,3 +484,14 @@ catalog entries. Discovery errors and empty reports fail the check.
 This command does not build the app, start the test server, run setup, or execute
 tests. Run the suite to verify the assertions themselves. `npm run check` combines
 this catalog check with all three TypeScript checks.
+
+## Security hardening
+
+- J-505 · Login bounds raw and normalized UTF-8 email length before issuing codes
+- J-506 · REST and MCP searches enforce the raw query-length boundary
+- J-507 · Group creation caps membership without stranding larger stored groups
+- J-508 · Email and search controls enforce bounds for keyboard and injected input
+- J-509 · Oversized selections retain their rows and show the existing notification
+- J-520 · HTTP parsers reject compressed and oversized requests while retaining availability
+- J-521 · Patched compressed-body parsing survives trailing decoder errors in an isolated process
+- J-522 · MCP bounds validation work before mutation and accepts the maximum valid batch

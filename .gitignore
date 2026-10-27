@@ -8,7 +8,6 @@ data/
 *.tsbuildinfo
 .tsbuildinfo/
 .DS_Store
-package-lock.json
 tests/e2e/.auth/
 test-results/
 playwright-report/

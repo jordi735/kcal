@@ -5,7 +5,7 @@ import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middlew
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { env } from '../env.js';
-import { MCP_SCOPE, oauthProvider } from '../oauth.js';
+import { MCP_RESOURCE, MCP_SCOPE, oauthProvider } from '../oauth.js';
 import { log } from '../log.js';
 import { createServer } from '../mcp/server.js';
 
@@ -27,6 +27,7 @@ mcpRouter.use((req, res, next) => {
 
 mcpRouter.use(requireBearerAuth({
   verifier: oauthProvider, requiredScopes: [MCP_SCOPE],
+  ...(env.PUBLIC_ORIGIN ? { expectedResource: new URL(MCP_RESOURCE) } : {}),
   resourceMetadataUrl: `${env.PUBLIC_ORIGIN}/.well-known/oauth-protected-resource/mcp`,
 }));
 

@@ -3,7 +3,7 @@
 // and follow-up reads stay in one transaction so failures leave no partial work.
 
 import { parseProductBarcode, parseProductBrand, parseProductName, parseProductText } from '../shared/productText.js';
-import { isEntryAmount, isLocalDate, isLocalTime, parseEntryGroupName } from '../shared/constraints.js';
+import { isEntryAmount, isLocalDate, isLocalTime, MAX_ENTRY_GROUP_MEMBERS, parseEntryGroupName } from '../shared/constraints.js';
 import { db } from './db.js';
 import { WriteError } from './errors.js';
 import { isPositiveInt } from './guards.js';
@@ -134,7 +134,7 @@ export function createEntryGroup(
   userId: number, rawName: string, entryIds: number[],
 ): EntryGroupResult {
   const name = parseEntryGroupName(rawName);
-  if (name === null || entryIds.length < 2 || !entryIds.every(isPositiveInt)
+  if (name === null || entryIds.length < 2 || entryIds.length > MAX_ENTRY_GROUP_MEMBERS || !entryIds.every(isPositiveInt)
     || new Set(entryIds).size !== entryIds.length) {
     throw new WriteError(400, 'invalid_group');
   }

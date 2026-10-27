@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Product } from '../types';
 import { api } from '../api';
 import { cssVars } from '../styles';
+import { MAX_PRODUCT_SEARCH_QUERY_LENGTH } from '../../shared/constraints';
 import { MacroBreakdown } from '../components/MacroBreakdown';
 import { Sheet, useSheetClose } from '../components/Sheet';
 import { BarcodeIcon, CheckIcon, MagnifyingGlassIcon, PlusIcon, XMarkIcon } from '../components/Icon';
@@ -108,26 +109,31 @@ export function AddPickerContent(props: AddPickerContentProps) {
   }, [q]);
 
   useEffect(() => {
-    const trimmed = debouncedQ.trim();
+    const tooLong = debouncedQ.length > MAX_PRODUCT_SEARCH_QUERY_LENGTH;
+    const query = tooLong ? debouncedQ : debouncedQ.trim();
     const previous = searchRequest.current;
     const isRefresh = previous !== null && previous.refreshVersion !== refreshVersion;
     const reportRefreshError = refreshError.current;
-    searchRequest.current = { query: trimmed, global, refreshVersion };
-    if (trimmed === '') {
-      setResults({ ...initialLoad, query: trimmed, global });
+    searchRequest.current = { query, global, refreshVersion };
+    if (tooLong) {
+      setResults({ query, global, status: 'error', products: null });
+      return;
+    }
+    if (query === '') {
+      setResults({ ...initialLoad, query, global });
       return;
     }
     let cancelled = false;
     setResults((current) => ({
-      query: trimmed, global, status: 'loading',
-      products: current.query === trimmed && current.global === global ? current.products : null,
+      query, global, status: 'loading',
+      products: current.query === query && current.global === global ? current.products : null,
     }));
     (async () => {
       try {
         const data = await api<Product[]>(
-          `/products/search?q=${encodeURIComponent(trimmed)}${global ? '&global=1' : ''}`,
+          `/products/search?q=${encodeURIComponent(query)}${global ? '&global=1' : ''}`,
         );
-        if (!cancelled) setResults({ query: trimmed, global, products: data, status: 'success' });
+        if (!cancelled) setResults({ query, global, products: data, status: 'success' });
       } catch {
         if (!cancelled) {
           setResults((current) => ({ ...current, status: 'error' }));
@@ -140,11 +146,11 @@ export function AddPickerContent(props: AddPickerContentProps) {
     };
   }, [debouncedQ, global, refreshVersion, searchRetry]);
 
-  const trimmed = q.trim();
-  const showingSearch = trimmed.length > 0;
+  const query = q.length > MAX_PRODUCT_SEARCH_QUERY_LENGTH ? q : q.trim();
+  const showingSearch = query.length > 0;
   // Query identity also protects the debounce window: an earlier result must
   // never be presented as a match for the newly typed query or selected scope.
-  const search = results.query === trimmed && results.global === global ? results : initialLoad;
+  const search = results.query === query && results.global === global ? results : initialLoad;
   const recentProducts = recents.products ?? [];
   const recentIds = new Set(recentProducts.map((p) => p.id));
   const allMinusRecents = (allProducts.products ?? []).filter((p) => !recentIds.has(p.id));
@@ -198,6 +204,7 @@ export function AddPickerContent(props: AddPickerContentProps) {
           <MagnifyingGlassIcon size={14} className={styles.searchIcon} />
           <input
             placeholder="Search products..."
+            maxLength={MAX_PRODUCT_SEARCH_QUERY_LENGTH}
             value={q}
             onInput={(e) => setQ(e.currentTarget.value)}
             onKeyDown={(e) => {

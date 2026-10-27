@@ -8,6 +8,7 @@ import { registerWriteTools } from './writes.js';
 export function createServer(user_id: number, scopes: readonly string[]): McpServer {
   const canWrite = scopes.includes(MCP_WRITE_SCOPE);
   const server = new McpServer({ name: 'kcal', version: '5.0.0' }, {
+    maxToolInputElements: 2048,
     instructions: (canWrite ? 'Read and write access to the connected KCAL account. ' : 'Read-only access to the connected KCAL account. ')
       + 'Dates are local YYYY-MM-DD; weeks run Monday–Sunday. Totals include all logged entries, '
       + 'with groups counted only through their children. Logs do not prove actual consumption. Nutrition uses '

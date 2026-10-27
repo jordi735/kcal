@@ -23,6 +23,7 @@ import { useTransientError } from './hooks/useTransientError';
 import { useSessionState, type AuthenticatedSession } from './hooks/useSessionState';
 import { useSettings } from './hooks/useSettings';
 import { resolveGoals } from '../shared/goals';
+import { MAX_ENTRY_GROUP_MEMBERS } from '../shared/constraints';
 import { barcodeFillReturnState, isSheetModal, type ModalState } from './modalState';
 import { userToGoals } from './session';
 import { api, ApiError, clearStoredSession, oauthRequestId, requestLoginCode, verifyLoginCode } from './api';
@@ -163,12 +164,20 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
   };
 
   const onStartCreateGroup = (list: EntryWithMacros[]) => {
+    if (list.length > MAX_ENTRY_GROUP_MEMBERS) {
+      reportError('Groups can contain at most 1,000 items.');
+      return;
+    }
     setModal({ kind: 'entry-group-create', entryIds: list.map((entry) => entry.id) });
   };
 
   const onCreateEntryGroup = async (name: string): Promise<void> => {
     if (modal.kind !== 'entry-group-create') return;
     const entryIds = modal.entryIds;
+    if (entryIds.length > MAX_ENTRY_GROUP_MEMBERS) {
+      reportError('Groups can contain at most 1,000 items.');
+      return;
+    }
     const myGen = flowGenRef.current;
     try {
       await createGroup({ name, entry_ids: entryIds });

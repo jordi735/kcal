@@ -8,6 +8,7 @@
 import { Router } from 'express';
 import {
   MAX_PRODUCT_BARCODE_LENGTH, MAX_PRODUCT_KCAL_PER100, MAX_PRODUCT_MACRO_GRAMS_PER100,
+  MAX_PRODUCT_SEARCH_QUERY_LENGTH,
 } from '../../shared/constraints.js';
 import { authMiddleware } from '../auth.js';
 import { parseProductText } from '../../shared/productText.js';
@@ -31,6 +32,10 @@ productsRouter.use(authMiddleware);
 
 productsRouter.get('/search', (req, res) => {
   const rawQ = req.query.q;
+  if (typeof rawQ === 'string' && rawQ.length > MAX_PRODUCT_SEARCH_QUERY_LENGTH) {
+    res.status(400).json({ error: 'invalid_query' });
+    return;
+  }
   const q = typeof rawQ === 'string' ? rawQ.trim() : '';
   if (q === '') {
     res.json([]);

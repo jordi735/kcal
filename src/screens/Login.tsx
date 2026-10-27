@@ -3,6 +3,8 @@ import { BrandMark } from '../components/BrandMark';
 import { ClearableField } from '../components/ClearableField';
 import { ArrowRightIcon } from '../components/Icon';
 import { ApiError } from '../api';
+import { isEmail } from '../../shared/email';
+import { MAX_EMAIL_BYTES } from '../../shared/constraints';
 import styles from './Login.module.css';
 
 type LoginProps = {
@@ -25,7 +27,7 @@ export function Login({ onRequestCode, onVerifyCode }: LoginProps) {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [retryCooldown, setRetryCooldown] = useState(0);
   const codeInputRef = useRef<HTMLInputElement | null>(null);
-  const emailValid = /\S+@\S+\.\S+/.test(email);
+  const emailValid = isEmail(email);
 
   useEffect(() => {
     if (step !== 'code') return;
@@ -150,6 +152,7 @@ export function Login({ onRequestCode, onVerifyCode }: LoginProps) {
               type="email"
               inputMode="email"
               autoComplete="email"
+              maxLength={MAX_EMAIL_BYTES}
               value={email}
               onChange={setEmail}
               placeholder="you@example.com"

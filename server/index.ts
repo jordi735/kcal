@@ -21,9 +21,11 @@ const app = express();
 
 app.set('trust proxy', env.TRUST_PROXY);
 
+app.use(['/auth/request-code', '/auth/verify-code'], express.json({ limit: '4kb', inflate: false }));
 app.use(['/register', '/authorize', '/token', '/revoke', '/oauth'],
-  express.json({ limit: '16kb' }), express.urlencoded({ extended: false, limit: '16kb' }));
-app.use(express.json({ limit: '2mb' }));
+  express.json({ limit: '16kb', inflate: false }),
+  express.urlencoded({ extended: false, limit: '16kb', inflate: false }));
+app.use(express.json({ limit: '64kb', inflate: false }));
 app.use(log.requestLogger);
 
 app.use((_req, res, next) => {
