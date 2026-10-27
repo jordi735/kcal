@@ -44,6 +44,10 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
   const user = session.user;
   const { transientError, errorExiting, reportError } = useTransientError();
   const { refreshVersion, onRefreshError } = useAppRefresh(user.id, reportError);
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+  const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
+  const todayKey = toLocalDateString(new Date());
+  const selectedKey = toLocalDateString(selectedDate);
   const {
     entriesByDate,
     weekTotals,
@@ -61,9 +65,9 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     renameGroup,
     toggleGroupTagged,
     ungroup,
-  } = useFoodData(scope, onRefreshError);
-  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
-  const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
+  } = useFoodData(scope, onRefreshError, {
+    selectedDate: selectedKey, today: todayKey, weekStart: toLocalDateString(weekStart),
+  });
   const [modal, setModalState] = useState<ModalState>({ kind: 'none' });
   const [selectionResetVersion, setSelectionResetVersion] = useState(0);
   // Bumped on every modal transition. Async handlers capture this before
@@ -86,8 +90,6 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     setSheetExiting(true);
   }, []);
 
-  const todayKey = toLocalDateString(new Date());
-  const selectedKey = toLocalDateString(selectedDate);
   const entriesForSelected = entriesByDate[selectedKey] ?? [];
   const selectedLoaded = loadedDates.has(selectedKey);
   const todayEntries = entriesByDate[todayKey] ?? [];

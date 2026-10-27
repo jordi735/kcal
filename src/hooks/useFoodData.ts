@@ -3,8 +3,11 @@ import { useCallback, useRef, useState } from 'preact/hooks';
 import type { EntryGroup, EntryUpdate, EntryWithMacros, Macros, NewEntryBody, NewProductBody, Product, UpdateProductBody } from '../types';
 import { api, isSessionCurrent, type SessionScope } from '../api';
 import { datesFromStart } from '../../shared/dates';
+import { toLocalDateString } from '../dates';
 import { createMutationQueue } from '../mutationQueue';
-import { updateCachedDay, type EntryCache } from './entryCache';
+import { removeCachedProduct, updateCachedDay, updateCachedProduct, type EntryCache } from './entryCache';
+
+export type FoodViewWindow = { selectedDate: string; today: string; weekStart: string };
 
 type PendingRead = { invalidated: boolean };
 async function readLatest<T>(pending: Map<string, PendingRead>, key: string,
@@ -50,7 +53,7 @@ export type UseFoodDataReturn = {
   ungroup: (id: number) => Promise<void>;
 };
 
-export function useFoodData(session: SessionScope, onRefreshError: () => void): UseFoodDataReturn {
+export function useFoodData(session: SessionScope, onRefreshError: () => void, view: FoodViewWindow): UseFoodDataReturn {
   const [cache, setCache] = useState<EntryCache>(() => ({ entriesByDate: {}, weekTotals: {}, loadedDates: new Set() }));
   const cacheRef = useRef(cache);
   cacheRef.current = cache;
@@ -59,6 +62,9 @@ export function useFoodData(session: SessionScope, onRefreshError: () => void): 
   const pendingWeeks = useRef(new Map<string, PendingRead>());
   const knownWeeks = useRef(new Set<string>());
   const appliedReadVersion = useRef(0);
+  const lastAppliedDayReadVersion = useRef(new Map<string, number>());
+  const activeWindow = useRef(view);
+  activeWindow.current = view;
   const queue = useRef(createMutationQueue(session)).current;
   const refreshError = useRef(onRefreshError);
   refreshError.current = onRefreshError;
@@ -70,9 +76,11 @@ export function useFoodData(session: SessionScope, onRefreshError: () => void): 
     });
   }, []);
 
-  const invalidateReads = useCallback(() => {
-    for (const request of pendingDays.current.values()) request.invalidated = true;
-    for (const request of pendingWeeks.current.values()) request.invalidated = true;
+  const retireReads = useCallback(() => {
+    // Superseded responses neither apply nor retry. Invalidating every old
+    // request instead would restart off-screen history reads as they settle.
+    pendingDays.current.clear();
+    pendingWeeks.current.clear();
   }, []);
   const weekIncludes = (start: string, date: string) => {
     const last = datesFromStart(start, 7)[6]!;
@@ -91,6 +99,7 @@ export function useFoodData(session: SessionScope, onRefreshError: () => void): 
     () => api<EntryWithMacros[]>(`/entries?date=${encodeURIComponent(date)}`, { session }),
     (list) => {
       appliedReadVersion.current++;
+      lastAppliedDayReadVersion.current.set(date, appliedReadVersion.current);
       changeCache((previous) => ({
         ...updateCachedDay(previous, date, () => list),
         loadedDates: previous.loadedDates.has(date) ? previous.loadedDates : new Set(previous.loadedDates).add(date),
@@ -115,12 +124,19 @@ export function useFoodData(session: SessionScope, onRefreshError: () => void): 
     // failed create/group operation that the user might accidentally retry.
     if (results.some((result) => result.status === 'rejected') && isSessionCurrent(session)) refreshError.current();
   }, [load, loadWeek, session]);
-  const refreshAll = useCallback(async () => {
-    invalidateReads();
-    const dates = [...new Set([...Object.keys(cacheRef.current.entriesByDate), ...pendingDays.current.keys()])];
-    const results = await Promise.allSettled([...dates.map(load), ...[...knownWeeks.current].map(loadWeek)]);
+  const refreshActiveWindow = useCallback(async () => {
+    // Freeze the latest rendered view at commit. Navigation continues to own
+    // its normal reads without extending this queued operation indefinitely.
+    const { selectedDate, today, weekStart } = activeWindow.current;
+    const dates = [...new Set([selectedDate, today])];
+    const weeks = [-7, 0, 7].map((offset) => {
+      const monday = new Date(`${weekStart}T12:00:00`);
+      monday.setDate(monday.getDate() + offset);
+      return toLocalDateString(monday);
+    });
+    const results = await Promise.allSettled([...dates.map(load), ...weeks.map(loadWeek)]);
     if (results.some((result) => result.status === 'rejected') && isSessionCurrent(session)) refreshError.current();
-  }, [invalidateReads, load, loadWeek, session]);
+  }, [load, loadWeek, session]);
 
   const createProduct = useCallback((body: NewProductBody) => queue(() =>
     api<Product>('/products', { method: 'POST', body, session }),
@@ -130,16 +146,34 @@ export function useFoodData(session: SessionScope, onRefreshError: () => void): 
     api<Product>(`/products/adopt/${sourceId}`, { method: 'POST', session }),
   ), [queue, session]);
 
-  const updateProduct = useCallback((id: number, body: UpdateProductBody) => queue(async () => {
-    const product = await api<Product>(`/products/${id}`, { method: 'PUT', body, session });
-    await refreshAll();
-    return product;
-  }), [queue, session, refreshAll]);
+  const updateProduct = useCallback((id: number, body: UpdateProductBody) => {
+    const loaded = loadedDates;
+    return queue(async () => {
+      const readVersion = appliedReadVersion.current;
+      const product = await api<Product>(`/products/${id}`, { method: 'PUT', body, session });
+      const protectedDates = new Set([...lastAppliedDayReadVersion.current]
+        .filter(([, version]) => version > readVersion).map(([date]) => date));
+      // Even an unrelated accepted read can contain a newer weekly summary.
+      // Prefer revalidation over deriving that total from an older day cache.
+      const totalDates = readVersion === appliedReadVersion.current ? loaded : new Set<string>();
+      retireReads();
+      changeCache((previous) => updateCachedProduct(previous, product, protectedDates, totalDates));
+      await refreshActiveWindow();
+      return product;
+    });
+  }, [loadedDates, queue, session, retireReads, changeCache, refreshActiveWindow]);
 
-  const deleteProduct = useCallback((id: number) => queue(async () => {
-    await api<{ ok: true }>(`/products/${id}`, { method: 'DELETE', session });
-    await refreshAll();
-  }), [queue, session, refreshAll]);
+  const deleteProduct = useCallback((id: number) => {
+    const loaded = loadedDates;
+    return queue(async () => {
+      const readVersion = appliedReadVersion.current;
+      await api<{ ok: true }>(`/products/${id}`, { method: 'DELETE', session });
+      const totalDates = readVersion === appliedReadVersion.current ? loaded : new Set<string>();
+      retireReads();
+      changeCache((previous) => removeCachedProduct(previous, id, totalDates));
+      await refreshActiveWindow();
+    });
+  }, [loadedDates, queue, session, retireReads, changeCache, refreshActiveWindow]);
 
   const add = useCallback((params: NewEntryBody) => {
     const deriveTotals = loadedDates.has(params.local_date);

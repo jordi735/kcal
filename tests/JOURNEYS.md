@@ -456,6 +456,17 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 
 - J-496 · Journey catalog validation uses discovered test titles, permits shared journey coverage, and rejects missing, duplicate, malformed, or undiscoverable entries
 
+# 24. Food cache refresh scope
+
+- J-497 · Product edits and deletes refresh only selected day, today, and the visible carousel window after zero, ten, or fifty week visits
+- J-498 · Retained historical days project product edits and deletion without resurrecting food rows or singleton groups
+- J-499 · Obsolete off-screen day and week responses neither retry nor resurrect a deleted product
+- J-500 · A delayed product completion refreshes the latest view and preserves a newer form draft
+- J-501 · Queued food writes wait for active refresh reads but do not wait for an obsolete historical response
+- J-502 · Delayed product responses preserve newer day snapshots and newer week totals, while ambiguous snapshots recover on revisit
+- J-503 · Pure product cache transforms protect newer snapshots, partial-day totals, and complete group membership
+- J-504 · Committed product refresh failures preserve drafts, release queued writes, and recover without resubmission
+
 # Verification
 
 Run from the repo root:

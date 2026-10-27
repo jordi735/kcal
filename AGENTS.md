@@ -130,6 +130,15 @@ required-key inventory and never commit real credentials.
   Its single cache state uses pure
   `entryCache.ts` transformations; mutation callbacks retain their captured
   loaded-date eligibility when a day loads while a request is pending.
+- Product edits/deletions retire pending food reads, project committed changes
+  into retained day snapshots, and refresh the latest selected/today dates plus
+  the visible week and its neighbors inside the same queue. Do not refresh every
+  visited week. Protect day snapshots read during a pending product edit and
+  derive totals only when the captured complete-day eligibility and read version
+  allow it. Deletion removes the product from every cached day but counts group
+  members only in complete snapshots. Off-screen summaries and protected days
+  remain cached fallback until normal navigation revalidation; retain loaded
+  flags and the existing cached-first presentation.
 - Weight history uses one local read path for initial load, refresh, Retry and
   reconciliation. Count successfully applied reads and fence pending reads after
   a committed write. If a read applied during that write, retain it and reconcile
