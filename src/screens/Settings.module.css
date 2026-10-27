@@ -225,28 +225,35 @@
   font-family: var(--mono);
 }
 
-.historyBtn:focus-visible,
-.historyBack:focus-visible {
+.navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.navigationBtn:focus-visible,
+.subviewBack:focus-visible,
+.themeRadio:focus-visible + .themeIndicator {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
-.historyHeader {
+.subviewHeader {
   flex-shrink: 0;
 }
 
-.historyTitle {
+.subviewTitle {
   color: var(--fg-dim);
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.18em;
 }
 
-.historyTitle:focus {
+.subviewTitle:focus {
   outline: none;
 }
 
-.historyContent {
+.subviewContent {
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -254,7 +261,7 @@
   border-top: 1px solid var(--border);
 }
 
-.historyDescription {
+.subviewDescription {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
   color: var(--fg-dim);
@@ -293,4 +300,73 @@
   color: var(--fg-dim);
   letter-spacing: 0.1em;
   white-space: nowrap;
+}
+
+.themeOptions {
+  min-width: 0;
+  border: none;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.themeOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-elev-2);
+  color: var(--fg);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.themeOption[data-selected="true"] {
+  border-color: var(--accent);
+}
+
+.themeIndicator {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--fg-dimmer);
+  transition: color 0.3s ease;
+}
+
+.themeRadio:checked + .themeIndicator {
+  color: var(--fg);
+}
+
+.themeName {
+  flex: 1;
+  min-width: 0;
+}
+
+.themePreview {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.themePreview > span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--preview-color);
+}
+
+.themePreviewAccent {
+  --preview-color: var(--accent);
 }

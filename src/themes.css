@@ -1,0 +1,116 @@
+/* Color palettes only. Keep layout, typography and motion in component styles.
+   Every named palette repeats the complete token set so scoped previews work. */
+
+/* Paint the saved canvas while the application module is still loading.
+   The remaining global styles keep their original import/cascade order. */
+html, body, #root {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+:root,
+[data-theme="carbon"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --bg-elev: #101214;
+  --bg-elev-2: #191c20;
+  --border: #282d34;
+  --border-strong: #414a56;
+  --fg: #e6e9ee;
+  --fg-dim: #afb7c3;
+  --fg-dimmer: #8993a2;
+  --accent: #c9d5e3;
+  --accent-ink: #000000;
+  --danger: #ff8580;
+  --danger-ink: #000000;
+  --kcal: #70bbff;
+  --macro-p: #feb13d;
+  --macro-c: #2cb9b1;
+  --macro-f: #c677e2;
+  --kcal-dim: #527fae;
+  --macro-p-dim: #ae7d33;
+  --macro-c-dim: #25827e;
+  --macro-f-dim: #925ca8;
+  --overlay: color-mix(in oklab, var(--bg) 60%, transparent);
+  /* Match the original effective scanner scrim (the shared overlay won). */
+  --scanner-overlay: color-mix(in oklab, var(--bg) 60%, transparent);
+}
+
+[data-theme="paper"] {
+  color-scheme: light;
+  --bg: #f5f1e8;
+  --bg-elev: #fffcf6;
+  --bg-elev-2: #eee9df;
+  --border: #d6d0c4;
+  --border-strong: #79828b;
+  --fg: #252b33;
+  --fg-dim: #535b65;
+  --fg-dimmer: #606975;
+  --accent: #355f84;
+  --accent-ink: #fffdf7;
+  --danger: #aa352d;
+  --danger-ink: #fffdf7;
+  --kcal: #286391;
+  --macro-p: #8a500b;
+  --macro-c: #176b64;
+  --macro-f: #79438b;
+  --kcal-dim: #678398;
+  --macro-p-dim: #9e7b47;
+  --macro-c-dim: #5f887e;
+  --macro-f-dim: #92709f;
+  --overlay: rgb(37 43 51 / 36%);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 96%, transparent);
+}
+
+[data-theme="midnight"] {
+  color-scheme: dark;
+  --bg: #09111f;
+  --bg-elev: #101d30;
+  --bg-elev-2: #18283f;
+  --border: #2c405b;
+  --border-strong: #617b9c;
+  --fg: #e5edf7;
+  --fg-dim: #afc0d7;
+  --fg-dimmer: #91a5c1;
+  --accent: #a7c9f4;
+  --accent-ink: #09111f;
+  --danger: #ff9690;
+  --danger-ink: #09111f;
+  --kcal: #83bfff;
+  --macro-p: #efb760;
+  --macro-c: #65c4c0;
+  --macro-f: #c69ce9;
+  --kcal-dim: #537da9;
+  --macro-p-dim: #9b7a45;
+  --macro-c-dim: #427f7b;
+  --macro-f-dim: #876d9f;
+  --overlay: color-mix(in oklab, var(--bg) 68%, transparent);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 94%, transparent);
+}
+
+/* Catppuccin Mocha: https://catppuccin.com/palette/#mocha */
+[data-theme="catppuccin-mocha"] {
+  color-scheme: dark;
+  --bg: #1e1e2e;
+  --bg-elev: #181825;
+  --bg-elev-2: #313244;
+  --border: #45475a;
+  --border-strong: #7f849c;
+  --fg: #cdd6f4;
+  --fg-dim: #bac2de;
+  --fg-dimmer: #a6adc8;
+  --accent: #cba6f7;
+  --accent-ink: #1e1e2e;
+  --danger: #f38ba8;
+  --danger-ink: #1e1e2e;
+  --kcal: #89b4fa;
+  --macro-p: #fab387;
+  --macro-c: #94e2d5;
+  --macro-f: #cba6f7;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: color-mix(in oklab, var(--bg) 68%, transparent);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 94%, transparent);
+}

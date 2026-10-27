@@ -7,7 +7,9 @@ import { Sheet, useSheetClose } from '../components/Sheet';
 import { ChatGPTConnectCard, ChatGPTGuide } from '../components/ChatGPTGuide';
 import { MacroBreakdown } from '../components/MacroBreakdown';
 import { useSheetSubview } from '../hooks/useSheetSubview';
-import { MinusIcon, PlusIcon } from '../components/Icon';
+import { useTheme } from '../hooks/useTheme';
+import { THEMES } from '../themes';
+import { CheckCircleIcon, CircleIcon, MinusIcon, PlusIcon } from '../components/Icon';
 import { useFocusClearableNumber } from '../hooks/useFocusClearableNumber';
 import styles from './Settings.module.css';
 
@@ -27,13 +29,16 @@ type SettingsProps = {
 export function Settings(props: SettingsProps) {
   const guide = useSheetSubview(props.initialGuide);
   const history = useSheetSubview();
+  const themes = useSheetSubview();
+  const active = !guide.isOpen && !history.isOpen && !themes.isOpen;
   return (
     <Sheet onClose={props.onClose} style={cssVars({ '--sheet-height': '92%' })}>
-      <div className={styles.pane} hidden={guide.isOpen || history.isOpen}>
-        <SettingsInner {...props} active={!guide.isOpen && !history.isOpen} onOpenGuide={guide.open} onOpenHistory={history.open} />
+      <div className={styles.pane} hidden={!active}>
+        <SettingsInner {...props} active={active} onOpenGuide={guide.open} onOpenHistory={history.open} onOpenThemes={themes.open} />
       </div>
       {guide.isOpen && <ChatGPTGuide onBack={guide.close} />}
       {history.isOpen && <GoalHistory history={props.goalHistory} onBack={history.close} />}
+      {themes.isOpen && <ThemePicker onBack={themes.close} />}
     </Sheet>
   );
 }
@@ -42,6 +47,7 @@ type InnerProps = Omit<SettingsProps, 'onClose'> & {
   active: boolean;
   onOpenGuide: (button: HTMLButtonElement) => void;
   onOpenHistory: (button: HTMLButtonElement) => void;
+  onOpenThemes: (button: HTMLButtonElement) => void;
 };
 
 type GoalFieldProps = {
@@ -137,7 +143,7 @@ function LegendDot({ macroKey, label }: LegendDotProps) {
   );
 }
 
-function SettingsInner({ goals, ready, loadError, onRetry, onSave, onLogout, userEmail, active, onOpenGuide, onOpenHistory }: InnerProps) {
+function SettingsInner({ goals, ready, loadError, onRetry, onSave, onLogout, userEmail, active, onOpenGuide, onOpenHistory, onOpenThemes }: InnerProps) {
   const close = useSheetClose();
   const [kcal, setKcal] = useState(goals.kcal);
   const [p, setP] = useState(goals.protein);
@@ -273,13 +279,20 @@ function SettingsInner({ goals, ready, loadError, onRetry, onSave, onLogout, use
           )}
         </div>
 
-        <div className={styles.section}>
+        <div className={`${styles.section} ${styles.navigation}`}>
           <button
             type="button"
-            className={`btn-ghost ${styles.historyBtn}`}
+            className={`btn-ghost ${styles.navigationBtn}`}
             onClick={(event) => onOpenHistory(event.currentTarget)}
           >
             Goal history
+          </button>
+          <button
+            type="button"
+            className={`btn-ghost ${styles.navigationBtn}`}
+            onClick={(event) => onOpenThemes(event.currentTarget)}
+          >
+            Themes
           </button>
         </div>
 
@@ -310,12 +323,12 @@ function GoalHistory({ history, onBack }: { history: GoalHistoryItem[] | undefin
   const heading = useRef<HTMLHeadingElement | null>(null);
   useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
   return <>
-    <div className={`${styles.header} ${styles.historyHeader}`}>
-      <h2 ref={heading} tabIndex={-1} className={`mono caps ${styles.historyTitle}`}>Goal history</h2>
-      <button type="button" onClick={onBack} className={`mono tiny caps ${styles.closeBtn} ${styles.historyBack}`}>Back</button>
+    <div className={`${styles.header} ${styles.subviewHeader}`}>
+      <h2 ref={heading} tabIndex={-1} className={`mono caps ${styles.subviewTitle}`}>Goal history</h2>
+      <button type="button" onClick={onBack} className={`mono tiny caps ${styles.closeBtn} ${styles.subviewBack}`}>Back</button>
     </div>
-    <div data-sheet-scroll className={`no-scroll ${styles.historyContent}`}>
-      <p className={styles.historyDescription}>Goals carry forward until the next change. Dates before the first record have no recorded goal.</p>
+    <div data-sheet-scroll className={`no-scroll ${styles.subviewContent}`}>
+      <p className={styles.subviewDescription}>Goals carry forward until the next change. Dates before the first record have no recorded goal.</p>
       {history === undefined ? <p className={`mono tiny ${styles.historyStatus}`}>Loading goals…</p> : [...history].reverse().map((item) => (
         <div key={item.effective_date} className={styles.historyRow}>
           <div className={styles.historyRowTop}>
@@ -325,6 +338,46 @@ function GoalHistory({ history, onBack }: { history: GoalHistoryItem[] | undefin
           <MacroBreakdown macros={item.goals} />
         </div>
       ))}
+    </div>
+  </>;
+}
+
+function ThemePicker({ onBack }: { onBack: () => void }) {
+  const { theme, selectTheme } = useTheme();
+  const heading = useRef<HTMLHeadingElement | null>(null);
+  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
+  return <>
+    <div className={`${styles.header} ${styles.subviewHeader}`}>
+      <h2 ref={heading} tabIndex={-1} className={`mono caps ${styles.subviewTitle}`}>Themes</h2>
+      <button type="button" onClick={onBack} className={`mono tiny caps ${styles.closeBtn} ${styles.subviewBack}`}>Back</button>
+    </div>
+    <div data-sheet-scroll className={`no-scroll ${styles.subviewContent}`}>
+      <p className={styles.subviewDescription}>Changes apply immediately on this device.</p>
+      <fieldset className={styles.themeOptions}>
+        <legend className="visually-hidden">Themes</legend>
+        {THEMES.map((option) => (
+          <label key={option.id} className={styles.themeOption} data-selected={theme === option.id}>
+            <input
+              type="radio"
+              name="theme"
+              value={option.id}
+              checked={theme === option.id}
+              onChange={() => selectTheme(option.id)}
+              className={`visually-hidden ${styles.themeRadio}`}
+            />
+            <span className={styles.themeIndicator} aria-hidden="true">
+              {theme === option.id ? <CheckCircleIcon size={20} /> : <CircleIcon size={20} />}
+            </span>
+            <span className={styles.themeName}>{option.name}</span>
+            <span data-theme={option.id} className={styles.themePreview} aria-hidden="true">
+              <span className={styles.themePreviewAccent} />
+              {MACRO_KEYS.map((key) => (
+                <span key={key} style={cssVars({ '--preview-color': MACRO_META[key].color })} />
+              ))}
+            </span>
+          </label>
+        ))}
+      </fieldset>
     </div>
   </>;
 }

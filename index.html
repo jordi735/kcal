@@ -37,6 +37,15 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="kcal." />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <script>
+      // Select the palette before CSS paints, independently of the app bundle.
+      try {
+        document.documentElement.dataset.theme = localStorage.getItem('kcal_theme') || 'carbon';
+      } catch {
+        document.documentElement.dataset.theme = 'carbon';
+      }
+    </script>
+    <link rel="stylesheet" href="/src/themes.css" />
   </head>
   <body>
     <div id="root"></div>

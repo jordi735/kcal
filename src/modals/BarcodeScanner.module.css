@@ -1,5 +1,5 @@
-.overlayDark {
-  background: color-mix(in oklab, var(--bg) 92%, transparent);
+.overlayDark:global(.overlay) {
+  background: var(--scanner-overlay);
 }
 
 .shell {

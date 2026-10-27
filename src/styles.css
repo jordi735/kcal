@@ -1,33 +1,8 @@
-/* KCAL — Dark, editorial, monospace-driven macro tracker */
+/* KCAL — Editorial, monospace-driven macro tracker */
 
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Carbon OLED — true black canvas with charcoal surfaces. */
-  color-scheme: dark;
-  --bg: #000000;
-  --bg-elev: #101214;
-  --bg-elev-2: #191c20;
-  --border: #282d34;
-  --border-strong: #414a56;
-  --fg: #e6e9ee;
-  --fg-dim: #afb7c3;
-  --fg-dimmer: #8993a2;
-  --accent: #c9d5e3;
-  --accent-ink: #000000;
-  --danger: #ff8580;       /* Coral for errors and over-threshold values. */
-
-  --kcal: #70bbff;         /* Calories — blue. */
-  --macro-p: #feb13d;      /* Protein — amber. */
-  --macro-c: #2cb9b1;      /* Carbs — teal. */
-  --macro-f: #c677e2;      /* Fat — purple. */
-
-  /* Existing portions in the amount picker's stacked bars. */
-  --kcal-dim: #527fae;
-  --macro-p-dim: #ae7d33;
-  --macro-c-dim: #25827e;
-  --macro-f-dim: #925ca8;
-
   --track-height: 6px;
   --track-radius: 3px;
 
@@ -136,7 +111,7 @@ input[type="number"] {
 .overlay {
   position: absolute;
   inset: 0;
-  background: color-mix(in oklab, var(--bg) 60%, transparent);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
   z-index: 50;
   animation: fadeIn 0.3s ease;

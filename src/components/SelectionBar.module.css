@@ -127,7 +127,7 @@
   border-radius: 10px;
   border: 1px solid transparent;
   background: var(--danger);
-  color: var(--bg);
+  color: var(--danger-ink);
   font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;

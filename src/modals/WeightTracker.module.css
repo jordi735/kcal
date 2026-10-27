@@ -165,7 +165,7 @@
 }
 
 .dateInput {
-  color-scheme: dark;
+  color-scheme: inherit;
 }
 
 .weightInputWrap {
@@ -229,7 +229,7 @@
   width: 20px;
   height: 20px;
   accent-color: var(--accent);
-  color-scheme: dark;
+  color-scheme: inherit;
   cursor: inherit;
 }
 
