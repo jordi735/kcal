@@ -45,6 +45,7 @@ Run Playwright commands sequentially: they share port 3001 and
 - [Themes](docs/themes.md)
 - [Dependency maintenance](docs/dependency-upgrade.md)
 - [Security controls](docs/security-hardening.md)
+- [Production hosting and rollback checklist](docs/security-deployment.md)
 - [Refactoring history](docs/refactoring.md)
 
 `src/` contains the app, `server/` the backend, and `shared/` the contracts and

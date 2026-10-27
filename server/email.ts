@@ -8,8 +8,8 @@ import { loginCodeHtml, loginCodeText, render } from './templates.js';
 
 export async function sendLoginCode(email: string, code: string): Promise<void> {
   const hash = log.emailHash(email);
-  // debug-level code dump for local development; silent at info+.
-  log.debug('login code (dev)', { emailHash: hash, code });
+  // Live codes are available only in explicitly selected local development.
+  if (env.APP_ENV === 'development') log.debug('login code (dev)', { emailHash: hash, code });
   if (env.TEST_MODE) {
     log.info('TEST_MODE: email skipped', { emailHash: hash });
     return;

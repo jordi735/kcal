@@ -23,7 +23,7 @@ export function readResult(
   } catch (error) {
     const controlled = error instanceof ReadInputError || error instanceof RangeError;
     if (!controlled) {
-      log.error('MCP read failed', { message: error instanceof Error ? error.message : String(error) });
+      log.error('MCP read failed');
     }
     return {
       isError: true,

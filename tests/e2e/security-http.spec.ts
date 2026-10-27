@@ -11,12 +11,14 @@ test('[J-520] HTTP parsers reject compression and oversized requests without los
       headers: { 'Content-Type': 'application/json', 'Content-Encoding': encoding }, data: compress(body),
     });
     expect(response.status(), encoding).toBe(415);
+    expect(await response.json()).toEqual({ error: 'unsupported_encoding' });
   }
   for (const [path, padding] of [
     ['/auth/verify-code', 4096], ['/register', 16384], ['/entries', 65536], ['/mcp', 65536],
   ] as const) {
     const response = await request.post(path, { data: { padding: 'a'.repeat(padding) } });
     expect(response.status(), path).toBe(413);
+    expect(await response.json()).toEqual({ error: 'request_too_large' });
   }
   const ordinary = await request.post('/auth/verify-code', { data: { email: 'parser@example.test', code: '000000' } });
   expect(ordinary.status()).toBe(400);

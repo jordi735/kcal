@@ -40,6 +40,7 @@ export default defineConfig({
     stdout: 'ignore',
     stderr: 'pipe',
     env: {
+      APP_ENV: 'test',
       PORT: E2E_PORT,
       DATABASE_PATH: E2E_DATABASE_PATH,
       TEST_MODE: 'true',

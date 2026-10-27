@@ -40,8 +40,8 @@ const purge = setInterval(() => {
 }, 5 * 60_000);
 purge.unref();
 
-function rejectUnauthorized(res: Response, reason: string, path: string): void {
-  log.debug('auth rejected', { reason, path });
+function rejectUnauthorized(res: Response, reason: string): void {
+  log.debug('auth rejected', { reason });
   res.status(401).json({ error: 'unauthorized' });
 }
 
@@ -161,15 +161,15 @@ export function deleteSession(token: string): void {
 export const authMiddleware: RequestHandler = (req, res, next) => {
   const header = req.get('authorization');
   if (header === undefined || !header.startsWith('Bearer ')) {
-    return rejectUnauthorized(res, 'missing_bearer', req.path);
+    return rejectUnauthorized(res, 'missing_bearer');
   }
   const token = header.slice(7).trim();
   if (token === '') {
-    return rejectUnauthorized(res, 'empty_token', req.path);
+    return rejectUnauthorized(res, 'empty_token');
   }
   const userId = verifySession(token);
   if (userId === null) {
-    return rejectUnauthorized(res, 'invalid_session', req.path);
+    return rejectUnauthorized(res, 'invalid_session');
   }
   req.userId = userId;
   req.sessionToken = token;

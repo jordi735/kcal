@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import type { RequestHandler } from 'express';
 import { env } from './env.js';
 import type { LogLevel } from './types.js';
+import { API_PREFIXES } from '../shared/apiPrefixes.js';
 
 const LEVEL_ORDER: Record<LogLevel, number> = {
   debug: 0,
@@ -64,17 +65,20 @@ function emailHash(email: string): string {
   return createHash('sha256').update(email).digest('hex').slice(0, 8);
 }
 
-// Logs a "request" line with { method, path, status, ms } on response finish.
-// Uses req.path (not originalUrl) to keep query-string secrets out of logs.
+// Record only a fixed route family: arbitrary paths can contain credentials,
+// just like query strings. Capture before mounted routers alter req.path.
 const requestLogger: RequestHandler = (req, res, next) => {
   const start = Date.now();
+  const pathname = req.path.toLowerCase();
+  const family = API_PREFIXES.find((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'))
+    ?? (pathname.startsWith('/assets/') ? '/assets' : 'page');
   res.on('finish', () => {
     const ms = Date.now() - start;
     const level: LogLevel =
       res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info';
     write(level, 'request', {
       method: req.method,
-      path: req.path,
+      path: family,
       status: res.statusCode,
       ms,
     });

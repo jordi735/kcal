@@ -179,6 +179,9 @@ dependency scripts or silently discard the lockfile.
 
 - `server/index.ts` must import `server/env.ts` first. Add new environment keys to
   centralized validation/export and to `.env.example`.
+  `APP_ENV` is development, test, or production and defaults to production.
+  Reject `TEST_MODE=true` outside test mode before opening the database. Launchers
+  and isolated test fixtures select their mode explicitly.
 - Migrations are forward-only and keyed by filename. Add a new lexically ordered
   `server/migrations/*.sql` file; never revise an applied migration.
 - Put normal application SQL in `server/statements.ts`. Bootstrap/migration SQL
@@ -251,12 +254,14 @@ dependency scripts or silently discard the lockfile.
   rollback must not resurrect a consumed code.
 - `TEST_MODE` disables email delivery, exposes login-code lookup, and relaxes auth
   throttles for suite fixtures sharing a loopback IP. Injected-clock limiter tests
-  exercise production budgets independently;
-  `LOG_LEVEL=debug` logs live codes. Never enable either behavior in production.
+  exercise production budgets independently. Only explicit development mode may
+  log OTPs at debug level; production diagnostics must never include credentials,
+  raw parser payloads, or arbitrary error messages.
 - Preserve the `{ error: string }` failure shape. Keep request-body guards beside
   their routes and build them from `server/guards.ts` primitives.
-- `/debug` is an unauthenticated raw-data endpoint. Keep its fail-closed
-  `DEBUG_ALLOW_IPS` middleware ahead of the router. Configure `TRUST_PROXY` with
+- `/debug` is an unauthenticated raw-data endpoint outside production only. Keep
+  its production denial and fail-closed `DEBUG_ALLOW_IPS` middleware ahead of the
+  router. Configure `TRUST_PROXY` with
   trusted proxy addresses/subnets; the current
   string parser does not make `"1"` a one-hop setting.
 - `/mcp` exposes `get_day`, `get_meals`, `get_week`, `get_weighins`, `get_summary`,
@@ -327,13 +332,17 @@ dependency scripts or silently discard the lockfile.
   requires fresh consent. Persist per-token scopes so refresh narrowing cannot
   regain write access; reject escalation before consuming a refresh token.
   Enforce resource
-  binding in the provider (SDK bearer middleware does not check audience).
+  binding in the provider and the SDK's additional expected-resource check.
   Keep OAuth's standard error responses; reject Origin headers at `/mcp` and
   require same-origin authenticated consent. Preserve the pending OAuth request
   through app-session expiry without allowing arbitrary return URLs.
 - Use `server/log.ts` for runtime logs and `log.emailHash(email)` for explicit email
   correlation fields. Direct console calls are limited to `server/env.ts` bootstrap
   diagnostics and logger internals.
+  `server/http-security.ts` owns common headers and fixed parser/unexpected-error
+  responses. Mount headers and request logging before source limits and parsers;
+  sensitive responses, including rejected requests, are `no-store`. Static assets
+  override this with existing immutable caching; HTML and the worker revalidate.
 
 ## PWA and Generated Assets
 
@@ -351,7 +360,7 @@ dependency scripts or silently discard the lockfile.
 ## Testing Guidelines
 
 - Playwright tests the production topology: it builds the SPA and starts Express
-  on `:3001` with `TEST_MODE=true` and `/tmp/kcal-e2e.db`.
+  on `:3001` with `APP_ENV=test`, `TEST_MODE=true` and `/tmp/kcal-e2e.db`.
   `tests/e2e/test-config.ts` owns the shared origin, port, database, and auth-state
   paths; isolated subprocess fixtures retain their own environment settings.
 - The suite uses one worker and starts a fresh backend. Its startup command resets

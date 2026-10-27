@@ -7,6 +7,7 @@ export function serverFixtureEnvironment(databasePath: string, envOverrides: Rec
   options: { inheritEnv?: boolean } = {}): NodeJS.ProcessEnv {
   return {
     ...(options.inheritEnv === false ? {} : process.env),
+    APP_ENV: 'test',
     PORT: '3000',
     DATABASE_PATH: databasePath,
     TEST_MODE: 'true',

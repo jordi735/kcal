@@ -42,7 +42,7 @@ export function registerWriteTools(server: McpServer, user_id: number, canWrite:
       return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     } catch (error) {
       const controlled = error instanceof WriteError || error instanceof ReadInputError;
-      if (!controlled) log.error('MCP write failed', { message: error instanceof Error ? error.message : String(error) });
+      if (!controlled) log.error('MCP write failed', { toolName });
       return { isError: true, content: [{ type: 'text', text: controlled ? error.message : 'write_failed' }] };
     }
   }

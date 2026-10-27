@@ -51,8 +51,8 @@ mcpRouter.post('/', async (req, res) => {
     // properties under exactOptionalPropertyTypes; the runtime contract matches.
     await server.connect(transport as Transport);
     await transport.handleRequest(req, res, req.body);
-  } catch (error) {
-    log.error('MCP request failed', { message: error instanceof Error ? error.message : String(error) });
+  } catch {
+    log.error('MCP request failed');
     if (!res.headersSent) {
       res.status(500).json({ jsonrpc: '2.0', id: null, error: { code: -32603, message: 'Internal error' } });
     }

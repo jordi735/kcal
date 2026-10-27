@@ -4,6 +4,20 @@
 
 import type { LogLevel } from './types.js';
 
+const APP_ENVIRONMENTS = ['production', 'development', 'test'] as const;
+type AppEnvironment = typeof APP_ENVIRONMENTS[number];
+const rawAppEnvironment = process.env.APP_ENV?.trim().toLowerCase() || 'production';
+if (!APP_ENVIRONMENTS.includes(rawAppEnvironment as AppEnvironment)) {
+  console.error(`[kcal] APP_ENV must be one of: ${APP_ENVIRONMENTS.join(', ')}`);
+  process.exit(1);
+}
+const APP_ENV = rawAppEnvironment as AppEnvironment;
+const TEST_MODE = process.env.TEST_MODE === 'true';
+if (APP_ENV !== 'test' && TEST_MODE) {
+  console.error('[kcal] TEST_MODE is only allowed when APP_ENV is test');
+  process.exit(1);
+}
+
 const REQUIRED = [
   'PORT',
   'DATABASE_PATH',
@@ -28,7 +42,7 @@ if (missing.length > 0) {
 const LEVELS: readonly LogLevel[] = ['debug', 'info', 'warn', 'error'];
 const rawLevel = process.env.LOG_LEVEL!.trim().toLowerCase();
 if (!LEVELS.includes(rawLevel as LogLevel)) {
-  console.error(`[kcal] LOG_LEVEL must be one of: ${LEVELS.join(', ')} (got "${rawLevel}")`);
+  console.error(`[kcal] LOG_LEVEL must be one of: ${LEVELS.join(', ')}`);
   process.exit(1);
 }
 
@@ -36,7 +50,7 @@ function toPositiveInt(key: string): number {
   const raw = process.env[key];
   const n = Number(raw);
   if (!Number.isInteger(n) || n <= 0) {
-    console.error(`[kcal] ${key} must be a positive integer (got "${raw}")`);
+    console.error(`[kcal] ${key} must be a positive integer`);
     process.exit(1);
   }
   return n;
@@ -46,6 +60,10 @@ function toPositiveInt(key: string): number {
 // → every caller is denied. Code stays IP-agnostic; rotate via .env.
 function parseDebugAllowIps(): ReadonlySet<string> {
   const raw = process.env.DEBUG_ALLOW_IPS;
+  if (APP_ENV === 'production') {
+    if (raw?.trim()) console.warn('[kcal] DEBUG_ALLOW_IPS is ignored in production');
+    return new Set();
+  }
   if (raw === undefined) return new Set();
   return new Set(
     raw.split(',').map((s) => s.trim()).filter((s) => s.length > 0),
@@ -69,7 +87,6 @@ if (rawOrigin) {
 }
 
 // Optional — tests only. Never set in production. See .env.example.
-const TEST_MODE = process.env.TEST_MODE === 'true';
 if (TEST_MODE) {
   console.warn('[kcal] ============================================================');
   console.warn('[kcal] TEST_MODE ON — emails disabled, test auth endpoint open');
@@ -78,6 +95,7 @@ if (TEST_MODE) {
 }
 
 export const env = {
+  APP_ENV,
   PORT: toPositiveInt('PORT'),
   DATABASE_PATH: process.env.DATABASE_PATH!,
   POSTMARK_SERVER_TOKEN: process.env.POSTMARK_SERVER_TOKEN!,

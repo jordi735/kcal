@@ -78,6 +78,23 @@ affinity as a separately reviewed deployment change.
 
 ## Verification
 
+The server defaults to production mode. `APP_ENV=development|test|production`
+is explicit in the npm backend launchers and test harness. `TEST_MODE=true`
+outside test mode aborts before database initialization; production always
+denies `/debug`, including allowlisted callers. Only explicit development mode
+can log live sign-in codes at debug level.
+
+Security and privacy headers are installed before login source limits and body
+parsers. Credential/private responses and their errors use `no-store`; versioned
+assets remain immutable, while HTML and the service worker revalidate. Parser
+failures use fixed response codes, and unexpected failures return
+`{ "error": "internal_error" }`. Logs use fixed diagnostic categories and API
+families instead of arbitrary exception details or supplied path segments.
+
+Operational deployment, staged CSP enforcement, transport, backups and rollback
+are covered by [the hosting checklist](security-deployment.md). That checklist is
+not an instruction to change the live deployment during local implementation.
+
 Security regressions use the existing serial Playwright harness and bounded,
 typed child fixtures with disposable databases. Email delivery is mocked and
 external networking is blocked in authentication fixtures. Malformed decoder

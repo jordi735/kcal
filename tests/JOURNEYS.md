@@ -504,3 +504,11 @@ this catalog check with all three TypeScript checks.
 - J-514 · IPv6 subnet aliases and mapped IPv4 share source quotas with independent adjacent subnets.
 - J-515 · Code attempts and resend budgets remain bounded while expired codes cannot poison a fresh login.
 - J-516 · Failed session creation rolls back a new account without resurrecting its consumed code.
+
+- J-523 · Production and development test mode are rejected before creating the database
+- J-524 · Missing or blank application mode defaults to production and unknown modes are rejected
+- J-525 · Production debug remains unavailable even to an explicitly allowlisted caller
+- J-526 · Production debug-level email logs omit the live sign-in code while delivery succeeds
+- J-527 · Parser, authorization, and unknown-API errors retain privacy and security headers
+- J-528 · Credential and authenticated responses are not stored while static cache policies remain intact
+- J-529 · Unexpected failures return a generic error, omit sensitive diagnostics, and preserve later requests
