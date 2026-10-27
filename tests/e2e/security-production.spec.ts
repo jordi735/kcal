@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { runServerFixture } from './server-fixture';
+import type { BindingResult } from './fixtures/security-binding';
 
 type HttpResult = { status: number; headers: Record<string, string>; body: string };
 type RuntimeResult = {
@@ -68,6 +69,42 @@ test('[J-524] missing or blank app mode fails closed and unknown modes are rejec
   await rejectedEnvironment({ SECURITY_OMIT_APP_ENV: 'true', TEST_MODE: 'true' }, /TEST_MODE/);
   await rejectedEnvironment({ APP_ENV: '', TEST_MODE: 'true' }, /TEST_MODE/);
   await rejectedEnvironment({ APP_ENV: 'produciton', TEST_MODE: 'false' }, /APP_ENV/);
+});
+
+test('[J-545] bind addresses accept IP literals and reject invalid values before database creation', async () => {
+  for (const value of ['localhost', '127.0.0.1:4201', '[::1]', 'https://127.0.0.1', '127.0.0.1/8', '999.1.1.1']) {
+    await rejectedEnvironment({ BIND_HOST: value }, /BIND_HOST/);
+  }
+  for (const value of [undefined, '', '   ', '127.0.0.1', ' 127.0.0.1 ', '0.0.0.0', '::1', '::', '2001:db8::1']) {
+    const child = runServerFixture(new URL('./fixtures/security-production-env.ts', import.meta.url), ':memory:',
+      value === undefined ? {} : { BIND_HOST: value }, { inheritEnv: false, timeoutMs: 8000 });
+    expect(child.status, child.stderr || child.stdout).toBe(0);
+    expect(child.stdout).toContain('SECURITY_BIND_HOST ' + JSON.stringify(value?.trim() || null));
+    expect(child.stdout).toContain('SECURITY_DB_OPENED');
+  }
+});
+
+test('[J-546] configured loopback binding is used while unset and blank retain Node defaults', () => {
+  const bind = (host?: string): BindingResult => {
+    const child = runServerFixture(new URL('./fixtures/security-binding.ts', import.meta.url), ':memory:', {
+      APP_ENV: 'production', TEST_MODE: 'false', ...(host === undefined ? {} : { BIND_HOST: host }),
+    }, { inheritEnv: false, timeoutMs: 8000 });
+    expect(child.status, child.stderr || child.stdout).toBe(0);
+    const line = child.stdout.split('\n').find(value => value.startsWith('SECURITY_BINDING '));
+    expect(line, child.stdout).toBeDefined();
+    const result = JSON.parse(line!.slice('SECURITY_BINDING '.length)) as BindingResult;
+    expect(result.status).toBe(401);
+    return result;
+  };
+  expect(bind('127.0.0.1')).toMatchObject({ address: '127.0.0.1', family: 'IPv4' });
+  const defaultBinding = bind();
+  expect(['::', '0.0.0.0']).toContain(defaultBinding.address);
+  expect(bind('  ')).toEqual(defaultBinding);
+  // IPv6 may be disabled by the host. Its literal is validated independently;
+  // exercise its actual loopback socket when Node's default confirms support.
+  if (defaultBinding.family === 'IPv6') {
+    expect(bind('::1')).toMatchObject({ address: '::1', family: 'IPv6' });
+  }
 });
 
 test('[J-525] production debug is unavailable even to an explicitly allowlisted caller', () => {

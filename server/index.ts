@@ -108,8 +108,11 @@ app.use((req, res, next) => {
 
 app.use(errorHandler);
 
-const server = app.listen(env.PORT, () => {
-  log.info('server started', { port: env.PORT, url: `http://localhost:${env.PORT}` });
+const bindOptions = env.BIND_HOST === undefined ? {} : { host: env.BIND_HOST };
+const server = app.listen({ port: env.PORT, ...bindOptions }, () => {
+  const host = env.BIND_HOST ?? 'localhost';
+  const urlHost = host.includes(':') ? `[${host}]` : host;
+  log.info('server started', { port: env.PORT, ...bindOptions, url: `http://${urlHost}:${env.PORT}` });
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

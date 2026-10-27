@@ -58,6 +58,12 @@ backup-retention policy. Do not delete or rewrite historical food/goal data.
 - Restrict direct-origin access to the intended proxy/tunnel path. Inspect
   firewall rules, listening interfaces and administrative access separately.
   Do not treat Cloudflare edge IPs as discovered origin addresses.
+- When nginx runs on the same host, set `BIND_HOST=127.0.0.1` and use a matching
+  `proxy_pass http://127.0.0.1:<PORT>` upstream. The optional setting accepts an
+  IPv4 or IPv6 address; unset or blank preserves Node's default listening
+  interfaces. Restart the application after changing it, then verify its socket
+  is loopback-only and nginx can still reach it. This isolates the application
+  port; nginx's public origin access still needs its own restrictions.
 - Verify every trusted hop overwrites or appends forwarding information as
   intended. Set `TRUST_PROXY` to actual trusted addresses/subnets, not arbitrary
   clients. Verify canonical visitor IPv4/IPv6 identities reach Express. Do not

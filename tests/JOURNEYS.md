@@ -520,6 +520,8 @@ this catalog check with all three TypeScript checks.
 - J-542 · Logout revokes only the presented bearer after migration regardless of body-selected tokens
 - J-543 · Hashing preserves active session metadata and accounts while retaining expired-session cleanup
 - J-544 · A partially failing session-hash migration rolls back schema data and its marker before recovery
+- J-545 · Bind addresses accept IP literals and reject invalid values before database creation
+- J-546 · Configured loopback binding is used while unset and blank retain Node defaults
 
 - J-531 · Production CSP hashes the served bootstrap and preserves every palette before app execution
 - J-532 · CSP mode defaults enforce outside development and production cannot disable protection

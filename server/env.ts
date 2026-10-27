@@ -2,7 +2,15 @@
 // other server module reads `process.env`. Imported first in index.ts.
 // Missing/empty keys → log + exit(1), so the server refuses to boot silently.
 
+import { isIP } from 'node:net';
 import type { LogLevel } from './types.js';
+
+// Omit the host when unset so Node retains its default listening interfaces.
+const BIND_HOST = process.env.BIND_HOST?.trim() || undefined;
+if (BIND_HOST !== undefined && isIP(BIND_HOST) === 0) {
+  console.error('[kcal] BIND_HOST must be an IPv4 or IPv6 address, or blank');
+  process.exit(1);
+}
 
 const APP_ENVIRONMENTS = ['production', 'development', 'test'] as const;
 type AppEnvironment = typeof APP_ENVIRONMENTS[number];
@@ -112,6 +120,7 @@ export const env = {
   APP_ENV,
   CSP_MODE,
   PORT: toPositiveInt('PORT'),
+  BIND_HOST,
   DATABASE_PATH: process.env.DATABASE_PATH!,
   POSTMARK_SERVER_TOKEN: process.env.POSTMARK_SERVER_TOKEN!,
   POSTMARK_FROM: process.env.POSTMARK_FROM!,
