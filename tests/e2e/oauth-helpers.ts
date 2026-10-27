@@ -1,3 +1,4 @@
+import { E2E_ORIGIN } from './test-config';
 import { expect, type Page } from '@playwright/test';
 import { auth, type OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -6,7 +7,7 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { OAuthClientInformationMixed, OAuthClientMetadata, OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { randomBytes } from 'node:crypto';
 
-export const ORIGIN = 'http://localhost:3001';
+export const ORIGIN = E2E_ORIGIN;
 export const RESOURCE = `${ORIGIN}/mcp`;
 export const CALLBACK = `${ORIGIN}/oauth-callback`;
 

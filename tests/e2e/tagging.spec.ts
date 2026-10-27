@@ -1,3 +1,4 @@
+import { E2E_USER2_STATE, E2E_USER_STATE } from './test-config';
 import { expect, test } from '@playwright/test';
 import { tokenFrom } from './auth-helpers';
 import { seedProductAndLog } from './helpers';
@@ -81,7 +82,7 @@ test('[J-149] PATCH /entries/:id rejects non-boolean tagged with 400 invalid_ent
   // this test pins the tagged half so a `typeof !== 'boolean'` removal lands
   // on a red test. Three flavors: stringly-true (the most common UI bug
   // shape), a number, and null — none of which should slip through.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const cases: Array<unknown> = ['true', 1, null];
   for (const tagged of cases) {
     const res = await request.patch('/entries/1', {
@@ -98,11 +99,11 @@ test.describe('cross-user tagging contract', () => {
   // via direct API as user A. statements.entries.updateTagged is user-scoped
   // (entries.ts takes req.userId!) — a mutation that drops the userId
   // would let user B silently flip user A's tagged flag.
-  test.use({ storageState: 'tests/e2e/.auth/user2.json' });
+  test.use({ storageState: E2E_USER2_STATE });
 
   test('[J-150] PATCH /entries/:id from another user returns 404 not_found', async ({ request }) => {
-    const tokenA = tokenFrom('tests/e2e/.auth/user.json');
-    const tokenB = tokenFrom('tests/e2e/.auth/user2.json');
+    const tokenA = tokenFrom(E2E_USER_STATE);
+    const tokenB = tokenFrom(E2E_USER2_STATE);
 
     // Seed a product + entry as user A. Use a per-test name so the row is
     // unambiguous and avoids depending on globalSetup ordering.

@@ -1,3 +1,4 @@
+import { E2E_DATABASE_PATH } from './test-config';
 import { expect } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { productFields } from '../../server/mcp/schemas';
@@ -41,7 +42,7 @@ const PRODUCT_BASELINES = [
 ] as const;
 
 function withFixtureDb<T>(work: (db: Database.Database) => T): T {
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try { return work(db); } finally { db.close(); }
 }
 

@@ -1,3 +1,4 @@
+import { E2E_AUTH_DIRECTORY, E2E_USER_STATE } from './test-config';
 import { test as setup, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { startSignIn, submitSignInCode } from './auth-helpers';
@@ -7,10 +8,10 @@ import { startSignIn, submitSignInCode } from './auth-helpers';
 // reuses the state, so individual specs start already signed in.
 
 const email = 'e2e@test.local';
-const authFile = 'tests/e2e/.auth/user.json';
+const authFile = E2E_USER_STATE;
 
 setup('[J-001] sign in once', async ({ page, request }) => {
-  mkdirSync('tests/e2e/.auth', { recursive: true });
+  mkdirSync(E2E_AUTH_DIRECTORY, { recursive: true });
 
   await startSignIn(page, email, 'click');
   await expect(page.getByText(/CODE SENT/)).toBeVisible();

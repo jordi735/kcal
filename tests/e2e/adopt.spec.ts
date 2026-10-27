@@ -1,3 +1,4 @@
+import { E2E_USER2_STATE, E2E_USER_STATE } from './test-config';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { tokenFrom } from './auth-helpers';
 
@@ -27,7 +28,7 @@ import { tokenFrom } from './auth-helpers';
 //   browser context needed.
 // - User B is the DRIVER. Their storageState is user2.json (written by
 //   auth.setup2.ts); the spec runs in that logged-in context.
-test.use({ storageState: 'tests/e2e/.auth/user2.json' });
+test.use({ storageState: E2E_USER2_STATE });
 
 type SeedInput = {
   name: string;
@@ -39,7 +40,7 @@ async function seedAsUserA(
   request: APIRequestContext,
   product: SeedInput,
 ): Promise<{ id: number }> {
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const res = await request.post('/products', {
     headers: { Authorization: `Bearer ${token}` },
     // isProductBaseBody (products.ts) requires `brand` to be null
@@ -261,7 +262,7 @@ test('[J-051] self-adopt fast path returns the same row, no duplicate insert', a
   // Drive the spec as the same user who owns the source — needed to exercise
   // the self-adopt branch. user.json holds user A's session token.
   await page.goto('/');
-  const tokenA = tokenFrom('tests/e2e/.auth/user.json');
+  const tokenA = tokenFrom(E2E_USER_STATE);
 
   const res = await request.post(`/products/adopt/${sourceA.id}`, {
     headers: { Authorization: `Bearer ${tokenA}` },

@@ -36,9 +36,9 @@ fi
 
 mkdir -p "$STATE_DIR"
 
-PROMPT='You are auditing AND extending the Playwright e2e suite for the kcal project, ONE spec file per invocation. You are the autonomous owner of `tests/JOURNEYS.md` and the entire `tests/e2e/` directory (excluding the four infrastructure files listed below) — you write, edit, curate, AND CREATE NEW SPEC FILES whenever the source code reveals a journey with no e2e coverage. The hand-maintained `tests/STORIES.md` has been retired; if it still exists in the working tree, delete it during INIT.
+PROMPT='You are auditing AND extending the Playwright e2e suite for the kcal project, ONE spec file per invocation. You are the autonomous owner of `tests/JOURNEYS.md` and scenario specs/typed fixtures in `tests/e2e/` (shared infrastructure remains separately reviewed) — you write, edit, curate, AND CREATE NEW SPEC FILES whenever the source code reveals a journey with no e2e coverage. The hand-maintained `tests/STORIES.md` has been retired; if it still exists in the working tree, delete it during INIT.
 
-**Tone — be harsh.** Favor more tests over fewer. When you find an uncovered branch, error path, gesture threshold, validation cap, or edge case, ADD A TEST FOR IT — do not log it under MISSING and walk away. MISSING is the last resort for gaps you genuinely cannot close in this pass (needs camera, needs clock hatch, needs infrastructure not yet wired). Every other gap gets a test.
+**Review for concrete behavioral coverage.** Add tests for reachable user behavior and failure contracts that lack meaningful assertions. Preserve strong existing coverage; do not add tests merely to mirror implementation branches. Use MISSING for gaps needing unavailable infrastructure or a separate infrastructure pass.
 
 You operate as a state machine using files in /tmp/kcal-e2e-review/.
 
@@ -129,7 +129,7 @@ For each spec file (whether created or reviewed), check:
 
 1. **Every test has a `[J-###]` prefix.** No exceptions. The ID must exist as a unique entry in `tests/JOURNEYS.md` with a one-line description that matches the test behavior. The accessible name format is `[J-###] <plain-language summary>` — both halves must be present.
 
-2. **`tap()`, not `click()`, for buttons inside `Sheet` modals** (`AddPicker`, `NewProductForm`, `AmountPicker`, `Settings`). Per the Testing Guidelines in AGENTS.md, `click()` silently drops events on the Pixel 7 mobile profile. `Login` is the only Sheet-free flow where `click()` is acceptable. `page.fill()` works fine in either context.
+2. **Use the interaction appropriate to the journey.** Use `tap()` for touch-oriented Sheet flows. Preserve deliberate mouse and keyboard tests, including desktop Sheet interaction; do not mechanically rewrite them. `page.fill()` works in either context.
 
 3. **No `waitForTimeout` or arbitrary sleeps.** Every wait must anchor on a locator state, a heading visibility, a `toHaveCount`, or a `page.waitForResponse`. Time-based waits are the #1 source of flake. The drag/swipe helpers in `Sheet`/`WeekStrip` synthesize pointer events via `page.mouse` — those are an acceptable exception because they have no asynchronous boundary to wait on.
 
@@ -147,13 +147,13 @@ For each spec file (whether created or reviewed), check:
 
 10. **Negative-path assertions are mandatory for negative journeys.** Every journey with a "rejects/clamps/locks/blocks/ignores" verb (J-004 attempt-cap lockout, J-011 kcal cap rejection, J-020 clamp-at-zero, J-039 input drag ignored, J-045 no submit on Enter) MUST also assert that the side effect did NOT happen — the form stays open, the row count is unchanged, the sheet is still mounted, the input value did not advance, the URL did not change.
 
-11. **No external-service mocks.** kcal e2e runs against the real prod build with `TEST_MODE=true` (per `playwright.config.ts:33-51`). The only sanctioned test hatch is `GET /auth/test/last-code/:email`. If a spec stubs Postmark or the database, that is a regression — call it out.
+11. **Preserve meaningful integration boundaries.** kcal e2e runs against the real prod build with `TEST_MODE=true` (per `playwright.config.ts:33-51`). The login-code hatch is `GET /auth/test/last-code/:email`. Controlled transport, database, and deferred-response fixtures are intentional when they exercise a real contract or failure path. Preserve real SDK integration and prevent accidental external requests. Isolated server programs belong in typed `tests/e2e/fixtures/` modules using `server-fixture.ts` for bounded execution and environment setup; preserve asynchronous server fixture lifetimes.
 
 12. **Per-spec isolation when needed.** Specs that need a fresh user (sign-out, empty state, first-time onboarding) MUST override `storageState` with `test.use({ storageState: { cookies: [], origins: [] } })` and sign in a per-test unique email like `*-${Date.now()}@test.local`.
 
-13. **Coverage of AGENTS.md invariants.** Every IMPORTANT / MUST / Do-NOT in the Testing Guidelines and applicable backend invariants is an implicit test contract. Examples that MUST appear somewhere in the suite: `tap()` vs `click()` discipline (covered structurally — every Sheet-internal interaction is tap); Sheet drag thresholds 80/6 (J-037/J-038/J-039); WeekStrip swipe thresholds 50/8 (J-040/J-041/J-042); barcode adopt idempotency (J-035); cross-user catalog privacy "barcode = shared, no barcode = private" (J-036); long-press via `onContextMenu` (J-023); kcal computed-from-amount retroactive update (J-013); macro auto-recompute on `+`/`-` (J-019/J-020); kcal-vs-macros mismatch warning over 50 (J-021). If an AGENTS.md invariant has no journey, ADD a test for it (or log MISSING with a quote of the invariant if camera/clock/infrastructure-blocked).
+13. **Coverage of AGENTS.md invariants.** Every IMPORTANT / MUST / Do-NOT in the Testing Guidelines and applicable backend invariants is an implicit test contract. Examples that MUST appear somewhere in the suite: `tap()` vs `click()` discipline for touch-oriented flows; Sheet gesture behavior (J-037/J-038/J-039); WeekStrip swipe thresholds 50/8 (J-040/J-041/J-042); barcode adopt idempotency (J-035); cross-user catalog privacy "barcode = shared, no barcode = private" (J-036); long-press via `onContextMenu` (J-023); kcal computed-from-amount retroactive update (J-013); independent goal-field increments and clamps (J-019/J-020); kcal-vs-macros mismatch warning over 50 (J-021). If an AGENTS.md invariant has no journey, ADD a test for it (or log MISSING with a quote of the invariant if camera/clock/infrastructure-blocked).
 
-14. **Setup-file integrity (read-only check).** While handling a regular spec, if you notice `auth.setup.ts` / `auth.setup2.ts` / `global-setup.ts` / `helpers.ts` are referenced incorrectly, or a helper signature has drifted, log under MISSING. Do NOT modify those files from a regular pass.
+14. **Setup-file integrity (read-only check).** While handling a regular spec, if you notice authentication setup, reset logic, shared helpers, `test-config.ts`, or `server-fixture.ts` are referenced incorrectly, or a helper signature has drifted, log under MISSING. Do NOT modify those files from a regular pass.
 
 15. **Falsifiable on add.** Every test you add must assert something that would FAIL if the underlying logic had a bug. Before committing a new assertion, ask: "what mistake in `App.tsx` / `useEntries.ts` / the matching server route would make this test go red?" If you cannot answer concretely, do not add the test.
 
@@ -161,13 +161,14 @@ For each spec file (whether created or reviewed), check:
 
 ## Important rules
 
-- Modify only: spec files (`*.spec.ts`, INCLUDING creating new ones in `tests/e2e/`) and `tests/JOURNEYS.md`. NEVER modify source under `src/`, `server/`, `shared/`, or `public/`.
-- NEVER modify `tests/e2e/helpers.ts`, `tests/e2e/auth.setup.ts`, `tests/e2e/auth.setup2.ts`, or `tests/e2e/global-setup.ts` from a regular pass — those are infrastructure. Log issues under MISSING instead.
+- Modify only: spec files (`*.spec.ts`, INCLUDING creating new ones in `tests/e2e/`), typed scenario modules in `tests/e2e/fixtures/`, and `tests/JOURNEYS.md`. NEVER modify source under `src/`, `server/`, `shared/`, or `public/`.
+- Do not modify shared helpers, setup, configuration, or subprocess infrastructure from a regular scenario pass. Log those issues under MISSING for a dedicated infrastructure pass. Scenario-specific typed fixtures may be edited with their owning spec.
 - When creating a new spec, follow the existing style closely (imports, helper invocations, `tap()` / `fill()` patterns, locator scoping, comment density). Read `entry.spec.ts` and one feature-adjacent spec before writing.
+- Run `npm run check:journeys` after changing tests or their catalogue. It checks discovered executable titles, not comments or fixture references.
 - Run only the spec under work with `npx playwright test <spec-file>` after changes — not the full suite. The runner builds the frontend and starts a fresh Express process on `:3001`; it never reuses an existing server. Run invocations serially because startup resets the same test database before Express opens it.
 - A passing test is the default outcome, but a failing test that correctly encodes a journey is also a valid result — see step 8 in the REVIEW phase. Never weaken an assertion to match buggy behavior; classify as `BUG_FOUND` and keep it.
 - Be brutal: "passing" and "adequate" are not the bar. If tests pass but would survive obvious mutations, skip negative-path assertions, leave a journey untracked, or have an aria-label substring collision, the spec is NOT ready for PASS — strengthen it.
-- **Bias toward writing the test, not logging MISSING.** When you observe an uncovered gesture threshold, validation cap, error response, or edge case in the source, your default action is to ADD a test. MISSING is reserved for gaps you cannot close in this pass (camera, clock hatch, missing infrastructure). Every other gap gets a test.
+- **Add tests for meaningful gaps.** Add coverage when a reachable behavior or failure contract lacks an assertion. Do not manufacture scenarios for every implementation branch or mirror the implementation. MISSING is reserved for gaps requiring unavailable infrastructure or a separately owned infrastructure change.
 - If a test is genuinely useless (vanity, change-detector, assertion-free, duplicate of another spec), remove it AND remove its catalog entry. Note both in the log.
 - Keep printed output concise — `log.txt` is the detailed record.'
 

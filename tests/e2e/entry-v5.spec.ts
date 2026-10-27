@@ -1,3 +1,4 @@
+import { E2E_DATABASE_PATH, E2E_ORIGIN } from './test-config';
 import { expect, type APIRequestContext } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -14,7 +15,7 @@ const NUTRITION = { kcal: 100, protein: 10, carbs: 20, fat: 5 };
 const MIGRATION = '009_amount_and_mcp_v5_notice.sql';
 
 function withTestDb<T>(work: (db: Database.Database) => T): T {
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try { return work(db); } finally { db.close(); }
 }
 
@@ -270,7 +271,7 @@ test('[J-486] v5 reminder migration flags only live connections and does not fla
       db.prepare('INSERT INTO users (id,email,created_at,mcp_notice_version) VALUES (?,?,?,?)')
         .run(id, `notice${id}@test.local`, now, value.before);
       db.prepare('INSERT INTO oauth_grants (id,user_id,client_id,resource,expires_at,revoked) VALUES (?,?,?,?,?,?)')
-        .run(`g${id}`, id, 'client', 'http://localhost:3001/mcp', now + value.grant, value.revoked);
+        .run(`g${id}`, id, 'client', `${E2E_ORIGIN}/mcp`, now + value.grant, value.revoked);
       db.prepare('INSERT INTO oauth_tokens (hash,grant_id,kind,expires_at,used) VALUES (?,?,?,?,?)')
         .run(`t${id}`, `g${id}`, value.kind, now + value.token, value.used);
     }
@@ -279,7 +280,7 @@ test('[J-486] v5 reminder migration flags only live connections and does not fla
       .toEqual(cases.map((value) => ({ mcp_notice_version: value.expected })));
     const id = Number(db.prepare('INSERT INTO users (email,created_at) VALUES (?,?)').run('later@test.local', now).lastInsertRowid);
     db.prepare('INSERT INTO oauth_grants (id,user_id,client_id,resource,expires_at) VALUES (?,?,?,?,?)')
-      .run('later', id, 'client', 'http://localhost:3001/mcp', now + 1000);
+      .run('later', id, 'client', `${E2E_ORIGIN}/mcp`, now + 1000);
     db.prepare('INSERT INTO oauth_tokens (hash,grant_id,kind,expires_at) VALUES (?,?,?,?)')
       .run('later-token', 'later', 'access', now + 1000);
     expect(db.prepare('SELECT mcp_notice_version FROM users WHERE id = ?').get(id)).toEqual({ mcp_notice_version: null });

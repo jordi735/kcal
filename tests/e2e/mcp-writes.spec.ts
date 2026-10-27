@@ -1,3 +1,4 @@
+import { E2E_DATABASE_PATH } from './test-config';
 import { expect } from '@playwright/test';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import Database from 'better-sqlite3';
@@ -291,7 +292,7 @@ test('[J-209] MCP write validation rejects malformed and unsupported inputs with
 
   // Simulate legacy nutrition whose macros overflow for an otherwise valid edit.
   // Output validation must roll back the changed amount before it is committed.
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try {
     db.prepare('UPDATE products SET kcal_per100 = ? WHERE created_by = ? AND id = ?')
       .run(1e308, account.user.id, product.id);
@@ -346,7 +347,7 @@ test('[J-210] MCP product deletion cleans owned history and groups while preserv
     const third = await call<McpDayResult>(mcp, 'get_day', { date: thirdDate });
     expect(third.entries).toEqual([]);
     expect(third.totals).toEqual(ZERO);
-    const db = new Database('/tmp/kcal-e2e.db', { readonly: true });
+    const db = new Database(E2E_DATABASE_PATH, { readonly: true });
     try {
       expect(db.prepare('SELECT id FROM entry_groups WHERE user_id = ? ORDER BY id').all(account.user.id))
         .toEqual([{ id: groups[0]!.id }]);
@@ -414,7 +415,7 @@ test('[J-223] MCP and REST enforce the UI amount minimum while REST preserves le
 
   // Simulate an entry saved before the minimum existed. New validation must
   // apply only when an amount is supplied, never to REST tag-only edits or reads.
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try {
     expect(db.prepare('UPDATE entries SET amount = ? WHERE user_id = ? AND id = ?')
       .run(0.5, account.user.id, first.id).changes).toBe(1);

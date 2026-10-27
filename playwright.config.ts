@@ -1,3 +1,4 @@
+import { E2E_DATABASE_PATH, E2E_ORIGIN, E2E_PORT, E2E_USER_STATE } from './tests/e2e/test-config';
 import { defineConfig, devices } from '@playwright/test';
 
 // Prod topology: one Express process on :3001 serves both dist/ and the API.
@@ -10,7 +11,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL: E2E_ORIGIN,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -24,7 +25,7 @@ export default defineConfig({
       testIgnore: /auth\.setup2?\.ts/,
       use: {
         ...devices['Pixel 7'],
-        storageState: 'tests/e2e/.auth/user.json',
+        storageState: E2E_USER_STATE,
       },
       dependencies: ['setup', 'setup-user2'],
     },
@@ -33,21 +34,21 @@ export default defineConfig({
     // Playwright launches webServer before globalSetup hooks. Reset before
     // Express opens SQLite, otherwise cleanup unlinks its live DB and WAL.
     command: 'npm run build && npx tsx tests/e2e/global-setup.ts && npx tsx server/index.ts',
-    url: 'http://localhost:3001',
+    url: E2E_ORIGIN,
     reuseExistingServer: false,
     timeout: 120_000,
     stdout: 'ignore',
     stderr: 'pipe',
     env: {
-      PORT: '3001',
-      DATABASE_PATH: '/tmp/kcal-e2e.db',
+      PORT: E2E_PORT,
+      DATABASE_PATH: E2E_DATABASE_PATH,
       TEST_MODE: 'true',
       POSTMARK_SERVER_TOKEN: 'unused',
       POSTMARK_FROM: 'test@test.local',
       SESSION_EXPIRY_DAYS: '7',
       LOGIN_CODE_EXPIRY_MINUTES: '10',
       LOG_LEVEL: 'warn',
-      PUBLIC_ORIGIN: 'http://localhost:3001',
+      PUBLIC_ORIGIN: E2E_ORIGIN,
     },
   },
 });

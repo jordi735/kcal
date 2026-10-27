@@ -1,8 +1,10 @@
+import { E2E_DATABASE_PATH, E2E_ORIGIN } from './test-config';
 import { expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import type {
@@ -11,6 +13,7 @@ import type {
 } from '../../shared/types';
 import { connectMcp } from './oauth-helpers';
 import { call, createMcpTest, freshUser, MCP_HEADERS, mcpEntry, rest as write } from './mcp-helpers';
+import { serverFixtureEnvironment } from './server-fixture';
 
 const ZERO = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
 
@@ -303,7 +306,7 @@ test('[J-200] MCP summaries distinguish missing days from zero-calorie logged da
     await write(request, token, 'post', '/entries', { product_id: product.id, amount, local_date, local_time: '12:30' });
   }
   // Legacy impossible dates remain readable but never count as calendar days.
-  const legacyDb = new Database('/tmp/kcal-e2e.db');
+  const legacyDb = new Database(E2E_DATABASE_PATH);
   try {
     legacyDb.prepare('INSERT INTO entries (user_id, product_id, amount, local_date, local_time, created_at) VALUES (?, ?, ?, ?, ?, 0)')
       .run(user.id, product.id, 999, '2024-02-30', '12:30');
@@ -446,7 +449,7 @@ test('[J-191] MCP rejects invalid inputs without changing any stored records', a
   const args = { date: '2024-02-29' };
   // Snapshot all test DB tables, including sessions. MCP must not slide app
   // sessions or otherwise write, even when processing rejected tool calls.
-  const db = new Database('/tmp/kcal-e2e.db', { readonly: true });
+  const db = new Database(E2E_DATABASE_PATH, { readonly: true });
   const snapshot = () => ['users', 'sessions', 'products', 'entries', 'entry_groups', 'weights', 'goal_history', 'mcp_creation_receipts', 'oauth_clients', 'oauth_requests', 'oauth_grants', 'oauth_tokens']
     .map((table) => db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
   try {
@@ -535,7 +538,7 @@ test('[J-192] MCP protects discovery and calls from invalid tokens and browser o
       expect(response.headers()['www-authenticate']).toContain('resource_metadata=');
     }
   }
-  for (const origin of ['https://untrusted.example', 'http://localhost:3001', 'null']) {
+  for (const origin of ['https://untrusted.example', E2E_ORIGIN, 'null']) {
     const response = await request.post('/mcp', { headers: { ...mcpHeaders, Origin: origin }, data: {} });
     expect(response.status()).toBe(403);
   }
@@ -558,22 +561,12 @@ test('[J-193] MCP stays disabled without a public origin and rejects unsafe orig
     for (const origin of [undefined, '', 'http://public.example', 'https://public.example/path']) {
       // Listen on an OS-assigned port in an isolated child. This imports the
       // real router and env gate without touching the suite server or .env.
-      const childEnv: NodeJS.ProcessEnv = {
-        ...process.env, PORT: '3000', DATABASE_PATH: path.join(directory, 'app.db'),
-        TEST_MODE: 'true', POSTMARK_SERVER_TOKEN: 'unused', POSTMARK_FROM: 'test@test.local',
-        SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '10', LOG_LEVEL: 'warn',
-      };
+      const childEnv = serverFixtureEnvironment(path.join(directory, 'app.db'), { LOG_LEVEL: 'warn' });
       delete childEnv.PUBLIC_ORIGIN;
       if (origin !== undefined) childEnv.PUBLIC_ORIGIN = origin;
-      const child = spawn(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
-        import './server/env.ts';
-        import express from 'express';
-        import { mcpRouter } from './server/routes/mcp.ts';
-        const app = express();
-        app.use(express.json());
-        app.use('/mcp', mcpRouter);
-        const server = app.listen(0, '127.0.0.1', () => process.stdout.write(String(server.address().port) + '\\n'));
-      `], { cwd: process.cwd(), env: childEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = spawn(process.execPath,
+        ['--import', 'tsx', fileURLToPath(new URL('./fixtures/mcp-env-server.ts', import.meta.url))],
+        { cwd: process.cwd(), env: childEnv, stdio: ['ignore', 'pipe', 'pipe'] });
       let stdout = '';
       let stderr = '';
       child.stdout.on('data', (data) => { stdout += data.toString(); });

@@ -1,3 +1,4 @@
+import { E2E_USER2_STATE, E2E_USER_STATE } from './test-config';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { tokenFrom } from './auth-helpers';
 import { fillNutField } from './helpers';
@@ -32,7 +33,7 @@ async function seedBarcodedAsUserA(
   name: string,
   barcode: string,
 ): Promise<{ id: number }> {
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const res = await request.post('/products', {
     headers: { Authorization: `Bearer ${token}` },
     // isProductBaseBody requires brand and is_temp explicitly.
@@ -228,7 +229,7 @@ test('[J-117] no dismissal: server 500 DOES surface the error toast (positive co
 // ===== onPick path (cross-user adopt; user B drives, user A seeds) =====
 
 test.describe('cross-user adopt race', () => {
-  test.use({ storageState: 'tests/e2e/.auth/user2.json' });
+  test.use({ storageState: E2E_USER2_STATE });
 
   test('[J-115] dismiss mid-adopt: post-resolution setModal is suppressed', async ({
     page,

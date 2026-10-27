@@ -1,3 +1,4 @@
+import { E2E_USER2_STATE, E2E_USER_STATE } from './test-config';
 import { expect, test } from '@playwright/test';
 import { tokenFrom } from './auth-helpers';
 import { seedProductAndLog } from './helpers';
@@ -104,7 +105,7 @@ test('[J-120] My Library scope hides barcoded cross-user rows; Global surfaces t
   // `created_by = ? OR barcode IS NOT NULL`. The scope toggle is the only path
   // between them. Seed a barcoded row OWNED BY USER B and verify both sides
   // of the gate as user A.
-  const tokenB = tokenFrom('tests/e2e/.auth/user2.json');
+  const tokenB = tokenFrom(E2E_USER2_STATE);
   const barcode = `593${Date.now()}`;
   const name = `E2E SearchCross ${Date.now()}`;
   const seed = await request.post('/products', {
@@ -194,7 +195,7 @@ test('[J-122] Idle list dedup: a logged product appears under Recent only, never
     '100',
   );
 
-  const tokenA = tokenFrom('tests/e2e/.auth/user.json');
+  const tokenA = tokenFrom(E2E_USER_STATE);
   const seed = await request.post('/products', {
     headers: { Authorization: `Bearer ${tokenA}` },
     data: {
@@ -235,7 +236,7 @@ test('[J-123] Search matches against brand, not just name', async ({ page, reque
   // dropping the brand branch would render zero results when searching by
   // brand alone. API seed since the journey is server-side LIKE behavior,
   // not the NewProductForm Brand input.
-  const tokenA = tokenFrom('tests/e2e/.auth/user.json');
+  const tokenA = tokenFrom(E2E_USER_STATE);
   const brandUnique = `Zebra${Date.now()}`;
   const productName = `E2E BrandSearch ${Date.now()}`;
   const seed = await request.post('/products', {
@@ -281,7 +282,7 @@ test('[J-124] addedProductIds check icon also renders in search-results rows (pa
     '100',
   );
 
-  const tokenA = tokenFrom('tests/e2e/.auth/user.json');
+  const tokenA = tokenFrom(E2E_USER_STATE);
   const seed = await request.post('/products', {
     headers: { Authorization: `Bearer ${tokenA}` },
     data: {
@@ -322,7 +323,7 @@ test('[J-125] GET /products/search short-circuits empty / whitespace q to []', a
   // feed pattern='%%' into LIKE and surface every product the user has —
   // both a perf concern (full-table scan) and, on the global branch, a
   // privacy-adjacent issue (pulls the entire cross-user catalog).
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const cases = [
     '/products/search',
     '/products/search?q=',
@@ -351,8 +352,8 @@ test('[J-126] GET /products/search global flag is strict-equality "1" (not truth
   // client's ability to opt out via `?global=0`. Seed a barcoded row as user B
   // and verify each value either hides (default scope) or surfaces (global=1)
   // user B's row from user A's perspective.
-  const tokenA = tokenFrom('tests/e2e/.auth/user.json');
-  const tokenB = tokenFrom('tests/e2e/.auth/user2.json');
+  const tokenA = tokenFrom(E2E_USER_STATE);
+  const tokenB = tokenFrom(E2E_USER2_STATE);
   const barcode = `594${Date.now()}`;
   // Name must round-trip unchanged through normalizeProductName (sentence
   // case): single-token, lowercase except first char. Otherwise the strict
@@ -410,8 +411,8 @@ test("[J-127] Blended search results sort the caller's own row before another us
   // (`A ...` < `Z ...`); only the is_mine DESC clause can flip the order so
   // user A's `Z ...` comes first. Mutation: dropping is_mine DESC → results
   // alphabetize and the index assertion below fails.
-  const tokenA = tokenFrom('tests/e2e/.auth/user.json');
-  const tokenB = tokenFrom('tests/e2e/.auth/user2.json');
+  const tokenA = tokenFrom(E2E_USER_STATE);
+  const tokenB = tokenFrom(E2E_USER2_STATE);
   // Names must round-trip unchanged through normalizeProductName (sentence
   // case). Single-token names with only the first char uppercase satisfy
   // that. Pick first chars so alphabetical ASC alone would put nameB first

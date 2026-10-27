@@ -1,3 +1,4 @@
+import { E2E_DATABASE_PATH } from './test-config';
 import { expect, type APIRequestContext } from '@playwright/test';
 import Database from 'better-sqlite3';
 import type { EntryWithMacros, McpProductSearchResult, McpProductWriteResult, Product } from '../../shared/types';
@@ -74,7 +75,7 @@ test('[J-362] recent product pages use log creation time with stable ties and ex
       product_id: product.id, amount: 100, local_date: date, local_time: '12:00',
     }));
   }
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try {
     const setCreated = db.prepare('UPDATE entries SET created_at = ? WHERE user_id = ? AND id = ?');
     entries.forEach((entry, index) => setCreated.run([10, 20, 20, 30][index], account.user.id, entry.id));
@@ -101,7 +102,7 @@ test('[J-363] barcode lookup prefers the newest owned saved copy and returns saf
     expect((await call<McpProductSearchResult>(mcp, 'search_products')).products).toEqual([]);
     const ownFirst = await saveProduct(request, account.token, 'Owned older food', { barcode });
     const ownLast = await saveProduct(request, account.token, 'Owned newer food', { barcode });
-    const db = new Database('/tmp/kcal-e2e.db');
+    const db = new Database(E2E_DATABASE_PATH);
     try {
       db.prepare('UPDATE products SET created_at = 100 WHERE created_by = ? AND barcode = ?').run(account.user.id, barcode);
     } finally { db.close(); }
@@ -172,7 +173,7 @@ test('[J-366] product normalization is stable for Unicode expansions and enforce
 
 writeTest('[J-367] partial MCP product updates preserve omitted legacy metadata and reject expanded oversized text', async ({ request, mcp, account }) => {
   const product = await saveProduct(request, account.token, 'Initial food');
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try {
     db.prepare('UPDATE products SET name = ?, brand = ?, barcode = ? WHERE created_by = ? AND id = ?')
       .run('RAW  legacy NAME', 'OLD  BRAND', '  old barcode  ', account.user.id, product.id);

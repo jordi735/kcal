@@ -1,3 +1,4 @@
+import { E2E_USER_STATE } from './test-config';
 import { expect, test } from '@playwright/test';
 import { tokenFrom } from './auth-helpers';
 import { fillNutField, seedProductAndLog } from './helpers';
@@ -192,7 +193,7 @@ test('[J-068] PUT /products/:id with unknown id returns 404 not_found', async ({
   // server/writes.ts updateProduct reads the product within the caller's
   // scope before updating. A missing or foreign id raises WriteError, mapped
   // to 404 by the shared REST middleware. The id is above the seeded range.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const res = await request.put('/products/9999999', {
     headers: { Authorization: `Bearer ${token}` },
     data: {
@@ -211,7 +212,7 @@ test('[J-069] PUT /products/:id with malformed id returns 400 invalid_id', async
   // products.ts → parsePositiveInt returns null for zero, negatives,
   // and non-numerics; all three funnel through the same guard. Cover the
   // three flavors in one test to lock the contract.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const validBody = {
     name: 'whatever',
     brand: null,
@@ -232,7 +233,7 @@ test('[J-069] PUT /products/:id with malformed id returns 400 invalid_id', async
 test('[J-070] PATCH /entries/:id with unknown id returns 404 not_found', async ({ request }) => {
   // server/writes.ts updateEntry checks owned membership before either an
   // amount or tagged update. Missing or foreign ids raise the same 404.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const res = await request.patch('/entries/9999999', {
     headers: { Authorization: `Bearer ${token}` },
     data: { amount: 200 },
@@ -243,7 +244,7 @@ test('[J-070] PATCH /entries/:id with unknown id returns 404 not_found', async (
 
 test('[J-071] PATCH /entries/:id with malformed id returns 400 invalid_id', async ({ request }) => {
   // entries.ts → parsePositiveInt rejects 0, negatives, non-numerics.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   for (const bad of ['0', '-1', 'abc']) {
     const res = await request.patch(`/entries/${bad}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -258,7 +259,7 @@ test('[J-072] PATCH /entries/:id with empty body returns 400 invalid_entry', asy
   // entries.ts — isUpdateEntryBody requires at least one of `amount`
   // or `tagged`. Empty {} is rejected so a stray no-op PATCH can't masquerade
   // as a successful update.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const res = await request.patch('/entries/1', {
     headers: { Authorization: `Bearer ${token}` },
     data: {},
@@ -272,7 +273,7 @@ test('[J-073] PATCH /entries/:id rejects non-positive amount with 400 invalid_en
   // bad values exercise three cases: zero, a negative, and a string rejected
   // by the type guard without coercion. All must
   // funnel to 400 `invalid_entry` BEFORE the router touches any statement.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const cases: Array<unknown> = [0, -10, 'abc'];
   for (const amount of cases) {
     const res = await request.patch('/entries/1', {

@@ -1,3 +1,4 @@
+import { E2E_USER_STATE } from './test-config';
 import { expect, test, type Page } from '@playwright/test';
 import { tokenFrom } from './auth-helpers';
 
@@ -300,7 +301,7 @@ test.describe('advanced', () => {
     // an integer in [0, MAX]. MAX_KCAL=20000, MAX_MACRO_GRAMS=2000. A bad body
     // returns 400 `{ error: 'invalid_goals' }`. The matrix below exercises
     // every branch of isGoalInt / isGoalsBody at least once.
-    const token = tokenFrom('tests/e2e/.auth/user.json');
+    const token = tokenFrom(E2E_USER_STATE);
     const headers = { Authorization: `Bearer ${token}` };
 
     const cases: Array<[string, unknown]> = [

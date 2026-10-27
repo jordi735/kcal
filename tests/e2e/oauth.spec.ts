@@ -1,12 +1,12 @@
+import { E2E_DATABASE_PATH } from './test-config';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { createHash } from 'node:crypto';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { signInFresh } from './helpers';
+import { runServerFixture } from './server-fixture';
 import { beginOAuth, approveOAuth, consentCode, connectMcp, BrowserOAuth, clientForm, ORIGIN, RESOURCE, CALLBACK } from './oauth-helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -117,7 +117,7 @@ test('[J-195] OAuth consent binds the browser, supports denial and preserves log
   await beginOAuth(page);
   await expect(page.getByRole('button', { name: 'Allow access', exact: true })).toBeVisible();
   const expiredId = new URL(page.url()).searchParams.get('oauth_request')!;
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try { db.prepare('UPDATE oauth_requests SET expires_at = 0 WHERE id_hash = ?').run(digest(expiredId)); }
   finally { db.close(); }
   await page.reload();
@@ -185,7 +185,7 @@ test('[J-196] OAuth rejects unsafe registrations, mismatched PKCE, callbacks and
 
   const expired = await beginOAuth(page);
   const expiredCode = await consentCode(page, expired);
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try { db.prepare('UPDATE oauth_requests SET expires_at = 0 WHERE code_hash = ?').run(digest(expiredCode)); }
   finally { db.close(); }
   expect((await request.post('/token', { form: {
@@ -227,7 +227,7 @@ test('[J-197] OAuth rotates refresh tokens, revokes replayed grants and rejects 
 
   const expired = await beginOAuth(page);
   await approveOAuth(page, expired);
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try {
     db.prepare('UPDATE oauth_tokens SET expires_at = 0 WHERE hash = ?').run(digest(expired.savedTokens!.access_token));
     expect(await accessStatus(request, expired.savedTokens!.access_token)).toBe(401);
@@ -246,7 +246,7 @@ test('[J-198] OAuth clients and hashed credentials survive a backend restart', a
   const tokens = connection.oauth.savedTokens!;
   const directory = await mkdtemp(path.join(tmpdir(), 'kcal-oauth-restart-'));
   const dbPath = path.join(directory, 'app.db');
-  const db = new Database('/tmp/kcal-e2e.db', { readonly: true });
+  const db = new Database(E2E_DATABASE_PATH, { readonly: true });
   try {
     const rows = JSON.stringify(db.prepare('SELECT * FROM oauth_tokens').all());
     expect(rows).not.toContain(tokens.access_token);
@@ -254,25 +254,13 @@ test('[J-198] OAuth clients and hashed credentials survive a backend restart', a
     await db.backup(dbPath);
   } finally { db.close(); }
   try {
-    const { stdout } = await promisify(execFile)(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
-      import './server/env.ts';
-      import { oauthProvider } from './server/oauth.ts';
-      import { db } from './server/db.ts';
-      const client = await oauthProvider.clientsStore.getClient(process.env.TEST_CLIENT_ID);
-      const before = await oauthProvider.verifyAccessToken(process.env.TEST_ACCESS_TOKEN);
-      const tokens = await oauthProvider.exchangeRefreshToken(client, process.env.TEST_REFRESH_TOKEN);
-      const after = await oauthProvider.verifyAccessToken(tokens.access_token);
-      process.stdout.write(JSON.stringify({ registered: !!client, sameUser: before.extra.userId === after.extra.userId,
-        beforeScopes: before.scopes, afterScopes: after.scopes }));
-      db.close();
-    `], { env: {
-      ...process.env, PORT: '3000', DATABASE_PATH: dbPath, PUBLIC_ORIGIN: ORIGIN,
-      TEST_MODE: 'true', POSTMARK_SERVER_TOKEN: 'unused', POSTMARK_FROM: 'test@test.local',
-      SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '10', LOG_LEVEL: 'warn',
+    const child = runServerFixture(new URL('./fixtures/oauth-restart.ts', import.meta.url), dbPath, {
+      PUBLIC_ORIGIN: ORIGIN, LOG_LEVEL: 'warn',
       TEST_CLIENT_ID: connection.oauth.info!.client_id,
       TEST_ACCESS_TOKEN: tokens.access_token, TEST_REFRESH_TOKEN: tokens.refresh_token!,
-    } });
-    expect(JSON.parse(stdout)).toEqual({ registered: true, sameUser: true,
+    });
+    expect(child.status, child.stderr).toBe(0);
+    expect(JSON.parse(child.stdout)).toEqual({ registered: true, sameUser: true,
       beforeScopes: ['kcal:read', 'kcal:write'], afterScopes: ['kcal:read', 'kcal:write'] });
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
@@ -427,35 +415,13 @@ test('[J-214] OAuth scope migration preserves legacy requests grants and tokens 
       insertToken.run(digest(refresh), 'legacy-grant', 'refresh', expiry);
     } finally { legacy.close(); }
 
-    const { stdout } = await promisify(execFile)(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
-      import './server/env.ts';
-      import { oauthProvider } from './server/oauth.ts';
-      import { db } from './server/db.ts';
-      const client = await oauthProvider.clientsStore.getClient(process.env.TEST_CLIENT_ID);
-      const before = await oauthProvider.verifyAccessToken(process.env.TEST_ACCESS_TOKEN);
-      const refreshed = await oauthProvider.exchangeRefreshToken(client, process.env.TEST_REFRESH_TOKEN);
-      const after = await oauthProvider.verifyAccessToken(refreshed.access_token);
-      const exchanged = await oauthProvider.exchangeAuthorizationCode(client, process.env.TEST_CODE, undefined,
-        process.env.TEST_CALLBACK, new URL(process.env.TEST_RESOURCE));
-      const approved = await oauthProvider.verifyAccessToken(exchanged.access_token);
-      const pending = db.prepare('SELECT scopes FROM oauth_requests WHERE id_hash = ?').get('legacy-pending');
-      const applied = db.prepare('SELECT filename FROM schema_migrations WHERE filename = ?').get(process.env.TEST_MIGRATION);
-      process.stdout.write(JSON.stringify({
-        clientScope: client.scope, before: before.scopes, after: after.scopes,
-        approved: approved.scopes, pending: pending.scopes, applied: !!applied,
-        sameUser: before.extra.userId === after.extra.userId && after.extra.userId === approved.extra.userId,
-        tokenScopes: db.prepare('SELECT DISTINCT scopes FROM oauth_tokens').all().map(row => row.scopes),
-        grantScopes: db.prepare('SELECT DISTINCT scopes FROM oauth_grants').all().map(row => row.scopes),
-      }));
-      db.close();
-    `], { env: {
-      ...process.env, PORT: '3000', DATABASE_PATH: dbPath, PUBLIC_ORIGIN: ORIGIN,
-      TEST_MODE: 'true', POSTMARK_SERVER_TOKEN: 'unused', POSTMARK_FROM: 'test@test.local',
-      SESSION_EXPIRY_DAYS: '7', LOGIN_CODE_EXPIRY_MINUTES: '10', LOG_LEVEL: 'warn',
+    const child = runServerFixture(new URL('./fixtures/oauth-legacy-scopes.ts', import.meta.url), dbPath, {
+      PUBLIC_ORIGIN: ORIGIN, LOG_LEVEL: 'warn',
       TEST_CLIENT_ID: clientId, TEST_ACCESS_TOKEN: access, TEST_REFRESH_TOKEN: refresh,
       TEST_CODE: code, TEST_CALLBACK: CALLBACK, TEST_RESOURCE: RESOURCE, TEST_MIGRATION: migration,
-    } });
-    expect(JSON.parse(stdout)).toEqual({
+    });
+    expect(child.status, child.stderr).toBe(0);
+    expect(JSON.parse(child.stdout)).toEqual({
       clientScope: 'kcal:read', before: ['kcal:read'], after: ['kcal:read'], approved: ['kcal:read'],
       pending: 'kcal:read', applied: true, sameUser: true, tokenScopes: ['kcal:read'], grantScopes: ['kcal:read'],
     });

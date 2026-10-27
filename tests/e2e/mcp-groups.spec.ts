@@ -1,3 +1,4 @@
+import { E2E_DATABASE_PATH } from './test-config';
 import { expect } from '@playwright/test';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import Database from 'better-sqlite3';
@@ -232,7 +233,7 @@ test('[J-220] MCP groups reject invalid memberships and unsupported edits withou
   const extremeGroup = await rest<EntryGroup>(request, account.token, 'post', '/entries/groups', {
     name: 'Legacy extreme group', entry_ids: [extremeA.id, extremeB.id],
   });
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try {
     db.prepare('UPDATE entries SET local_date = ? WHERE user_id = ? AND id IN (?, ?)')
       .run('2024-02-30', account.user.id, impossibleA.id, impossibleB.id);
@@ -350,7 +351,7 @@ test('[J-222] MCP groups support temporary children and deletion while preservin
   expect((await call<McpWeekResult>(mcp, 'get_week', { date })).totals)
     .toEqual({ kcal: 60, protein: 3, carbs: 6, fat: 1.5 });
   expect(await rest<Product[]>(request, account.token, 'get', '/products/all')).toEqual(productsBefore);
-  const db = new Database('/tmp/kcal-e2e.db', { readonly: true });
+  const db = new Database(E2E_DATABASE_PATH, { readonly: true });
   try {
     expect(db.prepare('SELECT id FROM products WHERE created_by = ? AND id = ?').get(account.user.id, temporary.id))
       .toEqual({ id: temporary.id });

@@ -1,3 +1,4 @@
+import { E2E_DATABASE_PATH } from './test-config';
 import { expect, test as base, type APIRequestContext, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -86,7 +87,7 @@ export async function rest<T>(
 // Write checks compare application records. The read-only protocol test keeps
 // its broader OAuth-inclusive snapshot local to that journey.
 export function storedRecords(options: { ignoreSessionActivity?: boolean } = {}) {
-  const db = new Database('/tmp/kcal-e2e.db', { readonly: true });
+  const db = new Database(E2E_DATABASE_PATH, { readonly: true });
   try {
     return ['users', 'sessions', 'products', 'entries', 'entry_groups', 'weights', 'goal_history', 'mcp_creation_receipts']
       .map((table) => {

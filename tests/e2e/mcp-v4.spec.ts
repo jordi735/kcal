@@ -1,3 +1,4 @@
+import { E2E_DATABASE_PATH } from './test-config';
 import { expect } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { runServerFixture } from './server-fixture';
@@ -18,7 +19,7 @@ const ZERO = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
 const DATE = '2024-02-29';
 const FOOD = { name: 'Receipt food', unit: 'g', per100: NUTRITION };
 function editFixture(edit: (db: Database.Database) => void) {
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try { edit(db); } finally { db.close(); }
 }
 

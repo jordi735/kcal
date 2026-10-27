@@ -1,6 +1,6 @@
 # User journeys
 
-Source-of-truth list of user flows covered by the Playwright e2e suite under `tests/e2e/`. Each bullet is one flow with at least one passing assertion. The `[J-###]` prefix on every `test()` / `setup()` name in the suite is the back-link — to find which spec(s) verify a flow, run `grep -RF '[J-019]' tests/e2e/`. IDs are stable (never reuse one); when adding a flow, mint the next free `J-###`. Uncovered gaps live in `/tmp/kcal-e2e-review/log.txt` under MISSING — never on this page. The bidirectional grep in `## Verification` is the safety net that proves every doc ID has a matching test and vice versa.
+Source-of-truth list of user flows covered by the Playwright e2e suite under `tests/e2e/`. Each bullet is one flow with at least one passing assertion. The `[J-###]` prefix on every `test()` / `setup()` name in the suite is the back-link — to find which spec(s) verify a flow, run `grep -RF '[J-019]' tests/e2e/`. IDs are stable (never reuse one); when adding a flow, mint the next free `J-###`. Uncovered gaps live in `/tmp/kcal-e2e-review/log.txt` under MISSING — never on this page. The command in `# Verification` checks that every catalog ID has a discovered test title and vice versa.
 
 # 1. Authentication & sessions
 
@@ -452,21 +452,24 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-494 · Denied theme-key reads fall back to Carbon without breaking authentication, goal editing, or live theme selection
 - J-495 · Denied theme-key writes preserve a usable live selection while reload uses the previously saved theme
 
+# 23. Test maintenance
+
+- J-496 · Journey catalog validation uses discovered test titles, permits shared journey coverage, and rejects missing, duplicate, malformed, or undiscoverable entries
+
 # Verification
 
 Run from the repo root:
 
 ```bash
-# 1. No duplicate IDs in this catalog.
-grep -oP '^- J-\d+' tests/JOURNEYS.md | sort | uniq -d
-
-# 2. Spot-check that a J-ID resolves to a test in the suite (the [J-XXX]
-# prefix on every test name is the implicit back-link):
-grep -RF "[J-035]" tests/e2e/
-
-# 3. Bidirectional back-link (load-bearing): every J-### in the doc has a
-# matching test, and every J-### used in tests has a catalog entry.
-diff \
-  <(grep -oP '\bJ-\d+\b' tests/JOURNEYS.md | sort -u) \
-  <(grep -oRhP '\bJ-\d+\b' tests/e2e/ | sort -u)
+npm run check:journeys
 ```
+
+The checker uses Playwright's actual discovered test and setup titles, including
+parameterized cases. It requires a journey prefix and description on every title,
+unique catalog entries, and matching IDs in both directions. Multiple tests may
+cover the same journey. Prose, comments, and fenced examples do not count as
+catalog entries. Discovery errors and empty reports fail the check.
+
+This command does not build the app, start the test server, run setup, or execute
+tests. Run the suite to verify the assertions themselves. `npm run check` combines
+this catalog check with all three TypeScript checks.

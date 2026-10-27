@@ -1,3 +1,4 @@
+import { E2E_USER2_STATE } from './test-config';
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { tokenFrom } from './auth-helpers';
 import { longPress, signInFresh } from './helpers';
@@ -419,7 +420,7 @@ test('[J-176] group creation validation is owner-scoped and rolls back invalid m
     expect(response.status()).toBe(invalid.status);
   }
 
-  const user2Token = tokenFrom('tests/e2e/.auth/user2.json');
+  const user2Token = tokenFrom(E2E_USER2_STATE);
   const foreign = await request.post('/entries/groups', {
     headers: { Authorization: `Bearer ${user2Token}` },
     data: { name: 'Foreign', entry_ids: [a.id, b.id] },

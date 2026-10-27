@@ -4,7 +4,7 @@ Perform a two-phase bug hunt on this project: per-file discovery, then per-domai
 validation and cross-file discovery. The goal is real bugs that misbehave on
 realistic inputs — not theoretical weaknesses.
 
-Stack: Preact 10 + Vite 8 + TypeScript 6 (strict, noUncheckedIndexedAccess,
+Stack: Preact 10 + Vite 8 + TypeScript (see package.json; strict, noUncheckedIndexedAccess,
 exactOptionalPropertyTypes, verbatimModuleSyntax) on the client; Express 5 +
 better-sqlite3 + tsx on the server; Postmark for email; MCP for ChatGPT and
 Codex connections. The @openai/codex development dependency powers the E2E
@@ -51,78 +51,23 @@ A short report of real bugs beats a long report of possibilities.
 PHASE 1 — PER-FILE BUG HUNT (one Codex subagent per file, run in parallel batches)
 ================================================================================
 
-Files in scope (spawn exactly one Codex subagent for each; skip nothing):
+Discover the current tracked inventory instead of maintaining a filename list:
 
-  CLIENT — core
-    src/main.tsx
-    src/App.tsx
-    src/api.ts
-    src/types.ts
-    src/dates.ts
-    src/macros.ts
-    src/mocks.ts
-    src/styles.ts
-    src/vite-env.d.ts
+  git ls-files -- src server shared public index.html vite.config.ts package.json
 
-  CLIENT — screens
-    src/screens/Home.tsx
-    src/screens/Login.tsx
-    src/screens/Settings.tsx
+Read AGENTS.md for current module ownership and project invariants. Review all
+tracked TypeScript/TSX modules and their CSS, plus applicable JavaScript, SQL,
+HTML, and configuration files. Follow references to tests and tooling for
+behavioral evidence. Inspect references to generated/binary assets rather than
+assigning binary files a code-review task. Do not read ignored runtime state or
+real credentials. Record the discovered inventory so omissions are visible.
 
-  CLIENT — components
-    src/components/BrandMark.tsx
-    src/components/ClearableField.tsx
-    src/components/ChatGPTGuide.tsx
-    src/components/EntryGroupRow.tsx
-    src/components/FoodRow.tsx
-    src/components/Icon.tsx
-    src/components/MacroBar.tsx
-    src/components/MacroBreakdown.tsx
-    src/components/MacroSummary.tsx
-    src/components/SelectionBar.tsx
-    src/components/Sheet.tsx
-    src/components/WeekStrip.tsx
-
-  CLIENT — modals
-    src/modals/EntryGroupForm.tsx
-    src/modals/AmountPicker.tsx
-    src/modals/NewProductForm.tsx
-    src/modals/AddPicker.tsx
-    src/modals/BarcodeScanner.tsx
-
-  CLIENT — hooks
-    src/hooks/useEntries.ts
-    src/hooks/useFadeClose.ts
-    src/hooks/useFocusClearableNumber.ts
-
-  SERVER — core
-    server/index.ts
-    server/env.ts
-    server/db.ts
-    server/auth.ts
-    server/email.ts
-    server/log.ts
-    server/util.ts
-    server/guards.ts
-    server/types.ts
-    server/statements.ts
-    server/templates.ts
-
-  SERVER — routes
-    server/routes/auth.ts
-    server/routes/settings.ts
-    server/routes/entries.ts
-    server/routes/products.ts
-    server/routes/debug.ts
-
-  SHARED
-    shared/apiPrefixes.ts
-    shared/normalize.ts
-    shared/types.ts
+Assign bounded file tasks within the active concurrency limit; skip no source
+module merely because it was added after this prompt was written.
 
 --------------------------------------------------------------------------------
 Subagent brief (identical for every file agent) — use the available collaboration
-tooling, give each agent one bounded file task, and run batches of 6–8 within the
+tooling, give each agent one bounded file task, and run batches within the
 active concurrency limit. Do not request a provider-specific model:
 --------------------------------------------------------------------------------
 
@@ -265,16 +210,17 @@ PHASE 2 — PER-DOMAIN VALIDATION & CROSS-FILE HUNT
 After all Phase-1 JSON reports are collected, spawn one Codex subagent per domain.
 Domains:
 
-  D1 — server-core:     server/{index,env,db,auth,email,log,
-                        util,guards,types,statements,templates}.ts
-  D2 — server-routes:   server/routes/*.ts
-  D3 — shared:          shared/{apiPrefixes,normalize,types}.ts
-  D4 — client-core:     src/{main.tsx,App.tsx,api.ts,types.ts,dates.ts,mocks.ts,
-                        vite-env.d.ts}
-  D5 — client-screens:  src/screens/*.tsx
-  D6 — client-components: src/components/*.tsx
-  D7 — client-modals:   src/modals/*.tsx
-  D8 — client-hooks:    src/hooks/*.ts
+  D1 — server-core: direct server modules and migrations
+  D2 — server-adapters: routes, middleware, and MCP modules
+  D3 — shared: all shared modules
+  D4 — client-core: direct src modules and global styles
+  D5 — client-screens: screens and their styles
+  D6 — client-components: components and their styles
+  D7 — client-modals: modals and their styles
+  D8 — client-hooks: all hooks and cache helpers
+
+Derive each domain's actual file set from the recorded inventory. Assign any
+remaining production/configuration files explicitly; do not silently drop them.
 
 --------------------------------------------------------------------------------
 Domain subagent brief — use one bounded Codex subagent per domain:

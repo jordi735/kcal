@@ -1,3 +1,4 @@
+import { E2E_USER2_STATE, E2E_USER_STATE } from './test-config';
 import { expect, test } from '@playwright/test';
 import { tokenFrom } from './auth-helpers';
 import { fillNutField, seedProductAndLog } from './helpers';
@@ -210,7 +211,7 @@ test('[J-079] POST /entries with malformed body returns 400 invalid_entry', asyn
   // int, amount accepted by isEntryAmount, local_date matches DATE_RE, local_time matches
   // TIME_RE. Each malformed body below fails exactly one branch, so all four
   // guard mutations are caught.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const today = new Date().toISOString().slice(0, 10);
   const cases: Array<{ label: string; body: unknown }> = [
     // Missing product_id — isPositiveInt(undefined) → false.
@@ -244,7 +245,7 @@ test('[J-080] POST /entries with non-existent product_id returns 404 product_not
   // The entries route validates the body, then server/writes.ts createEntry
   // looks up the caller-owned product with statements.products.selectById.
   // A missing product raises product_not_found, mapped to 404 by middleware.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const today = new Date().toISOString().slice(0, 10);
   const res = await request.post('/entries', {
     headers: { Authorization: `Bearer ${token}` },
@@ -272,8 +273,8 @@ test('[J-081] user B cannot log an entry against user A’s product (per-user is
   // Pattern lifted from adopt.spec.ts: seed via direct API as user A, attack
   // via direct API as user B. No browser context needed — the journey is
   // server-side scope enforcement.
-  const tokenA = tokenFrom('tests/e2e/.auth/user.json');
-  const tokenB = tokenFrom('tests/e2e/.auth/user2.json');
+  const tokenA = tokenFrom(E2E_USER_STATE);
+  const tokenB = tokenFrom(E2E_USER2_STATE);
 
   const seed = await request.post('/products', {
     headers: { Authorization: `Bearer ${tokenA}` },
@@ -320,7 +321,7 @@ test('[J-082] GET /entries with malformed or missing date returns 400 invalid_da
 }) => {
   // entries.ts — `date` query param must be a string AND match DATE_RE.
   // A missing param coerces to '' which fails the regex. Cover both branches.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   for (const path of ['/entries', '/entries?date=', '/entries?date=2026/01/01', '/entries?date=abc']) {
     const res = await request.get(path, {
       headers: { Authorization: `Bearer ${token}` },
@@ -335,7 +336,7 @@ test('[J-083] GET /entries/week with malformed or missing start returns 400 inva
 }) => {
   // entries.ts — same DATE_RE guard as the day endpoint, applied to
   // `start`. Missing/malformed both funnel through the same 400 invalid_date.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   for (const path of ['/entries/week', '/entries/week?start=', '/entries/week?start=2026/01/01', '/entries/week?start=xx']) {
     const res = await request.get(path, {
       headers: { Authorization: `Bearer ${token}` },
@@ -352,7 +353,7 @@ test('[J-084] GET /entries/recent-amounts with malformed product_id returns 400 
   // AND missing param (typeof !== 'string'). Every branch funnels to 400
   // invalid_product_id. This exercises the GET /entries/recent-amounts handler
   // in server/routes/entries.ts directly.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   for (const path of [
     '/entries/recent-amounts',
     '/entries/recent-amounts?product_id=',

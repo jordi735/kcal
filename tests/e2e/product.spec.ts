@@ -1,3 +1,4 @@
+import { E2E_USER_STATE } from './test-config';
 import { expect, test } from '@playwright/test';
 import { tokenFrom } from './auth-helpers';
 import { fillNutField } from './helpers';
@@ -66,7 +67,7 @@ test('[J-109] unit toggle to ml flips "Per 100ml" label and persists unit:"ml"',
   // (shared/normalize.ts) sentence-cases the stored name (`E2E ...` →
   // `E2e ...`); identity here is established by the unique Date.now() suffix,
   // not by case.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const res = await request.get('/products/all', {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -144,7 +145,7 @@ test('[J-111] POST /products rejects per100 macro out-of-range across all four f
   // (e.g. `kcal <= 2000` → `kcal < 2000`) collapses one case and keeps the
   // other seven green — so the failure points directly at the regressed
   // macro/direction.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const valid = {
     name: 'E2E Cap Probe',
     brand: null,
@@ -189,7 +190,7 @@ test('[J-112] POST /products rejects each isNewProductBody structural branch', a
   //   - is_temp non-boolean (string 'false' is the classic false-positive)
   // Eight independent branches; mutation in any one will break exactly one
   // case, surfacing the regression precisely.
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const valid = {
     name: 'E2E Body Probe',
     brand: null,

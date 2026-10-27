@@ -1,3 +1,4 @@
+import { E2E_USER_STATE } from './test-config';
 import { expect, test, type Page } from '@playwright/test';
 import { tokenFrom } from './auth-helpers';
 import type { EntryUpdate, EntryWithMacros, Product } from '../../src/types';
@@ -6,7 +7,7 @@ import { deferred, frame, readCycle, resume } from './app-refresh-helpers';
 import { fillNutField } from './helpers';
 
 test('[J-460] product picker labels liquid nutrition per 100ml', async ({ page, request }) => {
-  const token = tokenFrom('tests/e2e/.auth/user.json');
+  const token = tokenFrom(E2E_USER_STATE);
   const name = `V5 liquid label ${Date.now()}`;
   const created = await request.post('/products', {
     headers: { Authorization: `Bearer ${token}` },

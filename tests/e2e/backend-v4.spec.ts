@@ -1,3 +1,4 @@
+import { E2E_DATABASE_PATH, E2E_ORIGIN } from './test-config';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import Database from 'better-sqlite3';
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
@@ -24,7 +25,7 @@ async function account(request: APIRequestContext) {
 }
 
 function withTestDb<T>(work: (db: Database.Database) => T): T {
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try { return work(db); } finally { db.close(); }
 }
 
@@ -113,7 +114,7 @@ test('[J-383] v4 migration flags only usable existing OAuth connections and leav
       const id = index + 1;
       db.prepare('INSERT INTO users (id,email,created_at) VALUES (?,?,?)').run(id, `u${id}@test.local`, now);
       db.prepare('INSERT INTO oauth_grants (id,user_id,client_id,resource,expires_at,revoked) VALUES (?,?,?,?,?,?)')
-        .run(`g${id}`, id, 'client', 'http://localhost:3001/mcp', now + value.grant, value.revoked);
+        .run(`g${id}`, id, 'client', `${E2E_ORIGIN}/mcp`, now + value.grant, value.revoked);
       db.prepare('INSERT INTO oauth_tokens (hash,grant_id,kind,expires_at,used) VALUES (?,?,?,?,?)')
         .run(`t${id}`, `g${id}`, value.kind, now + value.token, value.used);
     }

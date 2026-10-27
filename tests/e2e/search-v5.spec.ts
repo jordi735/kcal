@@ -1,3 +1,4 @@
+import { E2E_DATABASE_PATH } from './test-config';
 import { expect, type APIRequestContext } from '@playwright/test';
 import Database from 'better-sqlite3';
 import type { EntryWithMacros, McpProductSearchResult, Product } from '../../shared/types';
@@ -80,7 +81,7 @@ test('[J-453] recent token search retains logged-only filtering and creation-tim
       product_id: product.id, amount: 100, local_date: date, local_time: '12:00',
     }));
   }
-  const db = new Database('/tmp/kcal-e2e.db');
+  const db = new Database(E2E_DATABASE_PATH);
   try {
     const update = db.prepare('UPDATE entries SET created_at = ? WHERE user_id = ? AND id = ?');
     entries.forEach((entry, index) => update.run([10, 20, 20, 30][index], account.user.id, entry.id));

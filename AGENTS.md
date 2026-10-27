@@ -50,6 +50,9 @@ Run commands from the repository root.
   after changing `shared/`.
 - `npm run typecheck:tests` checks Playwright tests and configuration, including
   application modules imported by tests.
+- `npm run check:journeys` compares the journey catalogue with executable test
+  titles discovered by Playwright; it does not run tests or start the server.
+- `npm run check` runs all three TypeScript checks and journey validation.
 - `npm run build` runs the frontend/shared typecheck and creates `dist/`; it does
   not typecheck `server/`, so run `npm run typecheck:server` separately.
 - `npm test` runs the full Playwright suite. `test:ui`, `test:headed`, and
@@ -68,7 +71,8 @@ required-key inventory and never commit real credentials.
 ## Coding Style & Naming Conventions
 
 - TypeScript is strict with `noUncheckedIndexedAccess`,
-  `exactOptionalPropertyTypes`, and `verbatimModuleSyntax`. Use `import type`
+  `exactOptionalPropertyTypes`, `verbatimModuleSyntax`, `noUnusedLocals`, and
+  `noUnusedParameters`. Use `import type`
   where applicable and handle possibly missing indexed values explicitly.
 - Relative imports from `server/`, including imports into `shared/`, must end in
   `.js` because the backend uses NodeNext ESM resolution.
@@ -315,6 +319,8 @@ required-key inventory and never commit real credentials.
 
 - Playwright tests the production topology: it builds the SPA and starts Express
   on `:3001` with `TEST_MODE=true` and `/tmp/kcal-e2e.db`.
+  `tests/e2e/test-config.ts` owns the shared origin, port, database, and auth-state
+  paths; isolated subprocess fixtures retain their own environment settings.
 - The suite uses one worker and starts a fresh backend. Its startup command resets
   the database before opening SQLite; do not move cleanup into a Playwright global
   setup hook, which runs after the web server starts. Tests within a run share
@@ -340,8 +346,9 @@ required-key inventory and never commit real credentials.
   `.entry-group`, and verify that folding and parent tagging never change raw day
   or week macro totals.
 - Prefix every `test()` and `setup()` name with a stable `[J-###]`. Update
-  `tests/JOURNEYS.md` whenever journeys change and run the duplicate-ID and
-  bidirectional-link checks in its `Verification` section. Never record fixed
+  `tests/JOURNEYS.md` whenever journeys change and run `npm run check:journeys`.
+  Catalogue IDs must be unique; related executable tests may share an ID.
+  Comments and fixture text cannot satisfy coverage. Never record fixed
   suite counts or PR-numbered coverage snapshots here.
 - For a reproduced bug, first run its regression against the unchanged behavior
   and record the intended failure, then run it after the fix. Control deferred
