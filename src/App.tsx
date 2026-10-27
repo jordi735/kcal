@@ -17,7 +17,7 @@ import type { AmountSelection, EntryEditorDraft } from './modals/AmountPicker';
 import { AppModals } from './components/AppModals';
 import { SheetOverlay } from './components/SheetOverlay';
 import { TransientErrorToast } from './components/TransientErrorToast';
-import { useEntries } from './hooks/useEntries';
+import { useFoodData } from './hooks/useFoodData';
 import { useAppRefresh } from './hooks/useAppRefresh';
 import { useTransientError } from './hooks/useTransientError';
 import { useSessionState, type AuthenticatedSession } from './hooks/useSessionState';
@@ -50,8 +50,10 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     loadedDates,
     load: loadEntries,
     loadWeek,
-    queueFoodMutation,
-    refreshAll,
+    createProduct,
+    adoptProduct,
+    updateProduct,
+    deleteProduct,
     add: addEntry,
     update: updateEntry,
     remove: removeEntry,
@@ -59,7 +61,7 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     renameGroup,
     toggleGroupTagged,
     ungroup,
-  } = useEntries(scope, onRefreshError);
+  } = useFoodData(scope, onRefreshError);
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
   const [modal, setModalState] = useState<ModalState>({ kind: 'none' });
@@ -221,7 +223,7 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
       // as a normal owned product.
       const owned =
         product.is_mine === false
-          ? await queueFoodMutation(() => api<Product>(`/products/adopt/${product.id}`, { method: 'POST', session: scope }))
+          ? await adoptProduct(product.id)
           : product;
       if (myGen !== flowGenRef.current) return;
       setModal({ kind: 'amount-picker', product: owned, entry: undefined });
@@ -313,7 +315,7 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
   const onProductSave = async (draft: ProductDraft): Promise<void> => {
     const myGen = flowGenRef.current;
     try {
-      const saved = await queueFoodMutation(() => api<Product>('/products', { method: 'POST', body: draft, session: scope }));
+      const saved = await createProduct(draft);
       if (myGen !== flowGenRef.current) return;
       setModal({ kind: 'amount-picker', product: saved, entry: undefined });
     } catch (err) {
@@ -341,11 +343,7 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     const myGen = flowGenRef.current;
     const { is_temp: _unused, ...putBody } = draft;
     try {
-      const saved = await queueFoodMutation(async () => {
-        const product = await api<Product>(`/products/${productId}`, { method: 'PUT', body: putBody, session: scope });
-        await refreshAll();
-        return product;
-      });
+      const saved = await updateProduct(productId, putBody);
       if (myGen === flowGenRef.current) {
         if (modal.entry === undefined) setModal({ kind: 'none' });
         else setModal({ kind: 'amount-picker', product: saved, entry: modal.entry,
@@ -363,10 +361,7 @@ function Tracker({ session }: { session: AuthenticatedSession }) {
     const productId = modal.product.id;
     const myGen = flowGenRef.current;
     try {
-      await queueFoodMutation(async () => {
-        await api<{ ok: true }>(`/products/${productId}`, { method: 'DELETE', session: scope });
-        await refreshAll();
-      });
+      await deleteProduct(productId);
       if (myGen === flowGenRef.current) setModal({ kind: 'none' });
     } catch (err) {
       if (myGen !== flowGenRef.current) return;

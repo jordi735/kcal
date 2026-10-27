@@ -130,7 +130,7 @@ test('[J-168] future-day entries stay in insertion order across reload', async (
     await expect(rows.nth(2)).toContainText('17:00');
   };
 
-  // First assertion covers useEntries' live cache; reload covers the server's
+  // First assertion covers useFoodData' live cache; reload covers the server's
   // SELECT ordering. The HH:MM labels intentionally remain unchanged.
   await expectInsertionOrder();
   await page.reload();

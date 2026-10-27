@@ -206,12 +206,8 @@ test('[J-108] first log persists across page reload (server actually received PO
   page,
   request,
 }) => {
-  // useEntries.tsx applies optimistic updates BEFORE the network resolves —
-  // so a regression that silently dropped the POST /entries call would still
-  // show the row on screen until reload. After reload, the cold cache has
-  // nothing; useEntries fetches /entries?date=today fresh, and the row only
-  // reappears if the server actually persisted it. This separates "the UI
-  // updated" from "the data is durable".
+  // A successful write updates the live cache. Reload also verifies durable
+  // persistence: useFoodData starts empty and reads the saved row from the API.
   await signInFresh(page, request, 'onb');
   await seedProductAndLog(
     page,

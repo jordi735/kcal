@@ -9,6 +9,8 @@ These instructions apply to the entire repository.
   modal context and draft-return helpers. `useSessionState` owns session state;
   settings and notification lifecycles
   live in hooks; components, screens, and modals own local interaction state.
+  `useFoodData` owns entry, group, and product requests, their shared mutation
+  queue, and cache reconciliation; App keeps navigation and modal flow guards.
 - `server/` is the Express 5 and SQLite backend. Routes live in `server/routes/`,
   SQL migrations in `server/migrations/`, and normal application statements in
   `server/statements.ts`. `server/reads.ts` shares read functions and serializers
@@ -119,7 +121,7 @@ required-key inventory and never commit real credentials.
   including keyboard submissions. Invalid input stays editable with feedback;
   increment buttons clamp to the applicable bounds.
   Do not rewrite legacy smaller entries or reject their tag-only edits or deletion.
-- `useEntries` applies local cache changes only after successful requests. Preserve
+- `useFoodData` applies local cache changes only after successful requests. Preserve
   entry insertion order by `id` and recompute week totals only for loaded dates;
   amount/product corrections update totals, while time/tagged-only updates do not.
   Entry corrections retain date, identity, creation timestamp and group membership.

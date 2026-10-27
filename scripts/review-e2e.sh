@@ -155,7 +155,7 @@ For each spec file (whether created or reviewed), check:
 
 14. **Setup-file integrity (read-only check).** While handling a regular spec, if you notice authentication setup, reset logic, shared helpers, `test-config.ts`, or `server-fixture.ts` are referenced incorrectly, or a helper signature has drifted, log under MISSING. Do NOT modify those files from a regular pass.
 
-15. **Falsifiable on add.** Every test you add must assert something that would FAIL if the underlying logic had a bug. Before committing a new assertion, ask: "what mistake in `App.tsx` / `useEntries.ts` / the matching server route would make this test go red?" If you cannot answer concretely, do not add the test.
+15. **Falsifiable on add.** Every test you add must assert something that would FAIL if the underlying logic had a bug. Before committing a new assertion, ask: "what mistake in `App.tsx` / `useFoodData.ts` / the matching server route would make this test go red?" If you cannot answer concretely, do not add the test.
 
 16. **Negative space — every journey for the spec is covered.** Before marking PASS or CREATED, list every journey ID that this spec covers. Cross-reference with AGENTS.md and the source files: are there obvious user behaviors with no journey on this spec? If yes, ADD a test (default action) — only log MISSING if the gap requires infrastructure you cannot stand up. "Tested transitively by another spec" is acceptable only if the other spec actually has a passing assertion for that journey — verify, do not assume.
 

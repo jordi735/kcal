@@ -1,9 +1,9 @@
 // Account-owned food cache. Writes are ordered across entries, groups and products.
 import { useCallback, useRef, useState } from 'preact/hooks';
-import type { EntryGroup, EntryUpdate, EntryWithMacros, Macros, NewEntryBody } from '../types';
+import type { EntryGroup, EntryUpdate, EntryWithMacros, Macros, NewEntryBody, NewProductBody, Product, UpdateProductBody } from '../types';
 import { api, isSessionCurrent, type SessionScope } from '../api';
 import { datesFromStart } from '../../shared/dates';
-import { createMutationQueue, type MutationQueue } from '../mutationQueue';
+import { createMutationQueue } from '../mutationQueue';
 import { updateCachedDay, type EntryCache } from './entryCache';
 
 type PendingRead = { invalidated: boolean };
@@ -31,14 +31,16 @@ async function readLatest<T>(pending: Map<string, PendingRead>, key: string,
   }
 }
 
-export type UseEntriesReturn = {
+export type UseFoodDataReturn = {
   entriesByDate: Record<string, EntryWithMacros[]>;
   weekTotals: Record<string, Macros>;
   loadedDates: Set<string>;
   load: (date: string) => Promise<void>;
   loadWeek: (start: string) => Promise<void>;
-  queueFoodMutation: MutationQueue;
-  refreshAll: () => Promise<void>;
+  createProduct: (body: NewProductBody) => Promise<Product>;
+  adoptProduct: (sourceId: number) => Promise<Product>;
+  updateProduct: (id: number, body: UpdateProductBody) => Promise<Product>;
+  deleteProduct: (id: number) => Promise<void>;
   add: (params: NewEntryBody) => Promise<EntryWithMacros>;
   update: (id: number, patch: EntryUpdate) => Promise<EntryWithMacros>;
   remove: (id: number, date: string) => Promise<void>;
@@ -48,7 +50,7 @@ export type UseEntriesReturn = {
   ungroup: (id: number) => Promise<void>;
 };
 
-export function useEntries(session: SessionScope, onRefreshError: () => void): UseEntriesReturn {
+export function useFoodData(session: SessionScope, onRefreshError: () => void): UseFoodDataReturn {
   const [cache, setCache] = useState<EntryCache>(() => ({ entriesByDate: {}, weekTotals: {}, loadedDates: new Set() }));
   const cacheRef = useRef(cache);
   cacheRef.current = cache;
@@ -119,6 +121,25 @@ export function useEntries(session: SessionScope, onRefreshError: () => void): U
     const results = await Promise.allSettled([...dates.map(load), ...[...knownWeeks.current].map(loadWeek)]);
     if (results.some((result) => result.status === 'rejected') && isSessionCurrent(session)) refreshError.current();
   }, [invalidateReads, load, loadWeek, session]);
+
+  const createProduct = useCallback((body: NewProductBody) => queue(() =>
+    api<Product>('/products', { method: 'POST', body, session }),
+  ), [queue, session]);
+
+  const adoptProduct = useCallback((sourceId: number) => queue(() =>
+    api<Product>(`/products/adopt/${sourceId}`, { method: 'POST', session }),
+  ), [queue, session]);
+
+  const updateProduct = useCallback((id: number, body: UpdateProductBody) => queue(async () => {
+    const product = await api<Product>(`/products/${id}`, { method: 'PUT', body, session });
+    await refreshAll();
+    return product;
+  }), [queue, session, refreshAll]);
+
+  const deleteProduct = useCallback((id: number) => queue(async () => {
+    await api<{ ok: true }>(`/products/${id}`, { method: 'DELETE', session });
+    await refreshAll();
+  }), [queue, session, refreshAll]);
 
   const add = useCallback((params: NewEntryBody) => {
     const deriveTotals = loadedDates.has(params.local_date);
@@ -210,5 +231,6 @@ export function useEntries(session: SessionScope, onRefreshError: () => void): U
   }), [queue, session, reconcile, changeCache]);
 
   return { entriesByDate, weekTotals, loadedDates, load, loadWeek,
-    queueFoodMutation: queue, refreshAll, add, update, remove, createGroup, renameGroup, toggleGroupTagged, ungroup };
+    createProduct, adoptProduct, updateProduct, deleteProduct,
+    add, update, remove, createGroup, renameGroup, toggleGroupTagged, ungroup };
 }

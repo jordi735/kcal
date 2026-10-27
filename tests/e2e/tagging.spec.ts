@@ -8,7 +8,7 @@ import { seedProductAndLog } from './helpers';
 // aria-label flips between 'Mark as eaten' and 'Mark as not eaten' per
 // src/components/FoodRow.tsx. The flow is:
 //   FoodRow.onClick → Home.onToggleTagged → App.onMarkTagged([en], !en.tagged)
-//   → useEntries.update(id, { tagged }) → PATCH /entries/:id → setState
+//   → useFoodData.update(id, { tagged }) → PATCH /entries/:id → setState
 // UI mirrors the SERVER response (not optimistic) — the server is the source
 // of truth for the displayed state. Bulk tag/untag through SelectionBar lives
 // in selection.spec.ts (J-024..J-029, J-128, J-133).
@@ -226,7 +226,7 @@ test('[J-152] tagged flag survives an amount edit', async ({ page }) => {
 });
 
 test('[J-153] two rows tag/untag independently', async ({ page }) => {
-  // Pins per-row state isolation — `useEntries.update` finds the entry by id
+  // Pins per-row state isolation — `useFoodData.update` finds the entry by id
   // (`list.map(e => e.id === updated.id ? updated : e)`), and a regression
   // that mass-replaced the list (or applied `updated` to all matching
   // products) would flip both rows together.
