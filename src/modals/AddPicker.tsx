@@ -9,28 +9,33 @@ import { Sheet, useSheetClose } from '../components/Sheet';
 import { BarcodeIcon, CheckIcon, MagnifyingGlassIcon, PlusIcon, XMarkIcon } from '../components/Icon';
 import styles from './AddPicker.module.css';
 
-type AddPickerProps = {
+type PickerContentProps = {
   onPick: (product: Product) => void;
+  refreshVersion: number;
+  onRefreshError: () => void;
+};
+
+type AddActions = {
   onCreateNew: (name: string) => void;
   onAddTemp: (name: string) => void;
   onScanBarcode: () => void;
-  onClose: () => void;
   addedProductIds: ReadonlySet<number>;
-  refreshVersion: number;
-  onRefreshError: () => void;
-  savedOnly?: boolean;
-  onBack?: () => void;
 };
 
-export function AddPicker(props: AddPickerProps) {
+type AddPickerContentProps = PickerContentProps & (
+  | ({ mode: 'add' } & AddActions)
+  | { mode: 'replace'; onBack: () => void }
+);
+
+type AddPickerProps = PickerContentProps & AddActions & { onClose: () => void };
+
+export function AddPicker({ onClose, ...contentProps }: AddPickerProps) {
   return (
-    <Sheet onClose={props.onClose} style={cssVars({ '--sheet-height': '92%' })}>
-      <AddPickerContent {...props} />
+    <Sheet onClose={onClose} style={cssVars({ '--sheet-height': '92%' })}>
+      <AddPickerContent {...contentProps} mode="add" />
     </Sheet>
   );
 }
-
-type InnerProps = Omit<AddPickerProps, 'onClose'>;
 
 type ProductLoad = {
   status: 'loading' | 'success' | 'error';
@@ -39,17 +44,8 @@ type ProductLoad = {
 const initialLoad: ProductLoad = { status: 'loading', products: null };
 
 // Also renders as a local entry-editor subview, without nesting Sheets.
-export function AddPickerContent({
-  onPick,
-  onCreateNew,
-  onAddTemp,
-  onScanBarcode,
-  addedProductIds,
-  refreshVersion,
-  onRefreshError,
-  savedOnly = false,
-  onBack,
-}: InnerProps) {
+export function AddPickerContent(props: AddPickerContentProps) {
+  const { onPick, refreshVersion, onRefreshError } = props;
   const close = useSheetClose();
   const [q, setQ] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
@@ -159,7 +155,7 @@ export function AddPickerContent({
     recentProducts.length === 0 && allMinusRecents.length === 0;
 
   const renderRow = (p: Product) => {
-    const added = addedProductIds.has(p.id);
+    const added = props.mode === 'add' && props.addedProductIds.has(p.id);
     return (
       <button key={p.id} onClick={() => onPick(p)} className={styles.row}>
         <div className={styles.rowInfo}>
@@ -191,9 +187,9 @@ export function AddPickerContent({
   return (
     <>
       <div className={styles.header}>
-        <span className={`mono caps ${styles.title}`}>{savedOnly ? 'Change food' : 'Add Food'}</span>
-        <button onClick={onBack ?? close} className={`mono tiny caps ${styles.cancelBtn}`}>
-          {onBack === undefined ? 'Cancel' : 'Back'}
+        <span className={`mono caps ${styles.title}`}>{props.mode === 'replace' ? 'Change food' : 'Add Food'}</span>
+        <button onClick={props.mode === 'replace' ? props.onBack : close} className={`mono tiny caps ${styles.cancelBtn}`}>
+          {props.mode === 'replace' ? 'Back' : 'Cancel'}
         </button>
       </div>
 
@@ -219,12 +215,12 @@ export function AddPickerContent({
             </button>
           )}
         </div>
-        {!savedOnly && <button onClick={onScanBarcode} className={styles.scanBtn} aria-label="Scan barcode">
+        {props.mode === 'add' && <button onClick={props.onScanBarcode} className={styles.scanBtn} aria-label="Scan barcode">
           <BarcodeIcon size={20} />
         </button>}
       </div>
 
-      {!savedOnly && <div className={styles.scopeRow}>
+      {props.mode === 'add' && <div className={styles.scopeRow}>
         <button
           onClick={() => setGlobal(false)}
           className={`${styles.scopeBtn}${!global ? ` ${styles.scopeBtnActive}` : ''}`}
@@ -271,7 +267,7 @@ export function AddPickerContent({
               allProducts.status === 'loading' && allProducts.products === null) &&
               <div className={`mono tiny caps ${styles.loadingMsg}`}>Loading...</div>}
             {idleEmpty && <div className={styles.emptyMsg}>
-              {savedOnly ? 'Your saved food library is empty.' : 'Your library is empty. Tap + Add New to create your first product.'}
+              {props.mode === 'replace' ? 'Your saved food library is empty.' : 'Your library is empty. Tap + Add New to create your first product.'}
             </div>}
             {recentProducts.length > 0 && (
               <>
@@ -289,16 +285,16 @@ export function AddPickerContent({
         )}
       </div>
 
-      {!savedOnly && <div className={styles.footer}>
+      {props.mode === 'add' && <div className={styles.footer}>
         <button
-          onClick={() => onAddTemp(q)}
+          onClick={() => props.onAddTemp(q)}
           className={`btn-secondary ${styles.tempBtn}`}
         >
           <PlusIcon size={14} />
           Add Temp
         </button>
         <button
-          onClick={() => onCreateNew(q)}
+          onClick={() => props.onCreateNew(q)}
           className={`btn-primary ${styles.addNewBtn}`}
         >
           <PlusIcon size={14} />

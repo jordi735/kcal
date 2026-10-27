@@ -9,6 +9,11 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 // --- shared shapes ---
 
 export type {
+  User,
+  VerifyCodeResponse,
+  NewEntryBody,
+  NewProductBody,
+  UpdateProductBody,
   Macros,
   Product,
   ProductTemplate,
@@ -51,7 +56,7 @@ export type {
   McpEntryGroupCreateResult,
 } from '../shared/types.js';
 
-import type { Macros } from '../shared/types.js';
+import type { Macros, UpdateProductBody } from '../shared/types.js';
 
 export type OAuthRequestRow = {
   id_hash: string;
@@ -145,17 +150,6 @@ export type ProductSearchRow = ProductRow & { is_mine: number };
 // Adopt-source rows include the owner so the route can branch on ownership.
 export type ProductRowWithOwner = ProductRow & { created_by: number };
 
-export type NewProductBody = {
-  name: string;
-  brand: string | null;
-  unit: 'g' | 'ml';
-  barcode: string | null;
-  per100: Macros;
-  is_temp: boolean;
-};
-
-export type UpdateProductBody = Omit<NewProductBody, 'is_temp'>;
-
 export type ProductPatch = Partial<Omit<UpdateProductBody, 'per100'>> & {
   per100?: Partial<Macros>;
 };
@@ -188,13 +182,6 @@ export type WeekSumRow = {
   protein: number;
   carbs: number;
   fat: number;
-};
-
-export type NewEntryBody = {
-  product_id: number;
-  amount: number;
-  local_date: string;
-  local_time: string;
 };
 
 export type EntryMembershipRow = {

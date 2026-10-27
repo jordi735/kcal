@@ -16,7 +16,7 @@ import { EMAIL_RE, isObject, LOGIN_CODE_RE } from '../guards.js';
 import { statements } from '../statements.js';
 import { readCurrentGoals } from '../goals.js';
 import { AuthThrottle } from '../auth-limits.js';
-import type { UserRow } from '../types.js';
+import type { UserRow, VerifyCodeResponse } from '../types.js';
 
 export const authRouter: Router = Router();
 const throttle = new AuthThrottle({ testMode: env.TEST_MODE });
@@ -81,7 +81,7 @@ authRouter.post('/verify-code', (req, res) => {
   }
   const session = createSession(user.id);
   const goals = readCurrentGoals(user.id)!;
-  res.json({
+  const response: VerifyCodeResponse = {
     session_token: session.token,
     user: {
       id: user.id,
@@ -91,7 +91,8 @@ authRouter.post('/verify-code', (req, res) => {
       goal_carbs: goals.carbs,
       goal_fat: goals.fat,
     },
-  });
+  };
+  res.json(response);
 });
 
 authRouter.post('/logout', authMiddleware, (req, res) => {

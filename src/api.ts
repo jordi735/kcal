@@ -1,5 +1,5 @@
 // Fetch wrapper: all requests and their completion effects belong to a session.
-import type { User } from './types';
+import type { User, VerifyCodeResponse } from './types';
 
 export const SESSION_TOKEN_KEY = 'kcal_session_token';
 export const USER_KEY = 'kcal_user';
@@ -45,7 +45,7 @@ export async function requestLoginCode(email: string): Promise<void> {
 
 export async function verifyLoginCode(email: string, code: string): Promise<User> {
   const session = captureSession();
-  const res = await api<{ session_token: string; user: User }>('/auth/verify-code', {
+  const res = await api<VerifyCodeResponse>('/auth/verify-code', {
     method: 'POST', body: { email, code }, session,
   });
   assertSessionCurrent(session);

@@ -1,4 +1,9 @@
 export type {
+  User,
+  VerifyCodeResponse,
+  NewEntryBody,
+  NewProductBody,
+  UpdateProductBody,
   Macros,
   SettingsSnapshot,
   GoalHistoryItem,
@@ -42,12 +47,3 @@ import type { Macros } from '../shared/types.js';
 export { sumMacros } from './macros';
 
 export type Goals = Macros;
-
-export type User = {
-  id: number;
-  email: string;
-  goal_kcal: number;
-  goal_protein: number;
-  goal_carbs: number;
-  goal_fat: number;
-};

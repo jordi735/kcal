@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { api, assertSessionCurrent, isSessionCurrent, notifySessionChanged, USER_KEY, type SessionScope } from '../api';
 import { createMutationQueue } from '../mutationQueue';
 import { readStoredUser, userWithGoals } from '../session';
-import type { Goals, SettingsSnapshot, User } from '../types';
+import type { Goals, SettingsSaveResult, SettingsSnapshot, User } from '../types';
 
 export function localTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -93,7 +93,7 @@ export function useSettings(
     mutationVersion.current++;
     return queue(async () => {
       const read = appliedReadVersion.current;
-      const saved = await api<SettingsSnapshot & { effective_date: string }>('/settings', {
+      const saved = await api<SettingsSaveResult>('/settings', {
         method: 'PUT', body: { ...goals, time_zone: localTimeZone() }, session,
       });
       mutationVersion.current++;

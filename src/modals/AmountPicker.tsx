@@ -409,13 +409,9 @@ function AmountPickerInner({
         </div>
       </div>
       {foodPicker.isOpen && <AddPickerContent
-        savedOnly
+        mode="replace"
         onBack={foodPicker.close}
         onPick={pickReplacement}
-        onCreateNew={() => {}}
-        onAddTemp={() => {}}
-        onScanBarcode={() => {}}
-        addedProductIds={new Set()}
         refreshVersion={refreshVersion}
         onRefreshError={onRefreshError}
       />}

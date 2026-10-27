@@ -2,7 +2,7 @@
 
 import { useState } from 'preact/hooks';
 import { MAX_PRODUCT_BARCODE_LENGTH } from '../../shared/constraints';
-import type { Macros } from '../types';
+import type { Macros, NewProductBody } from '../types';
 import { MACRO_KEYS, MACRO_META, type MacroKey } from '../macros';
 import { cssVars } from '../styles';
 import { Sheet, useSheetClose } from '../components/Sheet';
@@ -12,14 +12,7 @@ import { useSheetSubview } from '../hooks/useSheetSubview';
 import { ArrowRightIcon, BarcodeIcon, ExclamationTriangleIcon, TrashIcon } from '../components/Icon';
 import styles from './NewProductForm.module.css';
 
-export type ProductDraft = {
-  name: string;
-  brand: string | null;
-  unit: 'g' | 'ml';
-  barcode: string | null;
-  per100: Macros;
-  is_temp: boolean;
-};
+export type ProductDraft = NewProductBody;
 
 type NewProductFormProps = {
   initial?: Partial<ProductDraft>;

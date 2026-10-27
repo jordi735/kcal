@@ -9,6 +9,35 @@ export type Macros = {
   fat: number;
 };
 
+export type User = {
+  id: number;
+  email: string;
+  goal_kcal: number;
+  goal_protein: number;
+  goal_carbs: number;
+  goal_fat: number;
+};
+
+export type VerifyCodeResponse = { session_token: string; user: User };
+
+export type NewProductBody = {
+  name: string;
+  brand: string | null;
+  unit: 'g' | 'ml';
+  barcode: string | null;
+  per100: Macros;
+  is_temp: boolean;
+};
+
+export type UpdateProductBody = Omit<NewProductBody, 'is_temp'>;
+
+export type NewEntryBody = {
+  product_id: number;
+  amount: number;
+  local_date: string;
+  local_time: string;
+};
+
 export type GoalHistoryItem = { effective_date: string; goals: Macros };
 export type GoalPeriod = { start_date: string; end_date: string; daily_goals: Macros | null };
 export type GoalComparison = {

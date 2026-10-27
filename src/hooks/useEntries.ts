@@ -1,6 +1,6 @@
 // Account-owned food cache. Writes are ordered across entries, groups and products.
 import { useCallback, useRef, useState } from 'preact/hooks';
-import type { EntryGroup, EntryUpdate, EntryWithMacros, Macros } from '../types';
+import type { EntryGroup, EntryUpdate, EntryWithMacros, Macros, NewEntryBody } from '../types';
 import { api, isSessionCurrent, type SessionScope } from '../api';
 import { datesFromStart } from '../../shared/dates';
 import { createMutationQueue, type MutationQueue } from '../mutationQueue';
@@ -39,7 +39,7 @@ export type UseEntriesReturn = {
   loadWeek: (start: string) => Promise<void>;
   queueFoodMutation: MutationQueue;
   refreshAll: () => Promise<void>;
-  add: (params: { product_id: number; amount: number; local_date: string; local_time: string }) => Promise<EntryWithMacros>;
+  add: (params: NewEntryBody) => Promise<EntryWithMacros>;
   update: (id: number, patch: EntryUpdate) => Promise<EntryWithMacros>;
   remove: (id: number, date: string) => Promise<void>;
   createGroup: (params: { name: string; entry_ids: number[] }) => Promise<EntryGroup>;
@@ -120,7 +120,7 @@ export function useEntries(session: SessionScope, onRefreshError: () => void): U
     if (results.some((result) => result.status === 'rejected') && isSessionCurrent(session)) refreshError.current();
   }, [invalidateReads, load, loadWeek, session]);
 
-  const add = useCallback((params: { product_id: number; amount: number; local_date: string; local_time: string }) => {
+  const add = useCallback((params: NewEntryBody) => {
     const deriveTotals = loadedDates.has(params.local_date);
     return queue(async () => {
       const readVersion = appliedReadVersion.current;
