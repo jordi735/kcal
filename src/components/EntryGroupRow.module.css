@@ -8,6 +8,10 @@
   transition: background 0.3s ease;
 }
 
+.row:last-child {
+  border-bottom: none;
+}
+
 .row.selected {
   background: var(--bg-elev);
 }

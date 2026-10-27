@@ -108,6 +108,25 @@ function groupRow(page: Page, name: string): Locator {
   return page.locator('.entry-group').filter({ hasText: name });
 }
 
+async function groupDividerWidths(parent: Locator) {
+  return parent.evaluate((element) => {
+    const wrapper = element.parentElement;
+    if (wrapper === null) throw new Error('Group wrapper missing');
+    const children = Array.from(wrapper.querySelectorAll('.food-row'));
+    const firstChild = children[0];
+    const tail = children.at(-1) ?? element;
+    const bottom = (node: Element) => Number.parseFloat(getComputedStyle(node).borderBottomWidth);
+    const top = (node: Element) => Number.parseFloat(getComputedStyle(node).borderTopWidth);
+    return {
+      // Adjacent row and wrapper borders form one visible outer divider,
+      // regardless of which element owns it.
+      bottom: bottom(tail) + bottom(wrapper),
+      headerChildren: firstChild === undefined ? null
+        : bottom(element) + top(firstChild.parentElement!) + top(firstChild),
+    };
+  });
+}
+
 async function createGroupFromRows(
   page: Page,
   firstName: string,
@@ -134,11 +153,13 @@ test('[J-169] selected entries become one collapsed persistent group without cha
   const a = 'G169 alpha';
   const b = 'G169 beta';
   const c = 'G169 loose';
-  await seedToday(page, request, [
+  const seeded = await seedToday(page, request, [
     { name: a, macros: MACROS_A },
     { name: b, macros: MACROS_B },
     { name: c, macros: MACROS_C },
   ]);
+  const looseEntry = seeded[2];
+  if (looseEntry === undefined) throw new Error('Trailing loose entry missing');
 
   const consumed = page.getByText('Consumed', { exact: true }).locator('..');
   await expect(consumed).toContainText('350 kcal');
@@ -160,11 +181,15 @@ test('[J-169] selected entries become one collapsed persistent group without cha
     looseRow.evaluate((element) => getComputedStyle(element).backgroundColor),
   ]);
   expect(parentBackground).toBe(looseBackground);
+  expect(await groupDividerWidths(parent)).toEqual({ bottom: 1, headerChildren: null });
+  await expect(looseRow).toHaveCSS('border-bottom-width', '0px');
   await expect(consumed).toContainText('350 kcal');
 
   await page.getByRole('button', { name: 'Expand Ice cream batch', exact: true }).tap();
   await expect(foodRow(page, a)).toBeVisible();
   await expect(foodRow(page, b)).toBeVisible();
+  expect(await groupDividerWidths(parent)).toEqual({ bottom: 1, headerChildren: 1 });
+  await expect(consumed).toContainText('350 kcal');
 
   await page.reload();
   await expect(groupRow(page, 'Ice cream batch')).toBeVisible();
@@ -172,6 +197,23 @@ test('[J-169] selected entries become one collapsed persistent group without cha
   await expect(foodRow(page, a)).toHaveCount(0);
   await expect(foodRow(page, b)).toHaveCount(0);
   await expect(consumed).toContainText('350 kcal');
+
+  // Removing the trailing loose entry makes the same group the last list
+  // item. Its outside divider must disappear in either expansion state.
+  const removed = await request.delete(`/entries/${looseEntry.id}`, { headers: await authHeaders(page) });
+  expect(removed.ok(), await removed.text()).toBeTruthy();
+  await page.reload();
+  await expect(parent).toBeVisible();
+  await expect(looseRow).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Expand Ice cream batch', exact: true })).toBeVisible();
+  expect(await groupDividerWidths(parent)).toEqual({ bottom: 0, headerChildren: null });
+  await expect(consumed).toContainText('300 kcal');
+
+  await page.getByRole('button', { name: 'Expand Ice cream batch', exact: true }).tap();
+  await expect(foodRow(page, a)).toBeVisible();
+  await expect(foodRow(page, b)).toBeVisible();
+  expect(await groupDividerWidths(parent)).toEqual({ bottom: 0, headerChildren: 1 });
+  await expect(consumed).toContainText('300 kcal');
 });
 
 test('[J-170] group naming validates input and cancel preserves the selection', async ({ page, request }) => {

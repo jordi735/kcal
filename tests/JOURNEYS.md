@@ -154,7 +154,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 
 # 7a. Named entry groups
 
-- J-169 · Two selected entries become one collapsed, persistent parent with the same default background as a loose row; parent macros aggregate children while daily totals remain unchanged
+- J-169 · Two selected entries become one persistent group with the same background as loose rows; collapsed and expanded groups have one outer divider unless last, an expanded header has one child divider, and folding preserves totals
 - J-170 · Group action requires two eligible entries; blank names stay disabled and cancelling the naming Sheet preserves selection
 - J-171 · Failed group creation retains the Sheet, typed name, and selection so the request can be retried
 - J-172 · Parent eaten control exposes mixed state and tags/untags every child through one atomic group PATCH
