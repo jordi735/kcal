@@ -136,8 +136,8 @@ function AmountPickerInner({
   const focused = useRef(false);
   const [localTime, setLocalTime] = useState(initialDraft?.localTime ?? initialTime ?? '');
   const [userChangedTime, setUserChangedTime] = useState(initialDraft?.timeChanged ?? false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const timeRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const timeRef = useRef<HTMLInputElement | null>(null);
   const unit = product.unit;
 
   useEffect(() => {

@@ -77,7 +77,7 @@ app.use(
 // Unknown API paths must not fall through to the SPA — otherwise a buggy
 // fetch('/auth/typo') returns HTML and the client JSON-parses it.
 app.use((req, res, next) => {
-  if (isApiPath(req.path)) {
+  if (isApiPath(req.path.toLowerCase())) {
     res.status(404).json({ error: 'not found' });
     return;
   }

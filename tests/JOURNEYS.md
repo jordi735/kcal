@@ -512,3 +512,5 @@ this catalog check with all three TypeScript checks.
 - J-527 · Parser, authorization, and unknown-API errors retain privacy and security headers
 - J-528 · Credential and authenticated responses are not stored while static cache policies remain intact
 - J-529 · Unexpected failures return a generic error, omit sensitive diagnostics, and preserve later requests
+
+- J-530 · Replacing the session releases a live camera before passive cleanup and suppresses later decoding

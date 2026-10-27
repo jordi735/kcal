@@ -94,6 +94,7 @@ test('[J-527] parser authorization and unknown-API errors retain privacy and sec
   expect(errors['oversized']!.status).toBe(413);
   expect(errors['unauthorized']!.status).toBe(401);
   expect(errors['missing']!.status).toBe(404);
+  expect(errors['mixedCaseMissing']!.status).toBe(404);
   for (const [name, response] of Object.entries(errors)) privateHeaders(response, name);
 });
 

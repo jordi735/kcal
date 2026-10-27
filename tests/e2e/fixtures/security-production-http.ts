@@ -68,6 +68,7 @@ try {
     oversized: await request('/auth/verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ padding: 'x'.repeat(5 * 1024) }) }),
     unauthorized: await request('/settings/private-path-marker?token=private-query-marker', { headers: { Authorization: 'Bearer private-header-marker' } }),
     missing: await request('/auth/private-path-marker'),
+    mixedCaseMissing: await request('/AuTh/private-path-marker'),
   };
   const code = issueLoginCode(email).code;
   const credential = await request('/auth/verify-code', {

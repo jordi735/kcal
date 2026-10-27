@@ -1,6 +1,6 @@
 // Barcode scanner modal — live camera viewfinder decoded by @zxing/browser.
 
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { BrowserMultiFormatOneDReader, type IScannerControls } from '@zxing/browser';
 import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 import { useFadeClose } from '../hooks/useFadeClose';
@@ -42,6 +42,16 @@ export function BarcodeScanner({ onDetect, onCloseStart, onClose }: BarcodeScann
     }
     requestClose();
   };
+
+  // A session replacement can remove the scanner without explicit Close.
+  // Stop and fence callbacks before paint; passive cleanup may run later.
+  useLayoutEffect(() => () => {
+    closingRef.current = true;
+    if (controlsRef.current !== null) {
+      controlsRef.current.stop();
+      controlsRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

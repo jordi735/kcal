@@ -25,7 +25,7 @@ fi
 cd "$REPO_ROOT"
 
 if [[ ! -x "$CODEX_BIN" ]]; then
-  echo "Codex CLI not found at $CODEX_BIN. Run npm install first." >&2
+  echo "Codex CLI not found at $CODEX_BIN. Run npm ci first." >&2
   exit 1
 fi
 

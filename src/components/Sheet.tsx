@@ -38,7 +38,7 @@
 // sheet's slide-off.
 
 import { createContext } from 'preact';
-import type { ComponentChildren, JSX } from 'preact';
+import type { ComponentChildren, CSSProperties, TargetedPointerEvent } from 'preact';
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import { FADE_EXIT_MS } from '../hooks/useFadeClose';
 
@@ -49,7 +49,7 @@ type SheetProps = {
   // fully closes the sheet stack. Falls back to `onClose` when omitted.
   onDismiss?: () => void;
   children: ComponentChildren;
-  style?: JSX.CSSProperties;
+  style?: CSSProperties;
 };
 
 const DISMISS_THRESHOLD_PX = 80;
@@ -289,12 +289,12 @@ export function Sheet({ onClose, onDismiss, children, style }: SheetProps) {
   // fire with the touch listeners above on mobile. Capture is deferred
   // until the drag commits — capturing on pointerdown would swallow
   // clicks on child buttons inside the sheet.
-  const onPointerDown = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+  const onPointerDown = (e: TargetedPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return;
     if (!beginGesture(e.target, e.clientY, false)) return;
     pointerIdRef.current = e.pointerId;
   };
-  const onPointerMove = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+  const onPointerMove = (e: TargetedPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return;
     if (pointerIdRef.current !== e.pointerId) return;
     const wasDragging = dragRef.current.phase === 'dragging';
@@ -303,7 +303,7 @@ export function Sheet({ onClose, onDismiss, children, style }: SheetProps) {
       e.currentTarget.setPointerCapture(e.pointerId);
     }
   };
-  const onPointerEnd = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+  const onPointerEnd = (e: TargetedPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return;
     if (pointerIdRef.current !== e.pointerId) return;
     endGesture(e.clientY);

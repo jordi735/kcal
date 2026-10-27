@@ -1,4 +1,4 @@
-import type { JSX } from 'preact';
+import type { InputHTMLAttributes, KeyboardEventHandler } from 'preact';
 import { useRef } from 'preact/hooks';
 import { XMarkIcon } from './Icon';
 import styles from './ClearableField.module.css';
@@ -7,16 +7,15 @@ type ClearableFieldProps = {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string | undefined;
-  type?: string | undefined;
-  inputMode?: JSX.HTMLAttributes<HTMLInputElement>['inputMode'];
+  inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode'];
   autoComplete?: string | undefined;
   autoFocus?: boolean | undefined;
   'aria-label'?: string | undefined;
   maxLength?: number | undefined;
   className?: string | undefined;
   wrapClassName?: string | undefined;
-  onKeyDown?: JSX.KeyboardEventHandler<HTMLInputElement> | undefined;
-};
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement> | undefined;
+} & ({ type?: 'text' } | { type: 'email' });
 
 export function ClearableField({
   value,
@@ -25,7 +24,7 @@ export function ClearableField({
   wrapClassName,
   ...rest
 }: ClearableFieldProps) {
-  const ref = useRef<HTMLInputElement>(null);
+  const ref = useRef<HTMLInputElement | null>(null);
   const wrapClass = `${styles.wrap}${wrapClassName ? ` ${wrapClassName}` : ''}`;
   const inputClass = `field-input ${styles.input}${className ? ` ${className}` : ''}`;
   return (

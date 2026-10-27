@@ -308,3 +308,65 @@ for (const [id, errorName, message] of [
     await expect(page.locator('.sheet').getByText('Add Food', { exact: true })).toBeVisible();
   });
 }
+
+declare global {
+  interface Window {
+    __scannerUnmountSnapshot: MediaStreamTrackState[] | null;
+  }
+}
+
+test('[J-530] replacing the session releases a live camera before passive cleanup and suppresses later decoding', async ({ page, request, context }) => {
+  await installCamera(page);
+  await signInFresh(page, request, 'barcode-forced-unmount');
+  const other = await context.newPage();
+  const lookups: string[] = [];
+  await page.route('**/products/barcode/*', async (route) => {
+    lookups.push(route.request().url());
+    await route.fulfill({ status: 404, json: { error: 'not_found' } });
+  });
+  try {
+    await other.goto('/');
+    await expect(other.getByRole('button', { name: 'ADD FOOD', exact: true })).toBeVisible();
+    await page.bringToFront();
+    await page.getByRole('button', { name: 'ADD FOOD', exact: true }).tap();
+    await openScanner(page);
+    await expect.poll(() => trackStates(page)).toEqual(['live']);
+    await expect.poll(() => page.locator('video').evaluate((video: HTMLVideoElement) =>
+      video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0)).toBe(true);
+
+    await page.evaluate(() => {
+      const video = document.querySelector('video');
+      if (video === null) throw new Error('Expected the active scanner video');
+      window.__scannerUnmountSnapshot = null;
+      const observer = new MutationObserver(() => {
+        if (video.isConnected) return;
+        // Mutation observers run at the DOM-removal microtask checkpoint,
+        // before Preact11's deferred post-paint passive effect cleanup.
+        window.__scannerUnmountSnapshot = window.__barcodeCamera.tracks.map((track) => track.readyState);
+        observer.disconnect();
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    });
+
+    // A storage event forces the authenticated subtree off the page. It never
+    // invokes the scanner's explicit Close handler, which already stops tracks.
+    await other.evaluate(() => {
+      localStorage.removeItem('kcal_session_token');
+      localStorage.removeItem('kcal_user');
+    });
+    await expect(page.getByPlaceholder('you@example.com')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.__scannerUnmountSnapshot)).toEqual(['ended']);
+    expect(await trackStates(page)).toEqual(['ended']);
+
+    // Real decoder intervals must not revive a lookup or navigate away from
+    // Login when a decodable frame becomes available after the forced exit.
+    await showBarcode(page, '5901234123457');
+    await settleScanIntervals(page);
+    expect(lookups).toEqual([]);
+    await expect(page.getByPlaceholder('you@example.com')).toBeVisible();
+    await expect(page.locator('.sheet')).toHaveCount(0);
+    expect(await page.evaluate(() => window.__barcodeCamera.requests)).toBe(1);
+  } finally {
+    await other.close();
+  }
+});

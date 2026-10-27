@@ -157,6 +157,10 @@ dependency scripts or silently discard the lockfile.
   fade. Suppress late decoder/lookup callbacks and stop controls that initialize
   after cancellation. Clear close timers on unmount. Carousel completion accepts
   only the track's own transform transition and removes superseded listeners.
+  Preact 11 defers passive effect cleanup. Keep forced-unmount camera shutdown
+  and close-timer cancellation in synchronous layout cleanup; camera startup and
+  ordinary subscriptions/requests remain passive unless their contract requires
+  immediate teardown. Dynamic dimensional styles must carry explicit CSS units.
 - Keep the day-entry wire response flat. `EntryWithMacros.group` annotates real
   child entries; derive collapsed parents, aggregate macros, and mixed/all-tagged
   state in the client without adding a synthetic calorie-bearing entry.

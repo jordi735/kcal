@@ -5,7 +5,7 @@ import { resolveGoals } from '../../shared/goals';
 // neighbor fully into view before state swaps. Pointer events axis-lock
 // on first move so vertical gestures pass through to page scroll.
 
-import type { JSX } from 'preact';
+import type { TargetedPointerEvent } from 'preact';
 import { useLayoutEffect, useRef } from 'preact/hooks';
 import type { GoalHistoryItem, Macros } from '../types';
 import { cssVars } from '../styles';
@@ -224,7 +224,7 @@ export function WeekStrip({
     track.style.transform = direction === 1 ? TRACK_NEXT : TRACK_PREV;
   };
 
-  const onPointerDown = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+  const onPointerDown = (e: TargetedPointerEvent<HTMLDivElement>) => {
     if (animatingRef.current) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const viewportWidth = viewportRef.current?.clientWidth ?? 0;
@@ -243,7 +243,7 @@ export function WeekStrip({
     }
   };
 
-  const onPointerMove = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+  const onPointerMove = (e: TargetedPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag.active) return;
     const dx = e.clientX - drag.startX;
@@ -264,7 +264,7 @@ export function WeekStrip({
     }
   };
 
-  const onPointerEnd = (e: JSX.TargetedPointerEvent<HTMLDivElement>) => {
+  const onPointerEnd = (e: TargetedPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag.active) return;
     const dx = e.clientX - drag.startX;

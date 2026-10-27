@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 
 export const FADE_EXIT_MS = 300;
 
@@ -8,7 +8,7 @@ export function useFadeClose(onClose: () => void): {
 } {
   const [closing, setClosing] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
+  useLayoutEffect(() => () => {
     if (timer.current !== null) clearTimeout(timer.current);
   }, []);
 
