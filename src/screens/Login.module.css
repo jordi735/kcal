@@ -52,7 +52,6 @@
 .errorMsg {
   text-align: center;
   color: var(--danger);
-  letter-spacing: 0.06em;
   margin-top: 2px;
   animation: fadeIn 0.3s ease;
 }
@@ -60,7 +59,6 @@
 .helpMsg {
   text-align: center;
   color: var(--fg-dimmer);
-  letter-spacing: 0.06em;
   margin-top: 4px;
   animation: fadeIn 0.3s ease;
 }
@@ -89,7 +87,6 @@
 
 .codeInput {
   text-align: center;
-  font-size: 28px;
   letter-spacing: 0.3em;
   padding: 18px 14px;
 }

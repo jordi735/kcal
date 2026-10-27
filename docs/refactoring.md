@@ -511,3 +511,83 @@ bidirectional-link checks, maintenance-script syntax, and `git diff --check`
 passed. Historical migrations and existing frozen receipt fixtures remain
 unchanged. Fresh and upgraded disposable databases were exercised; production
 data was untouched and no deployment was performed.
+
+## Behavior-preserving cleanup from `2367ce8`
+
+The October 2026 cleanup keeps the existing public contracts, authentication,
+modal/draft ownership, arithmetic, and design. Work proceeds in six reviewable
+phases, with characterization before structural extraction and serial validation
+between phases:
+
+1. Enable unused-code checks, add `check` and executable `check:journeys`, and
+   centralize the shared Playwright origin, database, and auth-state paths.
+   The checker consumes the installed CLI's JSON discovery output, including
+   parameterized titles and both setup projects. Typed child programs replace
+   embedded email, OAuth, and MCP scripts while preserving their environments,
+   timeouts, readiness handling, and cleanup. Maintenance guidance discovers
+   tracked files rather than relying on a fixed inventory.
+2. Move duplicated wire shapes into `shared/types.ts`, retaining local reexports
+   and explicit login projection. The picker content uses distinct add and
+   replacement props; replacement stays local to the mounted amount editor.
+   `ProductDraft` remains the existing create payload, including scanner return
+   behavior.
+3. Rename the food-data hook to `useFoodData` and give it all product operations
+   alongside entry/group operations. One private mutation queue owns requests
+   and cache reconciliation; `App` still owns modal transitions, errors, drafts,
+   scanner returns, and flow-generation guards. Validate the extraction before
+   changing refresh scheduling.
+4. Bound successful product edit/delete refreshes to selected day, today, and
+   the visible week plus its neighbors. Preserve cached-first navigation and
+   loaded flags. Pure cache projections update retained rows only after success,
+   using the existing macro arithmetic. Accepted-read versions protect newer
+   snapshots and summaries; retired read identities suppress obsolete responses,
+   errors, and retries. The bounded refresh remains inside the same write queue.
+5. Type only the twelve product statements and move product discovery, listing,
+   and adoption into the existing product service. All prepared SQL arguments
+   remain unchanged. Adoption copies legacy values without normalization and
+   keeps its sequential existing-copy check, privacy checks, 200/201 statuses,
+   and new-copy-only logging. No transaction or concurrency guarantee is added.
+6. Remove superseded module typography declarations and let Home own its day-list
+   dividers. Keep shared utility values, global stylesheet ordering, intentional
+   specificity, and all effective geometry. Food and group rows remain separate
+   components with their established interaction anchors.
+
+The accepted timing tradeoff is limited to product-triggered refresh work.
+Off-screen summaries, and day snapshots read during a pending product update,
+remain cached fallback until existing navigation revalidation.
+Updates protect those ambiguous day responses because there are no server
+revision tokens. Deletion still removes its product from all retained days and
+counts group members only in complete snapshots. Total derivation requires
+captured complete-day eligibility and no accepted read during the write.
+Successful writes remain successful when their refresh fails.
+
+J-496 exercises journey-checker failure cases. J-497–J-504 cover bounded requests,
+retained history, obsolete responses, navigation during writes, queue ordering,
+newer snapshots, incomplete caches, and refresh recovery. The request-count
+regression first failed against the old implementation after ten historical week
+visits (14 reads instead of 4); it passes with zero, ten, and fifty visits after
+the change. J-365 was extended before backend extraction to characterize exact
+legacy adoption and sequential reuse. Existing test coverage and frozen receipt
+fixtures are retained.
+
+Visual characterization compares each theme with its own `2367ce8` baseline,
+using fixed API data, clock, loaded fonts, and settled animations. All 252
+computed snapshots match exactly across Pixel 7, narrow-mobile, and desktop
+coverage. All Home/grouping and narrow/desktop screenshots are pixel-identical.
+Overall, 224 screenshots match exactly; the other 28 have 2–67 isolated edge
+pixels changed per image, consistent with the unchanged-build repeat control.
+Every difference was inspected without replacing the baseline or adding a
+blanket tolerance. Interaction tests retain keyboard/focus and Sheet coverage;
+the static captures use controlled scanner imagery rather than a live camera.
+
+Final verification completed on 2026-10-27. The unchanged baseline passed 379
+tests; all six focused phase suites passed. `npm run check`, the production
+build, maintenance-script syntax, and `git diff --check` passed. The first final
+suite shell ended with SIGTERM after 377 passing tests without a reported test
+failure. Its leftover test server was stopped before rerunning the unchanged
+serial harness with a background runner that records completion. The complete
+rerun passed **388 tests in 9.8 minutes**, exit code 0. Discovery retained all
+previous journeys and added J-496–J-504. The final production files match the
+visually inspected build byte-for-byte; the existing bundle-size warning remains.
+No endpoint, schema, migration, dependency, lockfile, or frozen-fixture change,
+commit, push, deployment, or notification was included.

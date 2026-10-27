@@ -9,12 +9,10 @@
 .title {
   color: var(--fg-dim);
   font-size: 11px;
-  letter-spacing: 0.18em;
 }
 
 .closeBtn {
   color: var(--fg-dim);
-  letter-spacing: 0.14em;
 }
 
 .closeBtn:disabled {
@@ -32,7 +30,6 @@
   padding: 60px 24px;
   text-align: center;
   color: var(--fg-dimmer);
-  letter-spacing: 0.14em;
 }
 
 .emptyState {
@@ -60,7 +57,6 @@
 .emptyTitle {
   color: var(--fg-dim);
   font-size: 11px;
-  letter-spacing: 0.14em;
 }
 
 .emptyHint {
@@ -114,7 +110,6 @@
 
 .date {
   color: var(--fg-dim);
-  letter-spacing: 0.1em;
   white-space: nowrap;
 }
 

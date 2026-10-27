@@ -9,7 +9,6 @@
   border: 1px solid var(--danger);
   border-radius: 10px;
   color: var(--danger);
-  letter-spacing: 0.14em;
   text-align: center;
   animation: fadeIn 0.3s ease;
 }

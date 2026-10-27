@@ -9,8 +9,6 @@
 
 .nutFieldLabel {
   color: var(--field-color, var(--fg-dimmer));
-  letter-spacing: 0.12em;
-  font-size: 9px;
   transition: color 0.3s ease;
 }
 
@@ -56,13 +54,11 @@
 
 .title {
   font-size: 11px;
-  letter-spacing: 0.18em;
   color: var(--fg-dim);
 }
 
 .tempHint {
   color: var(--accent);
-  letter-spacing: 0.1em;
 }
 
 .cancelBtn {
@@ -143,7 +139,6 @@
 
 .macroCardLabel {
   color: var(--fg-dim);
-  letter-spacing: 0.14em;
 }
 
 .macroGrid {
@@ -164,7 +159,6 @@
 }
 
 .atwaterWarnText {
-  letter-spacing: 0.04em;
   line-height: 1.4;
 }
 

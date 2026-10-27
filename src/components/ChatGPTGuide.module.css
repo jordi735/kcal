@@ -55,7 +55,7 @@
 .intro h1:focus { outline: none; }
 .content p { color: var(--fg-dim); font-size: 14px; line-height: 1.65; margin: 8px 0 0; }
 .content strong { color: var(--fg); font-weight: 600; }
-.desktopNote { display: block; margin-top: 16px; color: var(--accent); line-height: 1.6; letter-spacing: 0.04em; }
+.desktopNote { display: block; margin-top: 16px; color: var(--accent); line-height: 1.6; }
 
 .steps { list-style: none; counter-reset: step; margin: 0; padding: 0; }
 .steps > li { position: relative; counter-increment: step; padding: 0 0 26px 42px; }

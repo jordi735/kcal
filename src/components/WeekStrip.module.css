@@ -79,8 +79,6 @@
 
 .dayLetter {
   color: var(--fg-dimmer);
-  font-size: 9px;
-  letter-spacing: 0.1em;
 }
 
 .pill.selected .dayLetter {

@@ -157,6 +157,14 @@ required-key inventory and never commit real credentials.
   state in the client without adding a synthetic calorie-bearing entry.
 - Use `MACRO_KEYS`/`MACRO_META` for P/C/F presentation, CSS modules for component
   styles, and `cssVars` for dynamic custom properties. Kcal stays separate.
+- `Home.module.css` owns day-list dividers: nonfinal top-level rows/groups,
+  expanded group headers, and nonfinal group children. Keep the `.food-row`
+  and `.entry-group` interaction anchors; do not duplicate their dividers in
+  global styles or the row components.
+- Shared `.tiny` and `.caps` utilities intentionally supply effective typography
+  where used. Preserve `.tiny` at 10px/0.12em and `.caps` at 0.08em when used
+  without `.tiny`. Keep the global stylesheet ordering described in
+  `docs/themes.md`; changing it can also activate overridden field/button rules.
 - Prefer Heroicons 16/solid for reusable icons and add SVGs as named exports in
   `src/components/Icon.tsx`, preserving its shared `BASE` props. `BarcodeIcon`,
   `CircleIcon`, `MinusCircleIcon`, `GroupIcon`, and `WeightIcon` are the current

@@ -254,14 +254,6 @@ input[type="number"] {
   font-family: var(--mono);
 }
 
-/* Home entry list rows */
-.food-row {
-  border-bottom: 1px solid var(--border);
-}
-.food-row:last-child {
-  border-bottom: none;
-}
-
 /* Barcode scanner viewfinder corner markers.
    Size via --corner-size on the wrapper (default 28px). */
 .scan-corner {

@@ -15,7 +15,6 @@
   padding: 60px 24px;
   text-align: center;
   color: var(--fg-dimmer);
-  letter-spacing: 0.14em;
 }
 
 .emptyBtn {
@@ -41,7 +40,6 @@
 
 .emptyLabel {
   font-size: 11px;
-  letter-spacing: 0.14em;
   color: var(--fg-dim);
 }
 
@@ -51,12 +49,11 @@
   max-width: 220px;
 }
 
-.groupBlock {
+/* Home owns separators between day-list items and within expanded groups. */
+.dayRows > :not(:last-child),
+.groupBlock > :global(.entry-group):not(:last-child),
+.groupChildren > :global(.food-row):not(:last-child) {
   border-bottom: 1px solid var(--border);
-}
-
-.groupBlock:last-child {
-  border-bottom: none;
 }
 
 .groupChildren {

@@ -28,8 +28,6 @@
 
 .fieldSub {
   color: var(--fg-dimmer);
-  letter-spacing: 0.12em;
-  font-size: 9px;
 }
 
 .fieldRight {
@@ -86,7 +84,6 @@
 
 .legendLabel {
   color: var(--fg-dim);
-  letter-spacing: 0.1em;
 }
 
 .header {
@@ -98,12 +95,10 @@
 
 .closeBtn {
   color: var(--fg-dim);
-  letter-spacing: 0.14em;
 }
 
 .saveBtn {
   color: var(--accent);
-  letter-spacing: 0.14em;
 }
 
 .saveBtn.saveBtnSaving {
@@ -123,7 +118,6 @@
 
 .sectionLabel {
   color: var(--fg-dim);
-  letter-spacing: 0.14em;
   margin-bottom: 14px;
 }
 
@@ -144,7 +138,6 @@
 
 .macroHeaderTitle {
   color: var(--fg-dim);
-  letter-spacing: 0.14em;
 }
 
 .macroHeaderValue {
@@ -185,7 +178,6 @@
 .errorText {
   margin-top: 14px;
   color: var(--danger);
-  letter-spacing: 0.06em;
   line-height: 1.5;
 }
 
@@ -203,7 +195,6 @@
 
 .accountCardLabel {
   color: var(--fg-dimmer);
-  letter-spacing: 0.14em;
   margin-bottom: 4px;
 }
 
@@ -246,7 +237,6 @@
   color: var(--fg-dim);
   font-size: 11px;
   font-weight: 400;
-  letter-spacing: 0.18em;
 }
 
 .subviewTitle:focus {
@@ -298,7 +288,6 @@
 
 .historyDate {
   color: var(--fg-dim);
-  letter-spacing: 0.1em;
   white-space: nowrap;
 }
 

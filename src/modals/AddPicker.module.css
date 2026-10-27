@@ -50,7 +50,6 @@
 
 .rowBrand {
   color: var(--fg-dimmer);
-  letter-spacing: 0.06em;
 }
 
 .rowMacros {
@@ -87,7 +86,6 @@
 
 .sectionLabel {
   color: var(--fg-dimmer);
-  letter-spacing: 0.14em;
 }
 
 .header {
@@ -99,7 +97,6 @@
 
 .title {
   font-size: 11px;
-  letter-spacing: 0.18em;
   color: var(--fg-dim);
 }
 
@@ -198,7 +195,6 @@
   padding: 40px 24px;
   text-align: center;
   color: var(--fg-dimmer);
-  letter-spacing: 0.14em;
 }
 
 .emptyMsg {

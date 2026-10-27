@@ -201,7 +201,7 @@ export function Home({
             </div>
           </button>
         ) : (
-          <div>
+          <div className={styles.dayRows}>
             {dayList.map((item) => {
               if (item.kind === 'entry') {
                 return renderFoodRow(item.entry);
