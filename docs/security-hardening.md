@@ -40,6 +40,42 @@ the MCP transport. The SDK's resource check supplements, rather than replaces,
 the existing provider check. Disabling OAuth/MCP by leaving PUBLIC_ORIGIN blank
 continues to work.
 
+## Login accounting and account creation
+
+The two login POST endpoints reserve source quota once, before body parsing.
+Malformed input, an account-level rejection and failed delivery all spend that
+source reservation; reservations are never refunded. Only Express's validated
+`req.ip` is used, with IPv4-mapped addresses canonicalized and IPv6 addresses
+grouped by /56. Missing or invalid addresses share an `unknown` bucket. Trusted
+proxy configuration is therefore part of deployment security.
+
+| Budget | Limit |
+| --- | --- |
+| Code issuance per source | 30/hour |
+| Verification per source | 100/15 minutes |
+| Code issuance per email | 30-second cooldown and 5/hour |
+| Verification per email | 20/15 minutes |
+| Incorrect attempts per issued code | 5 |
+
+Verification spends email quota only when an active, unexpired code exists.
+The account reservation, timing-safe comparison and single-use consumption run
+synchronously. Resending never resets the account's verification budget. This
+prevents guesses before issuance from exhausting that email's verification
+allowance; contention over active codes or email issuance remains a limitation
+of the existing protocol, not a guarantee this implementation can provide.
+
+Requesting a code does not create a permanent account. Successful verification
+consumes the code, then creates/selects the user and creates the session in one
+database transaction, returning the same projected user and current goals.
+Database failure rolls back those writes without reviving the consumed code.
+Existing account IDs, default goals and goal history remain intact.
+
+Delivery runs outside database transactions. A failed delivery invalidates only
+that exact issuance, even if a later issuance has identical six-digit contents.
+It cannot restore an older code, remove a newer one or refund quota. Login codes
+and budgets remain process-local; multiple instances require shared state or
+affinity as a separately reviewed deployment change.
+
 ## Verification
 
 Security regressions use the existing serial Playwright harness and bounded,

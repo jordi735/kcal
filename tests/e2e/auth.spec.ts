@@ -133,8 +133,8 @@ test('[J-005] requesting a new code invalidates the previous one', async ({ page
 });
 
 test('[J-006] unknown email reaches the code screen (no enumeration leak)', async ({ page, request }) => {
-  // server/routes/auth.ts upserts the users row on request-code, so there
-  // is no "email not found" surface — every request succeeds identically.
+  // Request-code responds identically before a permanent account exists or
+  // after one has been verified: there is no "email not found" surface.
   // This pins that property on TWO surfaces: the UI lands on the code step
   // for a fresh email, and the JSON response shape is byte-identical to a
   // known account.
@@ -264,7 +264,7 @@ test('[J-054] /auth/request-code normalizes email to lowercase', async ({ reques
 
 test('[J-055] /auth/verify-code rejects malformed code body with 400 invalid_or_expired_code', async ({ request }) => {
   // server/routes/auth.ts's body validator requires LOGIN_CODE_RE
-  // (/^\d{6}$/) on the code field AND EMAIL_RE on the email field. Each
+  // (/^\d{6}$/) on the code field AND bounded isEmail on the email field. Each
   // case below trips a different branch and must surface the same opaque
   // error code — never leak which field was malformed.
   const email = `verify-${Date.now()}@test.local`;

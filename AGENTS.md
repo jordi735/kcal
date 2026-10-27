@@ -241,6 +241,14 @@ dependency scripts or silently discard the lockfile.
   process-local maps, so multi-process deployment requires shared state or
   affinity. Preserve timing-safe code comparison, attempt caps, and issue/verify
   throttles; reissuing a code must not reset the account's verification budget.
+  Reserve source quota exactly once before parsing login POST bodies, using only
+  validated/canonicalized `req.ip` and IPv6 /56 aggregation. Missing or expired
+  codes must not spend account verification quota. Reserve account quota before
+  comparing/consuming an active code, synchronously and without refunds.
+  Create/select the account and create its session transactionally only after
+  successful one-time verification. Failed delivery invalidates its exact
+  issuance identity, never a newer issuance with the same digits; database
+  rollback must not resurrect a consumed code.
 - `TEST_MODE` disables email delivery, exposes login-code lookup, and relaxes auth
   throttles for suite fixtures sharing a loopback IP. Injected-clock limiter tests
   exercise production budgets independently;

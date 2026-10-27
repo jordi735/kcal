@@ -495,3 +495,12 @@ this catalog check with all three TypeScript checks.
 - J-520 · HTTP parsers reject compressed and oversized requests while retaining availability
 - J-521 · Patched compressed-body parsing survives trailing decoder errors in an isolated process
 - J-522 · MCP bounds validation work before mutation and accepts the maximum valid batch
+
+- J-510 · Guesses without an issued code cannot spend the account verification allowance
+- J-511 · Failed delivery and unverified sign-in requests do not create permanent accounts
+- J-512 · Failed delivery invalidates only its own issued code across overlapping resends
+
+- J-513 · Source quotas are reserved once before malformed auth JSON is parsed.
+- J-514 · IPv6 subnet aliases and mapped IPv4 share source quotas with independent adjacent subnets.
+- J-515 · Code attempts and resend budgets remain bounded while expired codes cannot poison a fresh login.
+- J-516 · Failed session creation rolls back a new account without resurrecting its consumed code.

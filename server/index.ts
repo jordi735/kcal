@@ -6,7 +6,7 @@ import express from 'express';
 import type { ErrorRequestHandler } from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { authRouter } from './routes/auth.js';
+import { authIssueSourceLimiter, authRouter, authVerifySourceLimiter } from './routes/auth.js';
 import { settingsRouter } from './routes/settings.js';
 import { productsRouter } from './routes/products.js';
 import { entriesRouter } from './routes/entries.js';
@@ -21,6 +21,10 @@ const app = express();
 
 app.set('trust proxy', env.TRUST_PROXY);
 
+// Reserve once before parsing: invalid bodies and downstream account/delivery
+// failures still spend source quota. Routes separately reserve account quota.
+app.post('/auth/request-code', authIssueSourceLimiter);
+app.post('/auth/verify-code', authVerifySourceLimiter);
 app.use(['/auth/request-code', '/auth/verify-code'], express.json({ limit: '4kb', inflate: false }));
 app.use(['/register', '/authorize', '/token', '/revoke', '/oauth'],
   express.json({ limit: '16kb', inflate: false }),

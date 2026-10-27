@@ -145,30 +145,30 @@ test('[J-385] auth limits enforce cooldown and independent email/IP budgets with
   let now = 1_000_000;
   const clock = () => now;
   const issue = new AuthThrottle({ now: clock });
-  expect(issue.check('issue', 'a@test.local', 'ip')).toBe(0);
-  expect(issue.check('issue', 'a@test.local', 'ip')).toBe(30);
+  expect(issue.reserveAccount('issue', 'a@test.local')).toBe(0);
+  expect(issue.reserveAccount('issue', 'a@test.local')).toBe(30);
   now += 29_000;
-  expect(issue.check('issue', 'a@test.local', 'ip')).toBe(1);
+  expect(issue.reserveAccount('issue', 'a@test.local')).toBe(1);
   now += 1000;
   for (let i = 0; i < 4; i++) {
-    expect(issue.check('issue', 'a@test.local', 'ip')).toBe(0);
+    expect(issue.reserveAccount('issue', 'a@test.local')).toBe(0);
     now += 30_000;
   }
-  expect(issue.check('issue', 'a@test.local', 'another-ip')).toBeGreaterThan(3000);
+  expect(issue.reserveAccount('issue', 'a@test.local')).toBeGreaterThan(3000);
   now += 3_600_000;
-  expect(issue.check('issue', 'a@test.local', 'ip')).toBe(0);
+  expect(issue.reserveAccount('issue', 'a@test.local')).toBe(0);
   const verify = new AuthThrottle({ now: clock });
-  for (let i = 0; i < 20; i++) expect(verify.check('verify', 'a@test.local', 'ip')).toBe(0);
-  expect(verify.check('verify', 'a@test.local', 'another-ip')).toBe(900);
-  expect(verify.check('issue', 'a@test.local', 'ip')).toBe(0);
-  expect(verify.check('verify', 'a@test.local', 'ip')).toBe(900);
+  for (let i = 0; i < 20; i++) expect(verify.reserveAccount('verify', 'a@test.local')).toBe(0);
+  expect(verify.reserveAccount('verify', 'a@test.local')).toBe(900);
+  expect(verify.reserveAccount('issue', 'a@test.local')).toBe(0);
+  expect(verify.reserveAccount('verify', 'a@test.local')).toBe(900);
   now += 900_000;
-  expect(verify.check('verify', 'a@test.local', 'ip')).toBe(0);
+  expect(verify.reserveAccount('verify', 'a@test.local')).toBe(0);
   const ips = new AuthThrottle({ now: clock });
-  for (let i = 0; i < 30; i++) expect(ips.check('issue', `${i}@test.local`, 'ip')).toBe(0);
-  expect(ips.check('issue', 'new@test.local', 'ip')).toBe(3600);
-  for (let i = 0; i < 100; i++) expect(ips.check('verify', `${i}@test.local`, 'ip')).toBe(0);
-  expect(ips.check('verify', 'new@test.local', 'ip')).toBe(900);
+  for (let i = 0; i < 30; i++) expect(ips.reserveSource('issue', '203.0.113.1')).toBe(0);
+  expect(ips.reserveSource('issue', '203.0.113.1')).toBe(3600);
+  for (let i = 0; i < 100; i++) expect(ips.reserveSource('verify', '203.0.113.1')).toBe(0);
+  expect(ips.reserveSource('verify', '203.0.113.1')).toBe(900);
 });
 
 test('[J-386] REST rejects overflowing amounts and impossible new food and weight dates', async ({ request }) => {

@@ -2,25 +2,41 @@
 // Deliberately does not leak account existence via /auth/request-code.
 
 import { Router } from 'express';
+import type { RequestHandler } from 'express';
 import {
   authMiddleware,
   consumeLoginCode,
-  createSession,
+  createVerifiedSession,
   deleteSession,
   issueLoginCode,
+  invalidateLoginCode,
+  hasActiveLoginCode,
   peekLoginCode,
 } from '../auth.js';
 import { sendLoginCode } from '../email.js';
 import { env } from '../env.js';
 import { isObject, LOGIN_CODE_RE } from '../guards.js';
 import { isEmail } from '../../shared/email.js';
-import { statements } from '../statements.js';
-import { readCurrentGoals } from '../goals.js';
 import { AuthThrottle } from '../auth-limits.js';
-import type { UserRow, VerifyCodeResponse } from '../types.js';
 
 export const authRouter: Router = Router();
 const throttle = new AuthThrottle({ testMode: env.TEST_MODE });
+
+function sourceLimiter(action: 'issue' | 'verify'): RequestHandler {
+  return (req, res, next) => {
+    const retryAfter = throttle.reserveSource(action, req.ip);
+    if (retryAfter > 0) {
+      res.setHeader('Retry-After', retryAfter);
+      res.status(429).json({ error: 'too_many_requests' });
+      return;
+    }
+    next();
+  };
+}
+
+// Mount once, before parsers, on the matching POST routes in server/index.ts.
+export const authIssueSourceLimiter = sourceLimiter('issue');
+export const authVerifySourceLimiter = sourceLimiter('verify');
 
 function isEmailBody(v: unknown): v is { email: string } {
   return isObject(v) && isEmail(v.email);
@@ -41,15 +57,19 @@ authRouter.post('/request-code', async (req, res) => {
     return;
   }
   const email = req.body.email.trim().toLowerCase();
-  const retryAfter = throttle.check('issue', email, req.ip ?? 'unknown');
+  const retryAfter = throttle.reserveAccount('issue', email);
   if (retryAfter > 0) {
     res.setHeader('Retry-After', retryAfter);
     res.status(429).json({ error: 'too_many_requests' });
     return;
   }
-  statements.users.upsert.run(email, Date.now());
-  const code = issueLoginCode(email);
-  await sendLoginCode(email, code);
+  const issued = issueLoginCode(email);
+  try {
+    await sendLoginCode(email, issued.code);
+  } catch (error) {
+    invalidateLoginCode(email, issued);
+    throw error;
+  }
   res.json({ ok: true });
 });
 
@@ -59,7 +79,13 @@ authRouter.post('/verify-code', (req, res) => {
     return;
   }
   const email = req.body.email.trim().toLowerCase();
-  const retryAfter = throttle.check('verify', email, req.ip ?? 'unknown');
+  // Requests without a live code spend source quota only. Keep eligibility,
+  // account reservation and consumption synchronous so a resend cannot race.
+  if (!hasActiveLoginCode(email)) {
+    res.status(400).json({ error: 'invalid_or_expired_code' });
+    return;
+  }
+  const retryAfter = throttle.reserveAccount('verify', email);
   if (retryAfter > 0) {
     res.setHeader('Retry-After', retryAfter);
     res.status(429).json({ error: 'too_many_requests' });
@@ -74,25 +100,7 @@ authRouter.post('/verify-code', (req, res) => {
     res.status(400).json({ error: 'invalid_or_expired_code' });
     return;
   }
-  const user = statements.users.selectByEmail.get(email) as UserRow | undefined;
-  if (user === undefined) {
-    res.status(400).json({ error: 'invalid_or_expired_code' });
-    return;
-  }
-  const session = createSession(user.id);
-  const goals = readCurrentGoals(user.id)!;
-  const response: VerifyCodeResponse = {
-    session_token: session.token,
-    user: {
-      id: user.id,
-      email: user.email,
-      goal_kcal: goals.kcal,
-      goal_protein: goals.protein,
-      goal_carbs: goals.carbs,
-      goal_fat: goals.fat,
-    },
-  };
-  res.json(response);
+  res.json(createVerifiedSession(email));
 });
 
 authRouter.post('/logout', authMiddleware, (req, res) => {

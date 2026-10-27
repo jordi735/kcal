@@ -1,3 +1,9 @@
+import { isIP } from 'node:net';
+import { ipKeyGenerator } from 'express-rate-limit';
+
+type AuthAction = 'issue' | 'verify';
+type Rule = { scope: string; value: string; max: number; windowMs: number };
+
 // Process-local like login codes. The clock is injectable for deterministic tests.
 export class AuthThrottle {
   private buckets = new Map<string, { times: number[]; windowMs: number }>();
@@ -10,8 +16,34 @@ export class AuthThrottle {
     this.testMode = options.testMode ?? false;
   }
 
-  // Returns Retry-After seconds, or zero after reserving this attempt.
-  check(action: 'issue' | 'verify', email: string, ip: string): number {
+  // Reserve before body parsing. Invalid/absent addresses share a bucket rather
+  // than creating attacker-selected keys; req.ip comes from Express's trusted
+  // proxy chain. IPv4 aliases and IPv6 /56 subnets share their source budget.
+  reserveSource(action: AuthAction, ip: string | undefined): number {
+    const key = ip !== undefined && ip.length <= 64 && isIP(ip) !== 0
+      ? ipKeyGenerator(ip, 56) : 'unknown';
+    return this.reserve(action, [{
+      scope: 'ip', value: key,
+      max: this.testMode ? 100_000 : action === 'issue' ? 30 : 100,
+      windowMs: this.testMode || action === 'issue' ? 3_600_000 : 900_000,
+    }]);
+  }
+
+  // Verification is reserved only for a live issued code, before comparing it.
+  // Resending a code never resets this independent account budget.
+  reserveAccount(action: AuthAction, email: string): number {
+    if (this.testMode) return 0;
+    return this.reserve(action, action === 'issue'
+      ? [
+        { scope: 'email-cooldown', value: email, max: 1, windowMs: 30_000 },
+        { scope: 'email', value: email, max: 5, windowMs: 3_600_000 },
+      ]
+      : [{ scope: 'email', value: email, max: 20, windowMs: 900_000 }]);
+  }
+
+  // Returns Retry-After seconds, or zero after atomically reserving the rules.
+  // Reservations are not refunded after parsing, delivery, or database failure.
+  private reserve(action: AuthAction, rules: Rule[]): number {
     const now = this.now();
     if (now - this.lastSweep >= 300_000) {
       for (const [key, bucket] of this.buckets) {
@@ -20,21 +52,6 @@ export class AuthThrottle {
       }
       this.lastSweep = now;
     }
-    // The E2E suite shares one IP and intentionally reissues codes rapidly.
-    // Production always uses the limits below; isolated tests exercise them
-    // with an injected clock, without waiting or weakening the default limits.
-    const rules = this.testMode
-      ? [{ scope: 'ip', value: ip, max: 100_000, windowMs: 3_600_000 }]
-      : action === 'issue'
-        ? [
-          { scope: 'email-cooldown', value: email, max: 1, windowMs: 30_000 },
-          { scope: 'email', value: email, max: 5, windowMs: 3_600_000 },
-          { scope: 'ip', value: ip, max: 30, windowMs: 3_600_000 },
-        ]
-        : [
-          { scope: 'email', value: email, max: 20, windowMs: 900_000 },
-          { scope: 'ip', value: ip, max: 100, windowMs: 900_000 },
-        ];
     const pending = rules.map((rule) => {
       const key = JSON.stringify([action, rule.scope, rule.value]);
       const times = (this.buckets.get(key)?.times ?? []).filter((time) => time > now - rule.windowMs);

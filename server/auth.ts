@@ -20,7 +20,9 @@ import type { RequestHandler, Response } from 'express';
 import { env } from './env.js';
 import { log } from './log.js';
 import { statements } from './statements.js';
-import type { LoginCodeEntry, SessionInfo, SessionRow } from './types.js';
+import { db } from './db.js';
+import { readCurrentGoals } from './goals.js';
+import type { LoginCodeEntry, SessionInfo, SessionRow, UserRow, VerifyCodeResponse } from './types.js';
 
 const loginCodes = new Map<string, LoginCodeEntry>();
 
@@ -43,15 +45,35 @@ function rejectUnauthorized(res: Response, reason: string, path: string): void {
   res.status(401).json({ error: 'unauthorized' });
 }
 
-export function issueLoginCode(email: string): string {
+export function issueLoginCode(email: string): LoginCodeEntry {
   const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
-  loginCodes.set(email, {
+  const entry: LoginCodeEntry = {
     code,
     expiresAt: Date.now() + LOGIN_CODE_EXPIRY_MS,
     attempts: 0,
-  });
+  };
+  loginCodes.set(email, entry);
   log.info('login code issued', { emailHash: log.emailHash(email) });
-  return code;
+  return entry;
+}
+
+// Delivery can settle after another issuance. Identity, not six-digit value,
+// prevents an older failure from invalidating the newer code on a collision.
+export function invalidateLoginCode(email: string, issued: LoginCodeEntry): void {
+  if (loginCodes.get(email) === issued) loginCodes.delete(email);
+}
+
+function activeLoginCode(email: string): LoginCodeEntry | undefined {
+  const entry = loginCodes.get(email);
+  if (entry !== undefined && entry.expiresAt < Date.now()) {
+    loginCodes.delete(email);
+    return undefined;
+  }
+  return entry;
+}
+
+export function hasActiveLoginCode(email: string): boolean {
+  return activeLoginCode(email) !== undefined;
 }
 
 export type ConsumeResult = 'ok' | 'invalid' | 'expired' | 'exhausted';
@@ -82,22 +104,44 @@ export function consumeLoginCode(email: string, code: string): ConsumeResult {
 // Non-consuming read of the in-memory code map. Intended for TEST_MODE only;
 // gated at the route layer (server/routes/auth.ts).
 export function peekLoginCode(email: string): string | null {
-  const entry = loginCodes.get(email);
-  if (entry === undefined) return null;
-  if (entry.expiresAt < Date.now()) {
-    loginCodes.delete(email);
-    return null;
-  }
-  return entry.code;
+  return activeLoginCode(email)?.code ?? null;
 }
 
-export function createSession(userId: number): SessionInfo {
+function insertSession(userId: number): SessionInfo {
   const token = randomBytes(32).toString('base64url');
   const now = Date.now();
   const expiresAt = now + SESSION_EXPIRY_MS;
   statements.sessions.insert.run(token, userId, now, now, expiresAt);
-  log.info('session created', { userId });
   return { token, expiresAt };
+}
+
+export function createSession(userId: number): SessionInfo {
+  const session = insertSession(userId);
+  log.info('session created', { userId });
+  return session;
+}
+
+// Call only after consuming proof of mailbox ownership. A database failure
+// rolls back both account and session, but never resurrects a consumed code.
+export function createVerifiedSession(email: string): VerifyCodeResponse {
+  const response = db.transaction(() => {
+    statements.users.upsert.run(email, Date.now());
+    const user = statements.users.selectByEmail.get(email) as UserRow | undefined;
+    if (user === undefined) throw new Error('Could not create session');
+    const goals = readCurrentGoals(user.id);
+    if (goals === null) throw new Error('Could not create session');
+    const session = insertSession(user.id);
+    return {
+      session_token: session.token,
+      user: {
+        id: user.id, email: user.email,
+        goal_kcal: goals.kcal, goal_protein: goals.protein,
+        goal_carbs: goals.carbs, goal_fat: goals.fat,
+      },
+    };
+  })();
+  log.info('session created', { userId: response.user.id });
+  return response;
 }
 
 export function verifySession(token: string): number | null {
