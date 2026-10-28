@@ -6,6 +6,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
 .scroll {
@@ -23,40 +24,62 @@
 
 .productRow {
   padding: 0 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+}
+
+.changeFood,
+.entryControls input {
+  max-width: calc((100% - 12px) / 2);
+  height: 36px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
 }
 
 .changeFood {
   flex-shrink: 0;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
   color: var(--fg-dim);
 }
 
-.timeField {
+.changeFood:active,
+.editBtn:active {
+  background: var(--bg-elev-2);
+}
+
+.changeFood:focus-visible,
+.editBtn:focus-visible,
+.entryControls input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.entryControls {
   margin: 18px 20px 0;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
   color: var(--fg-dim);
 }
 
-.timeField input {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 12px;
+.entryControls input {
+  width: auto;
+  font-family: var(--mono);
+  font-size: 14px;
   color: var(--fg);
   background: var(--bg-elev-2);
+  color-scheme: inherit;
+}
+
+.entryControls .amountError {
+  flex-basis: 100%;
+  margin-top: 0;
 }
 
 .productInfo {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .productName {

@@ -269,21 +269,20 @@ function AmountPickerInner({
                 <div className={`mono tiny caps ${styles.productBrand}`}>{product.brand}</div>
               )}
             </div>
-            {mode === 'edit' && <button
-              className={`mono tiny caps ${styles.changeFood}`}
-              onClick={(event) => foodPicker.open(event.currentTarget)}
-            >Change food</button>}
           </div>
 
-          {mode === 'edit' && <label className={styles.timeField}>
-            <span className="mono tiny caps">Time</span>
+          {mode === 'edit' && <div className={styles.entryControls}>
             <input ref={timeRef} type="time" aria-label="Entry time" value={localTime}
               aria-invalid={timeError} onInput={(event) => {
                 setUserChangedTime(true);
                 setLocalTime(event.currentTarget.value);
               }} />
+            <button
+              className={`mono tiny caps ${styles.changeFood}`}
+              onClick={(event) => foodPicker.open(event.currentTarget)}
+            >Change food</button>
             {timeError && <span role="alert" className={styles.amountError}>Enter a time in HH:MM format.</span>}
-          </label>}
+          </div>}
 
           <div className={styles.macros} role="group" aria-label="Daily totals">
             {goals == null && <p className="mono tiny">{goals === undefined ? 'Loading goals…' : 'No goal recorded for this day'}</p>}
