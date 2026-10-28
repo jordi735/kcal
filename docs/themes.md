@@ -1,14 +1,37 @@
 # Themes
 
 Themes change colors only. Fonts, spacing, geometry, icons, and motion remain
-shared across the app. The picker presents one flat list of named themes:
-Carbon, Paper, Midnight, and Catppuccin Mocha. Carbon preserves the original
-palette and is the default.
+shared across the app. The picker presents one flat list of named themes.
+Carbon preserves the original palette and is the default; Paper, Midnight,
+and Catppuccin Mocha remain available alongside these additions:
+
+| Theme | Native scheme | Palette |
+| --- | --- | --- |
+| Jungle Radio | Dark | Forest green and electric lime |
+| Cherry Cola | Dark | Burgundy, cream, and peach |
+| Saffron Milk | Light | Custard yellow and toasted orange |
+| Cobalt Crush | Dark | Saturated ultramarine and citron |
+| Matcha | Light | Pale pistachio and moss green |
+| Poolside | Light | Mint water and crisp pool blue |
+| Guava | Light | Blush pink and raspberry |
+| Arcade | Dark | Black violet and hot pink |
+| Lagoon | Dark | Deep tropical teal and sea glass |
+| Rosé Pine Dawn | Light | Warm porcelain, dusty rose, and plum |
+| Gruvbox | Dark | Warm charcoal, parchment, and earthy gold |
+| Dracula | Dark | Charcoal violet and bright pink |
 
 Catppuccin Mocha uses the [official Catppuccin palette](https://catppuccin.com/palette/#mocha):
 Base for the canvas, Mantle for secondary panes, Surface 0 for option rows,
 and Mauve for the accent. Nutrition keeps Blue, Peach, Teal, and Mauve for
 kcal/P/C/F; dimmed progress segments blend those colors toward Base.
+
+Rosé Pine Dawn, Gruvbox, and Dracula adapt their
+[official Rosé Pine](https://rosepinetheme.com/palette/),
+[Gruvbox](https://github.com/morhetz/gruvbox), and
+[Dracula](https://github.com/dracula/dracula-theme) palettes. Their semantic
+text and nutrition colors are tuned for readable app controls and surfaces,
+while retaining each palette's canvas and character. The other additions
+are original kcal palettes.
 
 The preference belongs to this browser. Selecting a theme applies it immediately
 and saves it locally; it is independent of goal Save/Cancel and survives logout.

@@ -114,3 +114,330 @@ html, body, #root {
   --overlay: color-mix(in oklab, var(--bg) 68%, transparent);
   --scanner-overlay: color-mix(in oklab, var(--bg) 94%, transparent);
 }
+
+/* Jungle Radio */
+[data-theme="jungle-radio"] {
+  color-scheme: dark;
+  --bg: #071f1a;
+  --bg-elev: #102c24;
+  --bg-elev-2: #17392e;
+  --border: #284f3e;
+  --border-strong: #527c62;
+  --fg: #e6f4de;
+  --fg-dim: #afc9ba;
+  --fg-dimmer: #8fb39e;
+  --accent: #c5f36b;
+  --accent-ink: #102015;
+  --danger: #ff9b91;
+  --danger-ink: #071f1a;
+  --kcal: #82cfff;
+  --macro-p: #ffc482;
+  --macro-c: #68d9bd;
+  --macro-f: #d4afff;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: color-mix(in oklab, var(--bg) 68%, transparent);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 98%, transparent);
+}
+
+/* Cherry Cola */
+[data-theme="cherry-cola"] {
+  color-scheme: dark;
+  --bg: #260c18;
+  --bg-elev: #3a1423;
+  --bg-elev-2: #481d2d;
+  --border: #653346;
+  --border-strong: #855469;
+  --fg: #fae7e3;
+  --fg-dim: #d6b2bd;
+  --fg-dimmer: #ba91a0;
+  --accent: #ff8f78;
+  --accent-ink: #260c18;
+  --danger: #ff93a1;
+  --danger-ink: #260c18;
+  --kcal: #a7c9ff;
+  --macro-p: #ffc28a;
+  --macro-c: #83d8c6;
+  --macro-f: #eea7df;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: color-mix(in oklab, var(--bg) 68%, transparent);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 98%, transparent);
+}
+
+/* Saffron Milk */
+[data-theme="saffron-milk"] {
+  color-scheme: light;
+  --bg: #fff3cb;
+  --bg-elev: #fffae8;
+  --bg-elev-2: #f5e5ad;
+  --border: #dfcc96;
+  --border-strong: #ae9469;
+  --fg: #4f361e;
+  --fg-dim: #705330;
+  --fg-dimmer: #7e5e36;
+  --accent: #a64a13;
+  --accent-ink: #fff7e3;
+  --danger: #9e322b;
+  --danger-ink: #fff7e3;
+  --kcal: #275e91;
+  --macro-p: #8c470e;
+  --macro-c: #176552;
+  --macro-f: #7c4382;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: rgb(79 54 30 / 36%);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 98%, transparent);
+}
+
+/* Cobalt Crush */
+[data-theme="cobalt-crush"] {
+  color-scheme: dark;
+  --bg: #102cb3;
+  --bg-elev: #13289f;
+  --bg-elev-2: #213cbb;
+  --border: #4761cf;
+  --border-strong: #6a81e0;
+  --fg: #f5f3ff;
+  --fg-dim: #ced7ff;
+  --fg-dimmer: #afc0fa;
+  --accent: #e5ff68;
+  --accent-ink: #172467;
+  --danger: #ffc3c0;
+  --danger-ink: #102cb3;
+  --kcal: #b8e4ff;
+  --macro-p: #ffe2a1;
+  --macro-c: #94f4db;
+  --macro-f: #f3c3ff;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: color-mix(in oklab, var(--bg) 68%, transparent);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 98%, transparent);
+}
+
+/* Matcha */
+[data-theme="matcha"] {
+  color-scheme: light;
+  --bg: #eef2df;
+  --bg-elev: #f7faec;
+  --bg-elev-2: #e0e7cc;
+  --border: #c6d1b0;
+  --border-strong: #909c7e;
+  --fg: #293a24;
+  --fg-dim: #526047;
+  --fg-dimmer: #5b694d;
+  --accent: #426236;
+  --accent-ink: #f7faec;
+  --danger: #a13535;
+  --danger-ink: #f7faec;
+  --kcal: #2d5e88;
+  --macro-p: #8e4b17;
+  --macro-c: #1e6858;
+  --macro-f: #7c4b81;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: rgb(41 58 36 / 36%);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 98%, transparent);
+}
+
+/* Poolside */
+[data-theme="poolside"] {
+  color-scheme: light;
+  --bg: #e5f7f4;
+  --bg-elev: #f4fffd;
+  --bg-elev-2: #d0eee8;
+  --border: #b1d8d2;
+  --border-strong: #81a1a5;
+  --fg: #173b4f;
+  --fg-dim: #426271;
+  --fg-dimmer: #496c76;
+  --accent: #155acb;
+  --accent-ink: #f7fbff;
+  --danger: #af3538;
+  --danger-ink: #f7fbff;
+  --kcal: #155acb;
+  --macro-p: #93460e;
+  --macro-c: #176859;
+  --macro-f: #764c99;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: rgb(23 59 79 / 36%);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 98%, transparent);
+}
+
+/* Guava */
+[data-theme="guava"] {
+  color-scheme: light;
+  --bg: #fbe8e8;
+  --bg-elev: #fff6f5;
+  --bg-elev-2: #f3d7dd;
+  --border: #dfb7c3;
+  --border-strong: #b18c98;
+  --fg: #4f2332;
+  --fg-dim: #774956;
+  --fg-dimmer: #86515f;
+  --accent: #a6235a;
+  --accent-ink: #fff7fb;
+  --danger: #b12d3d;
+  --danger-ink: #fff7fb;
+  --kcal: #2c5d94;
+  --macro-p: #914510;
+  --macro-c: #17685f;
+  --macro-f: #82428d;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: rgb(79 35 50 / 36%);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 98%, transparent);
+}
+
+/* Arcade */
+[data-theme="arcade"] {
+  color-scheme: dark;
+  --bg: #120d20;
+  --bg-elev: #20152e;
+  --bg-elev-2: #2a1d3c;
+  --border: #48325e;
+  --border-strong: #72578d;
+  --fg: #f5edff;
+  --fg-dim: #c1add9;
+  --fg-dimmer: #ab92c7;
+  --accent: #ff77cf;
+  --accent-ink: #250b23;
+  --danger: #ff91a5;
+  --danger-ink: #120d20;
+  --kcal: #66d7ff;
+  --macro-p: #ffbd70;
+  --macro-c: #63f3c2;
+  --macro-f: #c5a0ff;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: color-mix(in oklab, var(--bg) 68%, transparent);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 98%, transparent);
+}
+
+/* Lagoon */
+[data-theme="lagoon"] {
+  color-scheme: dark;
+  --bg: #062c35;
+  --bg-elev: #0c3b45;
+  --bg-elev-2: #104651;
+  --border: #28606b;
+  --border-strong: #527e87;
+  --fg: #e3f5ee;
+  --fg-dim: #afd0ce;
+  --fg-dimmer: #8eb7b7;
+  --accent: #71ecd0;
+  --accent-ink: #07352d;
+  --danger: #ffaaa2;
+  --danger-ink: #062c35;
+  --kcal: #83d3ff;
+  --macro-p: #ffc392;
+  --macro-c: #71ecd0;
+  --macro-f: #d0b3ff;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: color-mix(in oklab, var(--bg) 68%, transparent);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 98%, transparent);
+}
+
+/* Rosé Pine Dawn: https://rosepinetheme.com/palette/ */
+/* Semantic text and nutrition colors are adapted for contrast on app surfaces. */
+[data-theme="rose-pine-dawn"] {
+  color-scheme: light;
+  --bg: #faf4ed;
+  --bg-elev: #fffaf3;
+  --bg-elev-2: #f2e9e1;
+  --border: #dfdad9;
+  --border-strong: #a39dae;
+  --fg: #464261;
+  --fg-dim: #6e647f;
+  --fg-dimmer: #71637f;
+  --accent: #985467;
+  --accent-ink: #fffaf3;
+  --danger: #a8445a;
+  --danger-ink: #fffaf3;
+  --kcal: #286983;
+  --macro-p: #92570e;
+  --macro-c: #296b6b;
+  --macro-f: #79568e;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: rgb(70 66 97 / 36%);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 98%, transparent);
+}
+
+/* Gruvbox: https://github.com/morhetz/gruvbox */
+/* Semantic text and nutrition colors are adapted for contrast on app surfaces. */
+[data-theme="gruvbox"] {
+  color-scheme: dark;
+  --bg: #282828;
+  --bg-elev: #32302f;
+  --bg-elev-2: #3c3836;
+  --border: #504945;
+  --border-strong: #7c6f64;
+  --fg: #ebdbb2;
+  --fg-dim: #d5c4a1;
+  --fg-dimmer: #bdae93;
+  --accent: #fabd2f;
+  --accent-ink: #282828;
+  --danger: #ff9c8c;
+  --danger-ink: #282828;
+  --kcal: #a5c2b6;
+  --macro-p: #ffb365;
+  --macro-c: #b2d69d;
+  --macro-f: #e3aec0;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: color-mix(in oklab, var(--bg) 68%, transparent);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 98%, transparent);
+}
+
+/* Dracula: https://github.com/dracula/dracula-theme */
+/* Semantic text and nutrition colors are adapted for contrast on app surfaces. */
+[data-theme="dracula"] {
+  color-scheme: dark;
+  --bg: #282a36;
+  --bg-elev: #303240;
+  --bg-elev-2: #353747;
+  --border: #494c65;
+  --border-strong: #56658e;
+  --fg: #f8f8f2;
+  --fg-dim: #c4c9e8;
+  --fg-dimmer: #a8afd2;
+  --accent: #ff79c6;
+  --accent-ink: #282a36;
+  --danger: #ff9292;
+  --danger-ink: #282a36;
+  --kcal: #8be9fd;
+  --macro-p: #ffb86c;
+  --macro-c: #50faad;
+  --macro-f: #bd93f9;
+  --kcal-dim: color-mix(in oklab, var(--kcal) 70%, var(--bg));
+  --macro-p-dim: color-mix(in oklab, var(--macro-p) 70%, var(--bg));
+  --macro-c-dim: color-mix(in oklab, var(--macro-c) 70%, var(--bg));
+  --macro-f-dim: color-mix(in oklab, var(--macro-f) 70%, var(--bg));
+  --overlay: color-mix(in oklab, var(--bg) 68%, transparent);
+  --scanner-overlay: color-mix(in oklab, var(--bg) 98%, transparent);
+}

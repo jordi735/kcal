@@ -275,6 +275,17 @@ test.describe('desktop theme keyboard', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', next.id);
     expect(await storedTheme(page)).toBe(next.id);
 
+    // Wrap to the last option, which is below the fold in the full catalog.
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowUp');
+    const last = THEMES.at(-1);
+    if (last === undefined) throw new Error('A final theme is required');
+    await expect(themeRadio(page, last.id)).toBeFocused();
+    await expect(themeRadio(page, last.id)).toBeChecked();
+    await expect(themeRadio(page, last.id).locator('..')).toBeInViewport();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', last.id);
+    expect(await storedTheme(page)).toBe(last.id);
+
     await sheet(page).getByRole('button', { name: 'Back', exact: true }).focus();
     await page.keyboard.press('Enter');
     await expect(launcher).toBeFocused();
@@ -283,7 +294,7 @@ test.describe('desktop theme keyboard', () => {
     await expect(sheet(page).getByRole('heading', { name: 'Themes', level: 2 })).toBeVisible();
     await page.locator('.overlay').dispatchEvent('click');
     await expect(sheet(page)).toHaveCount(0);
-    await expect(page.locator('html')).toHaveAttribute('data-theme', next.id);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', last.id);
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     for (const [index, value] of ['100', '200', '70', '2000'].entries()) {
       await expect(inputs.nth(index)).toHaveValue(value);
@@ -310,6 +321,8 @@ function rgb(hex: string) {
 }
 
 test('[J-493] palettes style live overlays preserve Carbon colors and update Paper native controls', async ({ page, context }) => {
+  // Each catalog entry visits Settings and a live scanner overlay.
+  test.slow();
   await mockApp(context);
   await page.route(/\/products\/(?:recent|all)$/, (route) => route.fulfill({ json: [] }));
   await page.addInitScript(() => {

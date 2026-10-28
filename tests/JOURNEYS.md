@@ -447,7 +447,7 @@ Source-of-truth list of user flows covered by the Playwright e2e suite under `te
 - J-489 · Cross-tab selection updates the active palette and checked option, stale events retain the latest saved choice, and removal or storage clear restores Carbon
 - J-490 · Unknown, removed, empty, and malformed saved theme IDs fall back to Carbon while the picker remains usable
 - J-491 · Saved Paper paints the actual document and app canvas before the production app module executes
-- J-492 · Keyboard theme selection preserves the mounted goal draft, restores launcher focus on Back, and remains applied after dismissal
+- J-492 · Keyboard theme selection reaches the final option below the fold, preserves the mounted goal draft, restores launcher focus on Back, and remains applied after dismissal
 - J-493 · Every theme declares exactly the complete palette and colors its visible Sheet/scanner overlays; Carbon preserves its colors and effective 60% overlays, and Paper updates metadata and native date/checkbox controls
 - J-494 · Denied theme-key reads fall back to Carbon without breaking authentication, goal editing, or live theme selection
 - J-495 · Denied theme-key writes preserve a usable live selection while reload uses the previously saved theme

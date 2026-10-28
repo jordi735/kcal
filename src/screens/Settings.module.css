@@ -301,6 +301,8 @@
 }
 
 .themeOption {
+  /* Keep the hidden radio inside its row so keyboard focus scrolls the list. */
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
